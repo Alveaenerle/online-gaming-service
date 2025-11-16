@@ -24,7 +24,7 @@ pipeline {
                       -H "Authorization: token ${GITHUB_TOKEN}" \
                       -H "Accept: application/vnd.github+json" \
                       https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments \
-                      -d '{ "body": "✅ Jenkins build **succeeded** for this PR (build #${BUILD_NUMBER})." }'
+                      -d '{ "body": "✅ Jenkins build **succeeded** for this PR (build #${BUILD_URL})." }'
                     """
                 }
             }
