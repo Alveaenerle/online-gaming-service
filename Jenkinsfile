@@ -18,14 +18,15 @@ pipeline {
     post {
         success {
             script {
-                if (env.CHANGE_ID) {          // only on PR builds
+                if (env.CHANGE_ID) {   // only for PR builds
                     sh """
-                    curl -s -X POST \
+                    curl -sS -X POST \
                       -H "Authorization: token ${GITHUB_TOKEN}" \
                       -H "Accept: application/vnd.github+json" \
                       https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments \
-                      -d '{ "body": "✅ Jenkins build **succeeded** for this PR ([build #${BUILD_NUMBER}](${BUILD_URL})
-)." }'
+                      -d @- <<EOF
+    { "body": "✅ Jenkins build **succeeded** for this PR ([build #${BUILD_NUMBER}](${BUILD_URL}))." }
+    EOF
                     """
                 }
             }
@@ -34,11 +35,13 @@ pipeline {
             script {
                 if (env.CHANGE_ID) {
                     sh """
-                    curl -s -X POST \
+                    curl -sS -X POST \
                       -H "Authorization: token ${GITHUB_TOKEN}" \
                       -H "Accept: application/vnd.github+json" \
                       https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments \
-                      -d '{ "body": "❌ Jenkins build **failed** for this PR (build #${BUILD_NUMBER}). Check logs in Jenkins." }'
+                      -d @- <<EOF
+    { "body": "❌ Jenkins build **failed** for this PR ([build #${BUILD_NUMBER}](${BUILD_URL})). Check logs in Jenkins." }
+    EOF
                     """
                 }
             }
