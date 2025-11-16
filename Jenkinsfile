@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         GITHUB_TOKEN = credentials('gh-token')  // or 'gh' if that’s your ID
-        REPO = 'your-org/your-repo'            // e.g. 'yapyap/jenkins-test'
+        REPO = 'Alveaenerle/online-gaming-service'           
     }
 
     stages {
