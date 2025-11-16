@@ -25,8 +25,8 @@ pipeline {
                       -H "Accept: application/vnd.github+json" \
                       https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments \
                       -d @- <<EOF
-    { "body": "✅ Jenkins build **succeeded** for this PR ([build #${BUILD_NUMBER}](${BUILD_URL}))." }
-    EOF
+    { "body": "✅ Jenkins build **succeeded** for this PR ([build #${env.BUILD_NUMBER}](${env.BUILD_URL}))." }
+    
                     """
                 }
             }
@@ -40,8 +40,8 @@ pipeline {
                       -H "Accept: application/vnd.github+json" \
                       https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments \
                       -d @- <<EOF
-    { "body": "❌ Jenkins build **failed** for this PR ([build #${BUILD_NUMBER}](${BUILD_URL})). Check logs in Jenkins." }
-    EOF
+    { "body": "❌ Jenkins build **failed** for this PR ([build #${env.BUILD_NUMBER}](${env.BUILD_URL})). Check logs in Jenkins." }
+    
                     """
                 }
             }
