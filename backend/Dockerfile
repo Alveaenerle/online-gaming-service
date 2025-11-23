@@ -1,4 +1,3 @@
-# --- 1. BASE (Wspólne podstawy) ---
 FROM eclipse-temurin:21-jdk AS base
 WORKDIR /app
 COPY .mvn/ .mvn
