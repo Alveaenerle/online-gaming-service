@@ -13,7 +13,7 @@ FROM base AS build
 COPY src ./src
 RUN ./mvnw clean package -DskipTests
 
-FROM eclipse-temurin:17-jre AS production
+FROM eclipse-temurin:21-jre AS production
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
