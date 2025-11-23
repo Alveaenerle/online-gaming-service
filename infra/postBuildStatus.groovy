@@ -22,7 +22,7 @@ def call(String status) {
       -d @- <<EOF
     ${jsonPayload}
     EOF
-    """
+    """.trim()
 }
 
 return this
