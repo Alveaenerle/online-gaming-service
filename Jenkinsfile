@@ -5,7 +5,7 @@ pipeline {
         GITHUB_TOKEN = credentials('90d79e6c-ebeb-4414-9f4c-f30e091789ee')
         REPO = 'Alveaenerle/online-gaming-service'
 
-        NEXUS_URL = 'https://docker.yapyap.pl'
+        NEXUS_URL = 'docker.yapyap.pl'
         NEXUS_CREDS = credentials('86a5c18e-996c-42ea-bf9e-190b2cb978bd')
     }
 
