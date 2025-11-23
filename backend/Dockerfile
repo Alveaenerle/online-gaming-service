@@ -7,7 +7,6 @@ RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline
 
 FROM base AS dev
-# W trybie dev po prostu uruchamiamy Spring Boota
 CMD ["./mvnw", "spring-boot:run"]
 
 FROM base AS build

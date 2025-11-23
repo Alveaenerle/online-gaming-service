@@ -6,6 +6,7 @@ services:
     volumes:
       - ./backend/src:/app/src
       - ./backend/pom.xml:/app/pom.xml
+      - ./backend/target:/app/target
     ports:
       - "8080:8080"
     environment:
