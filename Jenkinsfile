@@ -7,6 +7,10 @@ pipeline {
 
         NEXUS_URL = 'docker.yapyap.pl'
         NEXUS_CREDS = credentials('86a5c18e-996c-42ea-bf9e-190b2cb978bd')
+
+        PROD_IP = '10.10.0.171'
+        PROD_USER = 'pis'
+        PROD_SSH_ID = 'prod-ssh-key'
     }
 
     stages {
@@ -25,6 +29,20 @@ pipeline {
                     deployService('online-gaming-frontend', './frontend')
 
                     sh "docker logout ${NEXUS_URL}"
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            when { branch 'main' }
+            steps {
+                script {
+                    def deployToProd = load('infra/deployToProd.groovy')
+                    withCredentials([usernamePassword(credentialsId: '86a5c18e-996c-42ea-bf9e-190b2cb978bd',
+                                                      usernameVariable: 'NEXUS_CREDS_USR',
+                                                      passwordVariable: 'NEXUS_CREDS_PSW')]) {
+                        deployToProd(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
+                    }
                 }
             }
         }
