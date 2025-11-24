@@ -21,7 +21,7 @@ pipeline {
             steps {
                 dir('backend') {
                     script {
-                        echo "📊 Running Code Coverage for PR..."
+                        echo "Running Code Coverage for PR..."
                         def scriptPath = 'src/test/java/com/online_game_service/backend/backend_code_coverage.sh'
                         sh "chmod +x mvnw"
                         sh "chmod +x ${scriptPath}"
