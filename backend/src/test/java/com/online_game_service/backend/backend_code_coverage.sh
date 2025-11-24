@@ -2,7 +2,7 @@
 
 echo "Running mvn tests with JaCoCo code coverage..."
 
-./mvnw -B clean test jacoco:report
+./mvnw -B -q clean test jacoco:report
 
 echo "CODE COVERAGE:"
 echo "===================="
