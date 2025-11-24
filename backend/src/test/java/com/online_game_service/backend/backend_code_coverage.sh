@@ -1,10 +1,8 @@
 #!/bin/bash
 
-cd ../backend
-
 echo "Running mvn tests with JaCoCo code coverage..."
-mvn clean test jacoco:report
 
+./mvnw clean test jacoco:report
 
 echo "CODE COVERAGE:"
 echo "===================="
@@ -29,5 +27,7 @@ if [ -f "target/site/jacoco/jacoco.csv" ]; then
             echo ""
         fi
     done
+else
+    echo "Error: JaCoCo report not found. Tests failed or report generation skipped."
+    exit 1
 fi
-

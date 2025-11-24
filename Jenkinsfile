@@ -19,11 +19,14 @@ pipeline {
                 changeRequest()
             }
             steps {
-                script {
-                    echo "📊 Running Code Coverage for PR..."
-                    def scriptPath = './backend/src/test/java/com/online_game_service/backend/backend_code_coverage.sh'
-                    sh "chmod +x ${scriptPath}"
-                    sh "${scriptPath}"
+                dir('backend') {
+                    script {
+                        echo "📊 Running Code Coverage for PR..."
+                        def scriptPath = 'src/test/java/com/online_game_service/backend/backend_code_coverage.sh'
+                        sh "chmod +x mvnw"
+                        sh "chmod +x ${scriptPath}"
+                        sh "./${scriptPath}"
+                    }
                 }
             }
         }
