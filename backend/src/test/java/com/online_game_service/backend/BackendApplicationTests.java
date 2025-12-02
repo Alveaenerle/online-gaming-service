@@ -1,13 +1,13 @@
 package com.online_game_service.backend;
 
-import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.Test;
 
 @SpringBootTest
-class BackendApplicationTests {
+public class BackendApplicationTests extends AbstractTestNGSpringContextTests {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    public void contextLoads() {
+    }
 }
