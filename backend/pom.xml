@@ -24,6 +24,7 @@
         <module>makao</module>
         <module>ludo</module>
         <module>authorization</module>
+        <module>menu</module>
     </modules>
 
     <properties>
