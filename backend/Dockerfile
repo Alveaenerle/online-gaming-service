@@ -19,7 +19,8 @@ ENV MODULE_NAME=${MODULE_NAME}
 
 COPY . .
 
-CMD ["sh", "-c", "./mvnw spring-boot:run -pl ${MODULE_NAME} -am"]
+CMD ["sh", "-c", "./mvnw -q spring-boot:run -pl ${MODULE_NAME} -am"]
+# -q for maven quiet output (show only critical errors for maven)
 
 
 FROM base AS build

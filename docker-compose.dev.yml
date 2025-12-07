@@ -1,16 +1,95 @@
 services:
-  backend:
+  authorization:
     build:
       context: ./backend
       target: dev
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/pom.xml:/app/pom.xml
-      - ./backend/target:/app/target
-    ports:
-      - "8080:8080"
+      args:
+        MODULE_NAME: authorization
     environment:
+      - SERVER_PORT=8080
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./backend:/app
+
+  menu:
+    build:
+      context: ./backend
+      target: dev
+      args:
+        MODULE_NAME: menu
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./backend:/app
+
+  social:
+    build:
+      context: ./backend
+      target: dev
+      args:
+        MODULE_NAME: social
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./backend:/app
+
+  makao:
+    build:
+      context: ./backend
+      target: dev
+      args:
+        MODULE_NAME: makao
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    ports:
+      - "8091:8080"
+    volumes:
+      - ./backend:/app
+
+  ludo:
+    build:
+      context: ./backend
+      target: dev
+      args:
+        MODULE_NAME: ludo
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    ports:
+      - "8092:8080"
+    volumes:
+      - ./backend:/app
+
+
+  tests:
+    build:
+      context: ./backend
+      target: dev
+      args:
+        MODULE_NAME: tests
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    ports:
+      - "8084:8080"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - authorization
+      - menu
+      - social
+      - makao
+      - ludo
+
 
   frontend:
     build:
@@ -21,3 +100,9 @@ services:
       - /app/node_modules
     ports:
       - "5173:5173"
+    depends_on:
+      - authorization
+      - menu
+      - social
+      - makao
+      - ludo
