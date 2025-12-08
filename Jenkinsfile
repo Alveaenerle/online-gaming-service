@@ -22,13 +22,12 @@ pipeline {
                 dir('backend') {
                     script {
                         sh "chmod +x mvnw"
+                        sh "chmod +x backend_code_coverage.sh"
+
                         def modules = ['social', 'menu', 'makao', 'ludo', 'authorization', 'tests']
 
                         modules.each { moduleName ->
-                            dir(moduleName) {
-                                sh "chmod +x backend_code_coverage.sh"
-                                sh "./backend_code_coverage.sh"
-                            }
+                            sh "./backend_code_coverage.sh ${moduleName}"
                         }
                     }
                 }
@@ -36,9 +35,7 @@ pipeline {
         }
 
         stage('Build & Push to Nexus') {
-            when {
-                branch 'main'
-            }
+            when { branch 'main' }
             steps {
                 script {
                     def deployService = load('infra/buildAndDeployImage.groovy')
