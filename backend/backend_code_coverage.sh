@@ -12,7 +12,7 @@ echo "========================================================"
 echo "Running mvn tests with JaCoCo for module: $MODULE_NAME"
 echo "========================================================"
 
-./mvnw -pl $MODULE_NAME clean test jacoco:report
+./mvnw -pl $MODULE_NAME clean jacoco:prepare-agent test jacoco:report
 
 echo ""
 echo "CODE COVERAGE FOR: $MODULE_NAME"
