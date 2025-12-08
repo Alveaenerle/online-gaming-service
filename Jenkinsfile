@@ -21,11 +21,15 @@ pipeline {
             steps {
                 dir('backend') {
                     script {
-                        echo "Running Code Coverage for PR..."
-                        def scriptPath = 'src/test/java/com/online_game_service/backend/backend_code_coverage.sh'
                         sh "chmod +x mvnw"
-                        sh "chmod +x ${scriptPath}"
-                        sh "./${scriptPath}"
+                        def modules = ['social', 'menu', 'makao', 'ludo', 'authorization', 'tests']
+
+                        modules.each { moduleName ->
+                            dir(moduleName) {
+                                sh "chmod +x backend_code_coverage.sh"
+                                sh "./backend_code_coverage.sh"
+                            }
+                        }
                     }
                 }
             }
@@ -42,8 +46,15 @@ pipeline {
                     echo 'Logging into Nexus...'
                     sh "echo ${NEXUS_CREDS_PSW} | docker login ${NEXUS_URL} -u ${NEXUS_CREDS_USR} --password-stdin"
 
-                    deployService('online-gaming-backend', './backend')
                     deployService('online-gaming-frontend', './frontend')
+
+                    def backendModules = ['social', 'menu', 'makao', 'ludo', 'authorization']
+                    
+                    backendModules.each { module ->
+                        def imageTag = "${NEXUS_URL}/online-gaming-${module}:${env.BUILD_NUMBER}"
+                        sh "docker build -t ${imageTag} --build-arg MODULE_NAME=${module} --target production ./backend"
+                        sh "docker push ${imageTag}"
+                    }
 
                     sh "docker logout ${NEXUS_URL}"
                 }
