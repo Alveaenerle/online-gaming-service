@@ -1,7 +1,7 @@
 services:
 
   authorization:
-    image: docker.yapyap.pl/online-gaming-authorization:${TAG}
+    image: ${NEXUS_URL}/online-gaming-authorization:${TAG}
     container_name: og-authorization
     restart: always
     environment:
@@ -16,7 +16,7 @@ services:
         max-file: "3"
 
   menu:
-    image: docker.yapyap.pl/online-gaming-menu:${TAG}
+    image: ${NEXUS_URL}/online-gaming-menu:${TAG}
     container_name: og-menu
     restart: always
     environment:
@@ -27,7 +27,7 @@ services:
     logging: *production-logging
 
   social:
-    image: docker.yapyap.pl/online-gaming-social:${TAG}
+    image: ${NEXUS_URL}/online-gaming-social:${TAG}
     container_name: og-social
     restart: always
     environment:
@@ -38,7 +38,7 @@ services:
     logging: *production-logging
 
   makao:
-    image: docker.yapyap.pl/online-gaming-makao:${TAG}
+    image: ${NEXUS_URL}/online-gaming-makao:${TAG}
     container_name: og-makao
     restart: always
     environment:
@@ -49,7 +49,7 @@ services:
     logging: *production-logging
 
   ludo:
-    image: docker.yapyap.pl/online-gaming-ludo:${TAG}
+    image: ${NEXUS_URL}/online-gaming-ludo:${TAG}
     container_name: og-ludo
     restart: always
     environment:
@@ -60,7 +60,7 @@ services:
     logging: *production-logging
 
   frontend:
-    image: docker.yapyap.pl/online-gaming-frontend:${TAG}
+    image: ${NEXUS_URL}/online-gaming-frontend:${TAG}
     container_name: og-frontend
     restart: always
     ports:
