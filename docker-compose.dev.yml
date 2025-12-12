@@ -8,8 +8,6 @@ services:
     environment:
       - SERVER_PORT=8080
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
-    ports:
-      - "8081:8080"
     volumes:
       - ./backend:/app
 
@@ -22,8 +20,6 @@ services:
     environment:
       - SERVER_PORT=8080
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
-    ports:
-      - "8082:8080"
     volumes:
       - ./backend:/app
 
@@ -36,8 +32,6 @@ services:
     environment:
       - SERVER_PORT=8080
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
-    ports:
-      - "8083:8080"
     volumes:
       - ./backend:/app
 
@@ -50,8 +44,6 @@ services:
     environment:
       - SERVER_PORT=8080
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
-    ports:
-      - "8091:8080"
     volumes:
       - ./backend:/app
 
@@ -64,32 +56,8 @@ services:
     environment:
       - SERVER_PORT=8080
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
-    ports:
-      - "8092:8080"
     volumes:
       - ./backend:/app
-
-
-  tests:
-    build:
-      context: ./backend
-      target: dev
-      args:
-        MODULE_NAME: tests
-    environment:
-      - SERVER_PORT=8080
-      - SPRING_DEVTOOLS_RESTART_ENABLED=true
-    ports:
-      - "8084:8080"
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - authorization
-      - menu
-      - social
-      - makao
-      - ludo
-
 
   frontend:
     build:
@@ -101,6 +69,16 @@ services:
     ports:
       - "5173:5173"
     depends_on:
+      - authorization
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
       - authorization
       - menu
       - social
