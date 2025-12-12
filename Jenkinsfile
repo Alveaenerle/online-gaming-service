@@ -43,15 +43,13 @@ pipeline {
                     echo 'Logging into Nexus...'
                     sh "echo ${NEXUS_CREDS_PSW} | docker login ${NEXUS_URL} -u ${NEXUS_CREDS_USR} --password-stdin"
 
-                    deployService('online-gaming-frontend', './frontend')
-
                     def backendModules = ['social', 'menu', 'makao', 'ludo', 'authorization']
-                    
                     backendModules.each { module ->
-                        def imageTag = "${NEXUS_URL}/online-gaming-${module}:${env.BUILD_NUMBER}"
-                        sh "docker build -t ${imageTag} --build-arg MODULE_NAME=${module} --target production ./backend"
-                        sh "docker push ${imageTag}"
+                        deployService("online-gaming-${module}", './backend', module)
                     }
+
+                    // Frontend doesn't need the 3rd arg
+                    deployService('online-gaming-frontend', './frontend')
 
                     sh "docker logout ${NEXUS_URL}"
                 }
