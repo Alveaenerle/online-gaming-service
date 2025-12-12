@@ -1,7 +1,9 @@
 def call(String serverIp, String serverUser, String sshCredentialId) {
     echo "Deploying build #${env.BUILD_NUMBER} to ${serverIp}..."
     def template = readFile('docker-compose.prod.yml')
-    def composeContent = template.replace('${TAG}', env.BUILD_NUMBER)
+    def composeContent = template
+        .replace('${TAG}', env.BUILD_NUMBER)
+        .replace('${NEXUS_URL}', env.NEXUS_URL)
 
     writeFile file: 'docker-compose-deploy.yml', text: composeContent
 
