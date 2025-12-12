@@ -21,20 +21,21 @@ pipeline {
             steps {
                 dir('backend') {
                     script {
-                        echo "Running Code Coverage for PR..."
-                        def scriptPath = 'src/test/java/com/online_game_service/backend/backend_code_coverage.sh'
                         sh "chmod +x mvnw"
-                        sh "chmod +x ${scriptPath}"
-                        sh "./${scriptPath}"
+                        sh "chmod +x backend_code_coverage.sh"
+
+                        def modules = ['social', 'menu', 'makao', 'ludo', 'authorization', 'tests']
+
+                        modules.each { moduleName ->
+                            sh "./backend_code_coverage.sh ${moduleName}"
+                        }
                     }
                 }
             }
         }
 
         stage('Build & Push to Nexus') {
-            when {
-                branch 'main'
-            }
+            when { branch 'main' }
             steps {
                 script {
                     def deployService = load('infra/buildAndDeployImage.groovy')
@@ -42,8 +43,15 @@ pipeline {
                     echo 'Logging into Nexus...'
                     sh "echo ${NEXUS_CREDS_PSW} | docker login ${NEXUS_URL} -u ${NEXUS_CREDS_USR} --password-stdin"
 
-                    deployService('online-gaming-backend', './backend')
                     deployService('online-gaming-frontend', './frontend')
+
+                    def backendModules = ['social', 'menu', 'makao', 'ludo', 'authorization']
+                    
+                    backendModules.each { module ->
+                        def imageTag = "${NEXUS_URL}/online-gaming-${module}:${env.BUILD_NUMBER}"
+                        sh "docker build -t ${imageTag} --build-arg MODULE_NAME=${module} --target production ./backend"
+                        sh "docker push ${imageTag}"
+                    }
 
                     sh "docker logout ${NEXUS_URL}"
                 }

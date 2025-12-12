@@ -1,10 +1,54 @@
 services:
-  backend:
-    image: docker.yapyap.pl/online-gaming-backend:${TAG}
-    container_name: og-backend
+
+  authorization:
+    image: docker.yapyap.pl/online-gaming-authorization:${TAG}
+    container_name: og-authorization
     restart: always
     environment:
       - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=prod
+    ports:
+      - "8081:8080"
+
+  menu:
+    image: docker.yapyap.pl/online-gaming-menu:${TAG}
+    container_name: og-menu
+    restart: always
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=prod
+    ports:
+      - "8082:8080"
+
+  social:
+    image: docker.yapyap.pl/online-gaming-social:${TAG}
+    container_name: og-social
+    restart: always
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=prod
+    ports:
+      - "8083:8080"
+
+  makao:
+    image: docker.yapyap.pl/online-gaming-makao:${TAG}
+    container_name: og-makao
+    restart: always
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=prod
+    ports:
+      - "8091:8080"
+
+  ludo:
+    image: docker.yapyap.pl/online-gaming-ludo:${TAG}
+    container_name: og-ludo
+    restart: always
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=prod
+    ports:
+      - "8092:8080"
 
   frontend:
     image: docker.yapyap.pl/online-gaming-frontend:${TAG}
@@ -13,4 +57,8 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      - authorization
+      - menu
+      - social
+      - makao
+      - ludo

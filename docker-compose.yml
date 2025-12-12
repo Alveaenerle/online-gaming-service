@@ -1,10 +1,59 @@
 services:
-  backend:
+
+  authorization:
     build:
       context: ./backend
       target: production
+      args:
+        MODULE_NAME: authorization
     environment:
       - SERVER_PORT=8080
+    ports:
+      - "8081:8080"
+
+  menu:
+    build:
+      context: ./backend
+      target: production
+      args:
+        MODULE_NAME: menu
+    environment:
+      - SERVER_PORT=8080
+    ports:
+      - "8082:8080"
+
+  social:
+    build:
+      context: ./backend
+      target: production
+      args:
+        MODULE_NAME: social
+    environment:
+      - SERVER_PORT=8080
+    ports:
+      - "8083:8080"
+
+  makao:
+    build:
+      context: ./backend
+      target: production
+      args:
+        MODULE_NAME: makao
+    environment:
+      - SERVER_PORT=8080
+    ports:
+      - "8091:8080"
+
+  ludo:
+    build:
+      context: ./backend
+      target: production
+      args:
+        MODULE_NAME: ludo
+    environment:
+      - SERVER_PORT=8080
+    ports:
+      - "8092:8080"
 
   frontend:
     build:
@@ -13,4 +62,8 @@ services:
     ports:
       - "80:80"      
     depends_on:
-      - backend
+      - authorization
+      - menu
+      - social
+      - makao
+      - ludo
