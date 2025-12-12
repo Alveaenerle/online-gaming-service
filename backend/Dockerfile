@@ -17,11 +17,13 @@ FROM base AS dev
 ARG MODULE_NAME
 ENV MODULE_NAME=${MODULE_NAME}
 COPY . .
+RUN chmod +x mvnw
 CMD ["sh", "-c", "./mvnw -q spring-boot:run -pl ${MODULE_NAME} -am"]
 
 FROM base AS build
 ARG MODULE_NAME
 COPY . .
+RUN chmod +x mvnw
 RUN ./mvnw clean package -DskipTests -pl ${MODULE_NAME} -am
 
 FROM eclipse-temurin:21-jre AS production
