@@ -8,8 +8,6 @@ services:
         MODULE_NAME: authorization
     environment:
       - SERVER_PORT=8080
-    ports:
-      - "8081:8080"
 
   menu:
     build:
@@ -19,8 +17,6 @@ services:
         MODULE_NAME: menu
     environment:
       - SERVER_PORT=8080
-    ports:
-      - "8082:8080"
 
   social:
     build:
@@ -30,8 +26,6 @@ services:
         MODULE_NAME: social
     environment:
       - SERVER_PORT=8080
-    ports:
-      - "8083:8080"
 
   makao:
     build:
@@ -41,8 +35,6 @@ services:
         MODULE_NAME: makao
     environment:
       - SERVER_PORT=8080
-    ports:
-      - "8091:8080"
 
   ludo:
     build:
@@ -52,15 +44,13 @@ services:
         MODULE_NAME: ludo
     environment:
       - SERVER_PORT=8080
-    ports:
-      - "8092:8080"
 
   frontend:
     build:
       context: ./frontend
       target: production
     ports:
-      - "80:80"      
+      - "80:80"
     depends_on:
       - authorization
       - menu
