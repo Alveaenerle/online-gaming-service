@@ -18,7 +18,7 @@ public class JwtUtils {
     @Value("${onlinegamesservice.app.jwtSecret}")
     private String jwtSecret;
 
-    @Value("${onlinegamesservice.app.jwtExpirationMs")
+    @Value("${onlinegamesservice.app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
     public String generateJwtToken(User user) {

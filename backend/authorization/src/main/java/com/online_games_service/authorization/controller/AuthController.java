@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,6 +47,12 @@ public class AuthController {
     @PostMapping("/guest")
     public ResponseEntity<?> playAsGuest() {
         String token = authService.createGuest();
-        return ResponseEntity.ok(Map.of("token", token, "message", "Logged as Guest"));
+        return ResponseEntity.ok(Map.of("token", token, "message", "Logged in as Guest"));
+    }
+
+    
+    @GetMapping("/test")
+    public ResponseEntity<?> testToken() {
+        return ResponseEntity.ok("Masz ważny token, możesz przejść!");
     }
 }
