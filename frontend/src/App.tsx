@@ -1,21 +1,18 @@
 import React from "react";
-import Navbar from "./components/Shared/Navbar";
-import Title from "./components/LandingPage/Title";
-import Features from "./components/LandingPage/Features";
-import Footer from "./components/Shared/Footer";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import LandingPage from "./components/LandingPage/LandingPage";
+import Login from "./components/Auth/Login";
+import Register from "./components/Auth/Register";
 
 const App: React.FC = () => {
   return (
-    <div className="min-h-screen bg-bg text-white antialiased">
-      <Navbar />
-      <main className="pb-10">
-        <Title />
-        <div className="px-6 md:px-12 lg:px-24 mb-20">
-          <Features />
-        </div>
-      </main>
-      <Footer />
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </Router>
   );
 };
 
