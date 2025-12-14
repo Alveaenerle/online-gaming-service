@@ -26,7 +26,6 @@ services:
       - ./backend:/app
     depends_on:
        - mongo
-      #  condition: service_healthy
 
   menu:
     build:
@@ -42,7 +41,6 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
-      #  condition: service_healthy
 
   social:
     build:
@@ -58,7 +56,6 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
-     #   condition: service_healthy
 
   makao:
     build:
@@ -74,7 +71,6 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
-     #   condition: service_healthy
 
   ludo:
     build:
@@ -90,7 +86,6 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
-    #    condition: service_healthy
 
   frontend:
     build:
