@@ -89,18 +89,23 @@ fi
 
 echo -e "${GREEN}>>> Running Maven Tests...${NC}"
 
-MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social test \
+# ZMIANA 1: Dodano -Dsurefire.testng.verbose=1 aby TestNG wypisywał nazwy klas
+MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social,menu test \
   -Dspring.profiles.active=test \
   -DTEST_DB_PORT=$TEST_PORT \
   -DTEST_DB_USER=$MONGO_USER \
   -DTEST_DB_PASS=$MONGO_PASS \
   -Dtest=com.online_games_service.*.integration.** \
-  -Dsurefire.failIfNoSpecifiedTests=false"
+  -Dsurefire.failIfNoSpecifiedTests=false \
+  -Dsurefire.testng.verbose=1"
 
 if [ "$VERBOSE" = true ]; then
     $MAVEN_CMD
 else
-    $MAVEN_CMD 2>&1 | tee -a "$LOG_FILE" | grep -E --line-buffered "Running com\.|Tests run:|BUILD SUCCESS|BUILD FAILURE|FAILURE!"
+    # ZMIANA 2: Zaktualizowany grep. 
+    # - "Running " (łapie wszystko co się uruchamia, nawet TestSuite)
+    # - "\[TestNG\]" (łapie logi z nazwą klasy wewnątrz TestSuite)
+    $MAVEN_CMD 2>&1 | tee -a "$LOG_FILE" | grep -E --line-buffered "Running |Tests run:|BUILD SUCCESS|BUILD FAILURE|FAILURE!|\[TestNG\]"
     
     MVN_EXIT_CODE=${PIPESTATUS[0]}
     
