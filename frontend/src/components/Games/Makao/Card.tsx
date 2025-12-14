@@ -9,14 +9,12 @@ interface CardProps {
   size?: "sm" | "md" | "lg";
 }
 
-// Rozmiary powiększone o 20%
 const SIZES = {
-  sm: { width: 48, height: 67 },   // było 40x56
-  md: { width: 58, height: 82 },   // było 48x68
-  lg: { width: 72, height: 101 },  // było 60x84
+  sm: { width: 48, height: 67 },
+  md: { width: 58, height: 82 },
+  lg: { width: 72, height: 101 },
 };
 
-// Mapowanie rangi na nazwę pliku
 const getRankName = (rank: string): string => {
   switch (rank) {
     case "A": return "ace";
@@ -49,7 +47,6 @@ const Card: React.FC<CardProps> = ({
     );
   }
 
-  // Ścieżka do assetu SVG
   const rankName = getRankName(card.rank);
   const cardImage = `/SVG-cards-1.3/${rankName}_of_${card.suit}.svg`;
 
