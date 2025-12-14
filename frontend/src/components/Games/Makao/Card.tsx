@@ -1,4 +1,3 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { Card as CardType } from "./types";
 
@@ -10,17 +9,22 @@ interface CardProps {
   size?: "sm" | "md" | "lg";
 }
 
+// Rozmiary powiększone o 20%
 const SIZES = {
-  sm: { width: "w-10", height: "h-14", rank: "text-[8px]", suit: "text-[9px]", center: "text-base" },
-  md: { width: "w-12", height: "h-[4.25rem]", rank: "text-[9px]", suit: "text-[10px]", center: "text-lg" },
-  lg: { width: "w-14", height: "h-[5rem]", rank: "text-[10px]", suit: "text-xs", center: "text-xl" },
+  sm: { width: 48, height: 67 },   // było 40x56
+  md: { width: 58, height: 82 },   // było 48x68
+  lg: { width: 72, height: 101 },  // było 60x84
 };
 
-const SUIT_SYMBOLS: Record<string, string> = {
-  hearts: "♥",
-  diamonds: "♦",
-  clubs: "♣",
-  spades: "♠",
+// Mapowanie rangi na nazwę pliku
+const getRankName = (rank: string): string => {
+  switch (rank) {
+    case "A": return "ace";
+    case "K": return "king";
+    case "Q": return "queen";
+    case "J": return "jack";
+    default: return rank;
+  }
 };
 
 const Card: React.FC<CardProps> = ({
@@ -31,47 +35,41 @@ const Card: React.FC<CardProps> = ({
   size = "md",
 }) => {
   const s = SIZES[size];
-  const isRed = card.suit === "hearts" || card.suit === "diamonds";
-  const suitColor = isRed ? "text-red-500" : "text-gray-800";
 
   if (isFaceDown) {
     return (
       <motion.div
         whileHover={onClick ? { scale: 1.05, y: -2 } : {}}
-        className={`${s.width} ${s.height} rounded-md bg-gradient-to-br from-purpleStart to-purpleEnd shadow-md flex items-center justify-center ${onClick ? "cursor-pointer" : ""}`}
+        style={{ width: s.width, height: s.height }}
+        className={`rounded-lg bg-gradient-to-br from-purpleStart to-purpleEnd shadow-md flex items-center justify-center ${onClick ? "cursor-pointer" : ""}`}
         onClick={onClick}
       >
-        <span className="text-white/40 font-bold text-sm">OG</span>
+        <span className="text-white/40 font-bold text-base">OG</span>
       </motion.div>
     );
   }
+
+  // Ścieżka do assetu SVG
+  const rankName = getRankName(card.rank);
+  const cardImage = `/SVG-cards-1.3/${rankName}_of_${card.suit}.svg`;
 
   return (
     <motion.div
       whileHover={isPlayable ? { scale: 1.08, y: -8 } : {}}
       onClick={isPlayable ? onClick : undefined}
-      className={`${s.width} ${s.height} rounded-md bg-white shadow-md flex flex-col justify-between p-0.5 ${
+      style={{ width: s.width, height: s.height }}
+      className={`rounded-lg overflow-hidden shadow-md ${
         isPlayable
-          ? "border-2 border-purpleEnd cursor-pointer shadow-neon"
-          : "border border-gray-200 opacity-75"
+          ? "ring-2 ring-purpleEnd cursor-pointer shadow-neon"
+          : "opacity-80"
       }`}
     >
-      {/* Top */}
-      <div className={`${suitColor} font-bold leading-none`}>
-        <div className={s.rank}>{card.rank}</div>
-        <div className={s.suit}>{SUIT_SYMBOLS[card.suit]}</div>
-      </div>
-
-      {/* Center */}
-      <div className={`${suitColor} ${s.center} text-center -my-1`}>
-        {SUIT_SYMBOLS[card.suit]}
-      </div>
-
-      {/* Bottom */}
-      <div className={`${suitColor} font-bold leading-none self-end rotate-180`}>
-        <div className={s.rank}>{card.rank}</div>
-        <div className={s.suit}>{SUIT_SYMBOLS[card.suit]}</div>
-      </div>
+      <img
+        src={cardImage}
+        alt={`${card.rank} of ${card.suit}`}
+        className="w-full h-full object-contain bg-white"
+        draggable={false}
+      />
     </motion.div>
   );
 };

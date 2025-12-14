@@ -374,26 +374,41 @@ const MakaoGame: React.FC = () => {
   const humanPlayer = gameState.players[0];
   const otherPlayers = gameState.players.slice(1);
 
-  // Distribute players around table
+  // Distribute players around table (clockwise: right -> top -> left)
   const distributePlayersAroundTable = () => {
     const total = otherPlayers.length;
     const top: PlayerType[] = [];
     const left: PlayerType[] = [];
     const right: PlayerType[] = [];
 
-    otherPlayers.forEach((player, i) => {
-      if (total <= 2) {
-        top.push(player);
-      } else if (total <= 4) {
-        if (i < 2) top.push(player);
-        else if (i === 2) left.push(player);
-        else right.push(player);
-      } else {
-        if (i < 3) top.push(player);
-        else if (i < 5) left.push(player);
-        else right.push(player);
-      }
-    });
+    // Clockwise from human player (bottom): left -> top -> right
+    if (total === 1) {
+      top.push(otherPlayers[0]);
+    } else if (total === 2) {
+        left.push(otherPlayers[0]);
+        right.push(otherPlayers[1]);
+    } else if (total === 3) {
+      left.push(otherPlayers[0]);
+      top.push(otherPlayers[1]);
+      right.push(otherPlayers[2]);
+    } else if (total === 4) {
+      left.push(otherPlayers[0]);
+      top.push(otherPlayers[1], otherPlayers[2]);
+      right.push(otherPlayers[3]);
+    } else if (total === 5) {
+      left.push(otherPlayers[1], otherPlayers[0]);
+      top.push(otherPlayers[2]);
+      right.push(otherPlayers[3], otherPlayers[4]);
+    } else if (total === 6) {
+      left.push(otherPlayers[1], otherPlayers[0]);
+      top.push(otherPlayers[2], otherPlayers[3]);
+      right.push(otherPlayers[4], otherPlayers[5]);
+    } else {
+      // 7 players
+      left.push(otherPlayers[1], otherPlayers[0]);
+      top.push(otherPlayers[2], otherPlayers[3], otherPlayers[4]);
+      right.push(otherPlayers[5], otherPlayers[6]);
+    }
 
     return { top, left, right };
   };
@@ -405,13 +420,13 @@ const MakaoGame: React.FC = () => {
       <Navbar />
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)]" />
 
-      <main className="pt-20 pb-4 px-4 h-[calc(100vh-80px)]">
-        <div className="h-full max-w-[1800px] mx-auto flex gap-4">
+      <main className="pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
+        <div className="h-full max-w-[2000px] mx-auto flex gap-2 justify-center">
           {/* Game Table Area */}
           <div className="flex-1 flex items-center justify-center">
-            <div className="relative w-full max-w-4xl aspect-[16/10] bg-gradient-to-br from-[#18171f] to-[#0d0c12] rounded-[2.5rem] border border-purpleEnd/20 shadow-2xl shadow-black/50 p-6">
+            <div className="relative w-full max-w-5xl aspect-[16/10] bg-gradient-to-br from-[#18171f] to-[#0d0c12] rounded-[3rem] border border-purpleEnd/20 shadow-2xl shadow-black/50 p-8">
               {/* Table glow */}
-              <div className="absolute inset-0 rounded-[2.5rem] bg-[radial-gradient(ellipse_at_center,_rgba(108,42,255,0.1),_transparent_60%)]" />
+              <div className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(ellipse_at_center,_rgba(108,42,255,0.1),_transparent_60%)]" />
 
               {/* Top Players */}
               {topPlayers.length > 0 && (
@@ -459,24 +474,24 @@ const MakaoGame: React.FC = () => {
               )}
 
               {/* Center - Deck & Discard */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-10">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12">
                 {/* Draw Pile */}
                 <div
                   className={`text-center ${gameState.currentPlayerIndex === 0 && !gameState.winner ? "cursor-pointer group" : ""}`}
                   onClick={gameState.currentPlayerIndex === 0 && !gameState.winner ? drawCard : undefined}
                 >
                   <div className="relative group-hover:scale-105 transition-transform">
-                    <div className="absolute -top-0.5 -left-0.5 w-12 h-[4.25rem] rounded-md bg-purpleStart/30" />
-                    <div className="absolute -top-1 -left-1 w-12 h-[4.25rem] rounded-md bg-purpleStart/20" />
+                    <div className="absolute -top-0.5 -left-0.5 w-[58px] h-[82px] rounded-lg bg-purpleStart/30" />
+                    <div className="absolute -top-1 -left-1 w-[58px] h-[82px] rounded-lg bg-purpleStart/20" />
                     <Card card={topCard} isFaceDown size="md" />
                   </div>
-                  <p className="text-[10px] text-white/60 mt-2">Draw ({gameState.deck.length})</p>
+                  <p className="text-xs text-white/60 mt-2">Draw ({gameState.deck.length})</p>
                 </div>
 
                 {/* Discard Pile */}
                 <div className="text-center">
                   <Card card={topCard} size="md" />
-                  <p className="text-[10px] text-white/60 mt-2">Discard</p>
+                  <p className="text-xs text-white/60 mt-2">Discard</p>
                 </div>
               </div>
 

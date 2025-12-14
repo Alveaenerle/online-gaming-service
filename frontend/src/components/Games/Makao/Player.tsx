@@ -24,7 +24,7 @@ const Player: React.FC<PlayerProps> = ({
 
   return (
     <div
-      className={`flex ${isHorizontal ? "flex-col" : "flex-row"} items-center gap-2 p-2 rounded-xl backdrop-blur-sm ${
+      className={`flex ${isHorizontal ? "flex-col" : "flex-row"} items-center gap-3 p-3 rounded-xl backdrop-blur-sm ${
         isCurrentPlayer
           ? "bg-purpleEnd/20 border border-purpleEnd/50 shadow-lg shadow-purpleEnd/20"
           : "bg-white/5 border border-white/10"
@@ -33,7 +33,7 @@ const Player: React.FC<PlayerProps> = ({
       {/* Player Info */}
       <div className="flex items-center gap-2">
         <div
-          className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
             player.isHuman
               ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
               : "bg-gray-600 text-gray-200"
@@ -42,20 +42,20 @@ const Player: React.FC<PlayerProps> = ({
           {player.name.charAt(0).toUpperCase()}
         </div>
         <div className="text-left">
-          <p className="text-white text-xs font-medium leading-tight">{player.name}</p>
-          <p className="text-gray-400 text-[10px]">{player.cards.length} cards</p>
+          <p className="text-white text-sm font-medium leading-tight">{player.name}</p>
+          <p className="text-gray-400 text-xs">{player.cards.length} cards</p>
         </div>
         {isCurrentPlayer && (
           <motion.div
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="w-2 h-2 rounded-full bg-purpleEnd"
+            className="w-2.5 h-2.5 rounded-full bg-purpleEnd"
           />
         )}
       </div>
 
       {/* Cards */}
-      <div className={`flex ${isHorizontal ? "flex-row" : "flex-col"} gap-1 flex-wrap justify-center`}>
+      <div className={`flex ${isHorizontal ? "flex-row" : "flex-col"} gap-1.5 flex-wrap justify-center`}>
         {player.isHuman ? (
           player.cards.map((card) => {
             const playable = canPlayCard ? canPlayCard(card) : false;
@@ -70,11 +70,11 @@ const Player: React.FC<PlayerProps> = ({
             );
           })
         ) : compact ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {player.cards.length > 0 && (
               <Card card={player.cards[0]} isFaceDown size="sm" />
             )}
-            <span className="text-white/80 font-semibold text-sm">×{player.cards.length}</span>
+            <span className="text-white/80 font-semibold text-base">×{player.cards.length}</span>
           </div>
         ) : (
           player.cards.map((card) => (
