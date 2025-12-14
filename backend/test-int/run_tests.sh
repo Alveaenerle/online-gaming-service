@@ -89,12 +89,12 @@ fi
 
 echo -e "${GREEN}>>> Running Maven Tests...${NC}"
 
-MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization test \
+MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social test \
   -Dspring.profiles.active=test \
   -DTEST_DB_PORT=$TEST_PORT \
   -DTEST_DB_USER=$MONGO_USER \
   -DTEST_DB_PASS=$MONGO_PASS \
-  -Dtest=com.online_games_service.authorization.integration.** \
+  -Dtest=com.online_games_service.*.integration.** \
   -Dsurefire.failIfNoSpecifiedTests=false"
 
 if [ "$VERBOSE" = true ]; then
