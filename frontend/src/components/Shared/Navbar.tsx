@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom";
 
 const Navbar: React.FC = () => {
   return (
@@ -9,12 +10,12 @@ const Navbar: React.FC = () => {
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="text-2xl font-bold tracking-wide flex items-center gap-3">
+        <Link to="/" className="text-2xl font-bold tracking-wide flex items-center gap-3">
           <div className="w-10 h-10 rounded-md bg-gradient-to-br from-purpleStart to-purpleEnd shadow-neon flex items-center justify-center p-2 text-white font-bold">
             OG
           </div>
           <span>OnlineGames</span>
-        </div>
+        </Link>
       </motion.div>
 
       <nav className="hidden md:flex gap-6 items-center opacity-90">
@@ -25,19 +26,23 @@ const Navbar: React.FC = () => {
           Rankings
         </a>
 
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          className="px-4 py-2 rounded-md border border-purpleEnd text-white transition-transform"
-        >
-          Login
-        </motion.button>
+        <Link to="/login">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            className="px-4 py-2 rounded-md border border-purpleEnd text-white transition-transform"
+          >
+            Login
+          </motion.button>
+        </Link>
 
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          className="px-4 py-2 rounded-md bg-gradient-to-br from-purpleStart to-purpleEnd text-white shadow-neon transition-transform"
-        >
-          Register
-        </motion.button>
+        <Link to="/register">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            className="px-4 py-2 rounded-md bg-gradient-to-br from-purpleStart to-purpleEnd text-white shadow-neon transition-transform"
+          >
+            Register
+          </motion.button>
+        </Link>
       </nav>
     </header>
   );
