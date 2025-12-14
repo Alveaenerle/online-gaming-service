@@ -25,6 +25,7 @@
         <module>ludo</module>
         <module>authorization</module>
         <module>menu</module>
+        <module>common</module>
     </modules>
 
     <properties>
