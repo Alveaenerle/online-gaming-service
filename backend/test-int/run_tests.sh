@@ -6,11 +6,18 @@ NC='\033[0m'
 
 set -o pipefail
 
+# MongoDB Configuration
 IMAGE_NAME="online-gaming-mongo-test"
 CONTAINER_NAME="mongo-test-ephemeral"
 TEST_PORT=27018
 MONGO_USER="testroot"
 MONGO_PASS="testpass"
+
+# Redis Configuration
+REDIS_IMAGE="redis:alpine"
+REDIS_CONTAINER_NAME="redis-test-ephemeral"
+REDIS_HOST_PORT=6380
+REDIS_PASS="testredispass"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
@@ -24,9 +31,13 @@ if [[ "$1" == "--verbose" || "$1" == "-v" ]]; then
 fi
 
 cleanup() {
-    if [ "$VERBOSE" = true ]; then echo -e "\n${GREEN}>>> Cleaning up container...${NC}"; fi
+    if [ "$VERBOSE" = true ]; then echo -e "\n${GREEN}>>> Cleaning up containers...${NC}"; fi
+    
     docker stop $CONTAINER_NAME > /dev/null 2>&1
     docker rm $CONTAINER_NAME > /dev/null 2>&1
+    
+    docker stop $REDIS_CONTAINER_NAME > /dev/null 2>&1
+    docker rm $REDIS_CONTAINER_NAME > /dev/null 2>&1
     
     if [ -f "$LOG_FILE" ]; then rm -f "$LOG_FILE"; fi
 }
@@ -57,8 +68,10 @@ run_technical_step() {
 
 echo -e "${GREEN}=== Starting Integration Tests ===${NC}"
 
+# 1. Build Custom Mongo Image
 run_technical_step "Building Test Docker Image" docker build -t $IMAGE_NAME "$SCRIPT_DIR"
 
+# 2. Start MongoDB Container
 docker rm -f $CONTAINER_NAME > /dev/null 2>&1
 run_technical_step "Starting ephemeral MongoDB container" docker run -d \
   --name $CONTAINER_NAME \
@@ -67,6 +80,14 @@ run_technical_step "Starting ephemeral MongoDB container" docker run -d \
   -e MONGO_INITDB_ROOT_PASSWORD=$MONGO_PASS \
   $IMAGE_NAME
 
+# 3. Start Redis Container (WITH PASSWORD)
+docker rm -f $REDIS_CONTAINER_NAME > /dev/null 2>&1
+run_technical_step "Starting ephemeral Redis container" docker run -d \
+  --name $REDIS_CONTAINER_NAME \
+  -p $REDIS_HOST_PORT:6379 \
+  $REDIS_IMAGE redis-server --requirepass $REDIS_PASS
+
+# 4. Wait for MongoDB
 if [ "$VERBOSE" = true ]; then echo "Waiting for MongoDB..."; else echo -n -e ">>> Waiting for MongoDB... "; fi
 
 DB_READY=false
@@ -82,18 +103,41 @@ if [ "$DB_READY" = true ]; then
     if [ "$VERBOSE" = false ]; then echo -e "${GREEN}[OK]${NC}"; fi
 else
     if [ "$VERBOSE" = false ]; then echo -e "${RED}[FAILED]${NC}"; fi
-    echo -e "${RED}Timeout waiting for DB! Logs:${NC}"
+    echo -e "${RED}Timeout waiting for MongoDB! Logs:${NC}"
+    cat "$LOG_FILE"
+    exit 1
+fi
+
+# 5. Wait for Redis
+if [ "$VERBOSE" = true ]; then echo "Waiting for Redis..."; else echo -n -e ">>> Waiting for Redis... "; fi
+
+REDIS_READY=false
+for i in {1..30}; do
+    if docker exec $REDIS_CONTAINER_NAME redis-cli -a $REDIS_PASS ping | grep -q "PONG"; then
+        REDIS_READY=true
+        break
+    fi
+    sleep 1
+done
+
+if [ "$REDIS_READY" = true ]; then
+    if [ "$VERBOSE" = false ]; then echo -e "${GREEN}[OK]${NC}"; fi
+else
+    if [ "$VERBOSE" = false ]; then echo -e "${RED}[FAILED]${NC}"; fi
+    echo -e "${RED}Timeout waiting for Redis! Logs:${NC}"
     cat "$LOG_FILE"
     exit 1
 fi
 
 echo -e "${GREEN}>>> Running Maven Tests...${NC}"
 
-MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social,menu test \
+MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social,menu,makao test \
   -Dspring.profiles.active=test \
   -DTEST_DB_PORT=$TEST_PORT \
   -DTEST_DB_USER=$MONGO_USER \
   -DTEST_DB_PASS=$MONGO_PASS \
+  -DTEST_REDIS_PORT=$REDIS_HOST_PORT \
+  -DTEST_REDIS_PASS=$REDIS_PASS \
   -Dtest=com.online_games_service.*.integration.** \
   -Dsurefire.failIfNoSpecifiedTests=false \
   -Dsurefire.testng.verbose=1"
