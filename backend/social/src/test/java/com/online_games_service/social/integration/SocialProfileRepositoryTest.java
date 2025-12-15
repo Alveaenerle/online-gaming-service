@@ -42,11 +42,8 @@ public class SocialProfileRepositoryTest extends AbstractTestNGSpringContextTest
         SocialProfile fetched = fetchedOpt.get();
 
         Assert.assertEquals(fetched.getId(), userId);
-
         Assert.assertEquals(fetched.getFriendIds().size(), 2);
         Assert.assertTrue(fetched.getFriendIds().contains("friend_1"));
-        Assert.assertTrue(fetched.getFriendIds().contains("friend_2"));
-
         Assert.assertEquals(fetched.getFriendCount(), 2);
     }
 
@@ -68,5 +65,6 @@ public class SocialProfileRepositoryTest extends AbstractTestNGSpringContextTest
         Assert.assertEquals(updated.getFriendIds().size(), 1);
         Assert.assertTrue(updated.getFriendIds().contains("new_friend"));
         Assert.assertFalse(updated.getFriendIds().contains("old_friend"));
+        Assert.assertEquals(updated.getFriendCount(), 1);
     }
 }

@@ -39,21 +39,40 @@ public class GameRoomTest {
 
         // When & Then
         room.setStatus(RoomStatus.WAITING);
-        room.getPlayerIds().add("p2");
-        room.getPlayerIds().add("p3");
-        room.getPlayerIds().add("p4");
+        room.addPlayer("p2");
+        room.addPlayer("p3");
+        room.addPlayer("p4");
         
         Assert.assertEquals(room.getPlayerIds().size(), 4);
         Assert.assertFalse(room.canJoin(), "Should not join full room");
     }
 
     @Test
-    public void testLombokEquality() {
+    public void shouldThrowExceptionOnDirectSetModification() {
         // Given
-        GameRoom r1 = new GameRoom("Room A", GameType.MAKAO, "h1", 2, true);
-        GameRoom r2 = new GameRoom("Room A", GameType.MAKAO, "h1", 2, true);
+        GameRoom room = new GameRoom("R1", GameType.MAKAO, "host", 4, false);
+        
+        // When & Then
+        Assert.assertThrows(UnsupportedOperationException.class, () -> {
+            room.getPlayerIds().add("hacker");
+        });
+    }
+
+    @Test
+    public void shouldManageStatusAutomatically() {
+        // Given
+        GameRoom room = new GameRoom("R1", GameType.MAKAO, "host", 2, false);
+        
+        // When
+        room.addPlayer("p2");
+
+        // Then
+        Assert.assertEquals(room.getStatus(), RoomStatus.FULL);
+        
+        // When
+        room.removePlayer("p2");
         
         // Then
-        Assert.assertEquals(r1, r2);
+        Assert.assertEquals(room.getStatus(), RoomStatus.WAITING);
     }
 }

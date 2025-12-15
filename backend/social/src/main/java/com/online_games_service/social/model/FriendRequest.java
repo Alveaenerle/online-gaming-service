@@ -27,6 +27,5 @@ public class FriendRequest {
     public FriendRequest(String requesterId, String addresseeId) {
         this.requesterId = requesterId;
         this.addresseeId = addresseeId;
-        this.createdAt = LocalDateTime.now();
     }
 }

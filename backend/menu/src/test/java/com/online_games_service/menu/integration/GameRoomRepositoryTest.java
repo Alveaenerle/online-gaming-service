@@ -4,6 +4,7 @@ import com.online_games_service.common.enums.GameType;
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.menu.model.GameRoom;
 import com.online_games_service.menu.repository.GameRoomRepository;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;

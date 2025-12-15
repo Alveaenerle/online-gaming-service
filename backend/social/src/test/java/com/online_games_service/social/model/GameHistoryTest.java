@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public class GameHistoryTest {
 
     @Test
-    public void shouldCreateHistoryWithCurrentDate() {
+    public void shouldInitializeCorrectly() {
         // Given
         String accountId = "user_123";
         GameType gameType = GameType.LUDO;
@@ -25,13 +25,13 @@ public class GameHistoryTest {
         Assert.assertEquals(history.getMatchId(), matchId);
         Assert.assertTrue(history.isWinner());
         
-        Assert.assertNotNull(history.getPlayedAt(), "PlayedAt date should be set automatically");
-        
+        Assert.assertNull(history.getPlayedAt());
         Assert.assertNull(history.getId());
     }
 
     @Test
     public void testLombokEqualsAndHashCode() {
+        // Given
         GameHistory h1 = new GameHistory("userA", GameType.MAKAO, "m1", false);
         GameHistory h2 = new GameHistory("userA", GameType.MAKAO, "m1", false);
 
@@ -40,8 +40,8 @@ public class GameHistoryTest {
         h2.setPlayedAt(fixedTime);
 
         // When & Then
-        Assert.assertEquals(h1, h2, "Objects with same data should be equal");
-        Assert.assertEquals(h1.hashCode(), h2.hashCode(), "HashCodes should be equal");
+        Assert.assertEquals(h1, h2);
+        Assert.assertEquals(h1.hashCode(), h2.hashCode());
     }
 
     @Test

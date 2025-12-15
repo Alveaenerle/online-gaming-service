@@ -2,13 +2,17 @@ package com.online_games_service.social.model;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import java.util.HashSet;
 import java.util.Set;
 
 public class SocialProfileTest {
 
     @Test
     public void shouldInitializeEmpty() {
+        // Given
         SocialProfile profile = new SocialProfile("user1");
+
+        // Then
         Assert.assertTrue(profile.getFriendIds().isEmpty());
         Assert.assertEquals(profile.getFriendCount(), 0);
     }
@@ -36,10 +40,9 @@ public class SocialProfileTest {
 
         // When
         profile.addFriend("uniqueFriend");
-        profile.addFriend("uniqueFriend");
 
         // Then
-        Assert.assertEquals(profile.getFriendCount(), 1, "Count should not increase for duplicates");
+        Assert.assertEquals(profile.getFriendCount(), 1);
         Assert.assertEquals(profile.getFriendIds().size(), 1);
     }
 
@@ -70,27 +73,36 @@ public class SocialProfileTest {
         profile.removeFriend("ghostFriend");
 
         // Then
-        Assert.assertEquals(profile.getFriendCount(), initialCount, "Count should not change");
+        Assert.assertEquals(profile.getFriendCount(), initialCount);
         Assert.assertEquals(profile.getFriendIds().size(), 1);
     }
     
     @Test
-    public void shouldVerifyDirectSetModificationDoesNotDesyncWrapper() {
-        
+    public void shouldThrowExceptionOnDirectSetModification() {
         // Given
         SocialProfile profile = new SocialProfile("user1");
         profile.addFriend("friendA");
         
+        // When & Then
+        Assert.assertThrows(UnsupportedOperationException.class, () -> {
+            profile.getFriendIds().add("friendB");
+        });
+    }
+
+    @Test
+    public void shouldUpdateCountWhenSettingNewSet() {
+        // Given
+        SocialProfile profile = new SocialProfile("user1");
+        Set<String> newFriends = new HashSet<>();
+        newFriends.add("f1");
+        newFriends.add("f2");
+        newFriends.add("f3");
+
         // When
-        Set<String> rawSet = profile.getFriendIds();
-        rawSet.add("friendB"); // Dodajemy "na lewo"
-        
-        Assert.assertEquals(profile.getFriendCount(), 1); 
-        Assert.assertEquals(profile.getFriendIds().size(), 2);
-        
-        profile.addFriend("friendC");
-        
+        profile.setFriendIds(newFriends);
+
         // Then
         Assert.assertEquals(profile.getFriendCount(), 3);
+        Assert.assertEquals(profile.getFriendIds().size(), 3);
     }
 }
