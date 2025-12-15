@@ -109,3 +109,18 @@ public class MakaoGameRepositoryTest extends AbstractTestNGSpringContextTests {
         Optional<MakaoGame> deletedGame = repository.findById(roomId);
         assertThat(deletedGame).isNotPresent();
     }
+    @Test(description = "Should count games in Redis")
+    public void shouldCountGames() {
+        // Given
+        MakaoGame game1 = new MakaoGame("count_test_1", List.of("p1"));
+        MakaoGame game2 = new MakaoGame("count_test_2", List.of("p2"));
+        repository.save(game1);
+        repository.save(game2);
+
+        // When
+        long count = repository.count();
+
+        // Then
+        assertThat(count).isEqualTo(2);
+    }
+}

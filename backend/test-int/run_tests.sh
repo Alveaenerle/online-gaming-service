@@ -80,7 +80,7 @@ run_technical_step "Starting ephemeral MongoDB container" docker run -d \
   -e MONGO_INITDB_ROOT_PASSWORD=$MONGO_PASS \
   $IMAGE_NAME
 
-# 3. Start Redis Container (WITH PASSWORD)
+# 3. Start Redis Container
 docker rm -f $REDIS_CONTAINER_NAME > /dev/null 2>&1
 run_technical_step "Starting ephemeral Redis container" docker run -d \
   --name $REDIS_CONTAINER_NAME \
@@ -113,7 +113,8 @@ if [ "$VERBOSE" = true ]; then echo "Waiting for Redis..."; else echo -n -e ">>>
 
 REDIS_READY=false
 for i in {1..30}; do
-    if docker exec $REDIS_CONTAINER_NAME redis-cli -a $REDIS_PASS ping | grep -q "PONG"; then
+    # 2>/dev/null wycisza warning o niebezpiecznym haśle w CLI
+    if docker exec $REDIS_CONTAINER_NAME redis-cli -a $REDIS_PASS ping 2>/dev/null | grep -q "PONG"; then
         REDIS_READY=true
         break
     fi
@@ -131,6 +132,7 @@ fi
 
 echo -e "${GREEN}>>> Running Maven Tests...${NC}"
 
+# Dodano flagę -Dstyle.color=always, aby zachować kolory mimo użycia pipe'a
 MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social,menu,makao test \
   -Dspring.profiles.active=test \
   -DTEST_DB_PORT=$TEST_PORT \
@@ -139,14 +141,22 @@ MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social,menu,makao
   -DTEST_REDIS_PORT=$REDIS_HOST_PORT \
   -DTEST_REDIS_PASS=$REDIS_PASS \
   -Dtest=com.online_games_service.*.integration.** \
+  -Dlogging.level.root=ERROR \
+  -Dstyle.color=always \
   -Dsurefire.failIfNoSpecifiedTests=false \
   -Dsurefire.testng.verbose=1"
 
 if [ "$VERBOSE" = true ]; then
     $MAVEN_CMD
 else
-    $MAVEN_CMD 2>&1 | tee -a "$LOG_FILE" | grep -E --line-buffered "Running |Tests run:|BUILD SUCCESS|BUILD FAILURE|FAILURE!|\[TestNG\]"
+    # sed -u -n '/Reactor Summary/,$p'
+    # -u: unbuffered (żeby nie czekał na koniec bufora)
+    # -n: nie drukuj nic domyślnie
+    # /Reactor Summary/,$p: zacznij drukować od momentu znalezienia "Reactor Summary" aż do końca ($)
     
+    $MAVEN_CMD 2>&1 | tee "$LOG_FILE" | sed -u -n '/Reactor Summary/,$p'
+    
+    # Pobieramy kod wyjścia pierwszej komendy w potoku (Maven)
     MVN_EXIT_CODE=${PIPESTATUS[0]}
     
     if [ $MVN_EXIT_CODE -ne 0 ]; then
