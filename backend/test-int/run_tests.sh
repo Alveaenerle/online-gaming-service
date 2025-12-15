@@ -113,7 +113,6 @@ if [ "$VERBOSE" = true ]; then echo "Waiting for Redis..."; else echo -n -e ">>>
 
 REDIS_READY=false
 for i in {1..30}; do
-    # 2>/dev/null wycisza warning o niebezpiecznym haśle w CLI
     if docker exec $REDIS_CONTAINER_NAME redis-cli -a $REDIS_PASS ping 2>/dev/null | grep -q "PONG"; then
         REDIS_READY=true
         break
@@ -132,7 +131,6 @@ fi
 
 echo -e "${GREEN}>>> Running Maven Tests...${NC}"
 
-# Dodano flagę -Dstyle.color=always, aby zachować kolory mimo użycia pipe'a
 MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social,menu,makao test \
   -Dspring.profiles.active=test \
   -DTEST_DB_PORT=$TEST_PORT \
@@ -149,14 +147,9 @@ MAVEN_CMD="$MVN_EXEC -f $BACKEND_DIR/pom.xml -pl authorization,social,menu,makao
 if [ "$VERBOSE" = true ]; then
     $MAVEN_CMD
 else
-    # sed -u -n '/Reactor Summary/,$p'
-    # -u: unbuffered (żeby nie czekał na koniec bufora)
-    # -n: nie drukuj nic domyślnie
-    # /Reactor Summary/,$p: zacznij drukować od momentu znalezienia "Reactor Summary" aż do końca ($)
     
     $MAVEN_CMD 2>&1 | tee "$LOG_FILE" | sed -u -n '/Reactor Summary/,$p'
     
-    # Pobieramy kod wyjścia pierwszej komendy w potoku (Maven)
     MVN_EXIT_CODE=${PIPESTATUS[0]}
     
     if [ $MVN_EXIT_CODE -ne 0 ]; then
