@@ -1,4 +1,17 @@
+version: '3.8'
+
 services:
+  mongo:
+    image: mongo:latest
+    container_name: shared-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=rootpassword
+    volumes:
+      - mongo_data:/data/db
+
   authorization:
     build:
       context: ./backend
@@ -7,9 +20,12 @@ services:
         MODULE_NAME: authorization
     environment:
       - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
     volumes:
       - ./backend:/app
+    depends_on:
+       - mongo
 
   menu:
     build:
@@ -19,9 +35,12 @@ services:
         MODULE_NAME: menu
     environment:
       - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
     volumes:
       - ./backend:/app
+    depends_on:
+      - mongo
 
   social:
     build:
@@ -31,9 +50,12 @@ services:
         MODULE_NAME: social
     environment:
       - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
     volumes:
       - ./backend:/app
+    depends_on:
+      - mongo
 
   makao:
     build:
@@ -43,9 +65,12 @@ services:
         MODULE_NAME: makao
     environment:
       - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
     volumes:
       - ./backend:/app
+    depends_on:
+      - mongo
 
   ludo:
     build:
@@ -55,9 +80,12 @@ services:
         MODULE_NAME: ludo
     environment:
       - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
     volumes:
       - ./backend:/app
+    depends_on:
+      - mongo
 
   frontend:
     build:
@@ -84,3 +112,6 @@ services:
       - social
       - makao
       - ludo
+
+volumes:
+  mongo_data:
