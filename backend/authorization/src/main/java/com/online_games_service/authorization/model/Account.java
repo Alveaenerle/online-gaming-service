@@ -2,21 +2,20 @@ package com.online_games_service.authorization.model;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-
-import java.time.LocalDateTime;
-
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
 
+@Document(collection = "accounts")
 @Data
 @NoArgsConstructor
-@Document(collection = "accounts")
 public class Account {
+
     @Id
     private String id;
 

@@ -9,6 +9,7 @@ COPY makao/pom.xml makao/
 COPY social/pom.xml social/
 COPY tests/pom.xml tests/
 COPY menu/pom.xml menu/
+COPY common/pom.xml common/
 
 RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline
