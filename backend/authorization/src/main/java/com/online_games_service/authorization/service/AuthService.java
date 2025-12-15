@@ -24,9 +24,6 @@ public class AuthService {
 
     @Transactional
     public void register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Error: Username is already taken!");
-        }
         if (accountRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Error: Email is already in use!");
         }
@@ -37,7 +34,8 @@ public class AuthService {
         Account newAccount = new Account(
             request.getEmail(), 
             passwordEncoder.encode(request.getPassword()), 
-            savedUser.getId()    
+            savedUser.getId(),
+            request.getUsername() 
         );
         accountRepository.save(newAccount);
     }
