@@ -46,7 +46,7 @@ public class AuthService {
         Account account = accountRepository.findByEmail(request.getEmail())
             .orElseThrow(() -> new RuntimeException("Account not found"));
         
-        if(!passwordEncoder.matches(request.getPassword(), account.getPassword())) {
+        if(!passwordEncoder.matches(request.getPassword(), account.getPasswordHash())) {
             throw new RuntimeException("Invalid password");
         }
 

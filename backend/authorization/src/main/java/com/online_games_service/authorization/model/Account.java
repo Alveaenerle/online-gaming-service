@@ -1,5 +1,11 @@
 package com.online_games_service.authorization.model;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+import java.time.LocalDateTime;
+
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -14,17 +20,23 @@ public class Account {
     @Id
     private String id;
 
+    @NotBlank(message = "Email cannot be empty")
+    @Email(message = "Invalid email format")
     @Indexed(unique = true)
     private String email;
 
-    private String password;
+    @NotBlank
+    private String passwordHash;
 
     @Indexed(unique = true)
     private String userId;
 
-    public Account(String email, String password, String userId) {
+    @CreatedDate
+    private LocalDateTime createdAt;
+
+    public Account(String email, String passwordHash, String userId) {
         this.email = email;
-        this.password = password;
+        this.passwordHash = passwordHash;
         this.userId = userId;
     }
 }
