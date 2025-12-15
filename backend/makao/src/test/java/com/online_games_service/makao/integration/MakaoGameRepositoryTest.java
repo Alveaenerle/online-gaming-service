@@ -25,13 +25,12 @@ public class MakaoGameRepositoryTest extends AbstractTestNGSpringContextTests {
     @Autowired
     private MakaoGameRedisRepository repository;
 
-    @AfterMethod // Odpowiednik @AfterEach w TestNG
+    @AfterMethod
     public void cleanUp() {
         repository.deleteAll();
     }
 
-    // W TestNG zamiast @DisplayName używamy atrybutu description
-    @Test(description = "Powinien zapisać i odczytać pełny stan gry z Redisa (weryfikacja serializacji JSON)")
+    @Test(description = "Should save and retrieve full game state from Redis (JSON serialization verification)")
     public void shouldSaveAndRetrieveComplexGameState() {
         // Given
         String roomId = "integration_test_1";
@@ -48,10 +47,10 @@ public class MakaoGameRepositoryTest extends AbstractTestNGSpringContextTests {
         Card aceHearts = new Card(CardSuit.HEARTS, CardRank.ACE);
         Card tenClubs = new Card(CardSuit.CLUBS, CardRank.TEN);
         
-        game.getPlayersHands().get(player1).add(aceHearts);
-        game.getPlayersHands().get(player1).add(tenClubs);
+        game.addCardToHand(player1, aceHearts);
+        game.addCardToHand(player1, tenClubs);
 
-        game.getDiscardPile().add(new Card(CardSuit.SPADES, CardRank.TWO));
+        game.addToDiscardPile(new Card(CardSuit.SPADES, CardRank.TWO));
 
         // When
         repository.save(game);
@@ -77,7 +76,7 @@ public class MakaoGameRepositoryTest extends AbstractTestNGSpringContextTests {
         assertThat(player1Hand.get(0).getRank()).isEqualTo(CardRank.ACE);
     }
 
-    @Test(description = "Powinien zaktualizować istniejącą grę w Redisie")
+    @Test(description = "Should update existing game in Redis")
     public void shouldUpdateExistingGame() {
         // Given
         String roomId = "update_test";
@@ -95,4 +94,18 @@ public class MakaoGameRepositoryTest extends AbstractTestNGSpringContextTests {
         assertThat(updated.getPendingDrawCount()).isEqualTo(5);
         assertThat(updated.getStatus()).isEqualTo(RoomStatus.FINISHED);
     }
-}
+
+    @Test(description = "Should delete game from Redis")
+    public void shouldDeleteGame() {
+        // Given
+        String roomId = "delete_test";
+        MakaoGame game = new MakaoGame(roomId, List.of("p1"));
+        repository.save(game);
+
+        // When
+        repository.deleteById(roomId);
+
+        // Then
+        Optional<MakaoGame> deletedGame = repository.findById(roomId);
+        assertThat(deletedGame).isNotPresent();
+    }

@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,5 +62,31 @@ public class MakaoGame implements Serializable {
             return null;
         }
         return discardPile.get(discardPile.size() - 1);
+    }
+
+    public List<Card> getDiscardPile() {
+        return Collections.unmodifiableList(discardPile);
+    }
+
+    public void addToDiscardPile(Card card) {
+        this.discardPile.add(card);
+    }
+
+    public List<Card> getDrawPile() {
+        return Collections.unmodifiableList(drawPile);
+    }
+
+    public void addToDrawPile(Card card) {
+        this.drawPile.add(card);
+    }
+
+    public Map<String, List<Card>> getPlayersHands() {
+        return Collections.unmodifiableMap(playersHands);
+    }
+
+    public void addCardToHand(String playerId, Card card) {
+        if (playersHands.containsKey(playerId)) {
+            playersHands.get(playerId).add(card);
+        }
     }
 }

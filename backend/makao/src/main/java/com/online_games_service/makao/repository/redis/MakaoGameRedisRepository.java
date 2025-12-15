@@ -1,7 +1,9 @@
 package com.online_games_service.makao.repository.redis;
 
 import com.online_games_service.makao.model.MakaoGame;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -46,14 +48,25 @@ public class MakaoGameRedisRepository {
     }
 
     public void deleteAll() {
-        Set<String> keys = redisTemplate.keys(KEY_PREFIX + "*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
+        // we should use scan to avoid blocking Redis for a long time
+        ScanOptions options = ScanOptions.scanOptions().match(KEY_PREFIX + "*").count(1000).build();
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            while (cursor.hasNext()) {
+                String key = cursor.next();
+                redisTemplate.delete(key);
+            }
         }
     }
 
     public long count() {
-        Set<String> keys = redisTemplate.keys(KEY_PREFIX + "*");
-        return keys != null ? keys.size() : 0;
+        long count = 0;
+        ScanOptions options = ScanOptions.scanOptions().match(KEY_PREFIX + "*").count(1000).build();
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            while (cursor.hasNext()) {
+                cursor.next();
+                count++;
+            }
+        }
+        return count;
     }
 }
