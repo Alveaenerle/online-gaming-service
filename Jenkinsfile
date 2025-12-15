@@ -24,6 +24,8 @@ pipeline {
                         sh "chmod +x mvnw"
                         sh "chmod +x backend_code_coverage.sh"
 
+                        sh "./mvnw -pl common -am clean install -DskipTests"
+
                         def modules = ['social', 'menu', 'makao', 'ludo', 'authorization', 'tests']
 
                         modules.each { moduleName ->
