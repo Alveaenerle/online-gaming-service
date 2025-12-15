@@ -29,7 +29,9 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldSaveAndRetrieveAccount() {
         // Given
-        Account account = new Account("jan@test.com", "hashedPassword123");
+        String userID = "123";
+        String username = "username";
+        Account account = new Account("jan@test.com", "hashedPassword123", userID, username);
 
         // When
         Account savedAccount = accountRepository.save(account);
@@ -46,8 +48,11 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldThrowExceptionOnDuplicateEmail() {
         // Given
-        Account account1 = new Account("duplicate@test.com", "hash1");
-        Account account2 = new Account("duplicate@test.com", "hash2");
+        String userID1 = "1234";
+        String userID2 = "12345";
+        String username = "username";
+        Account account1 = new Account("duplicate@test.com", "hash1", userID1, username);
+        Account account2 = new Account("duplicate@test.com", "hash2", userID2, username);
 
         // When
         accountRepository.save(account1);
@@ -61,7 +66,9 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldThrowExceptionOnInvalidEmail() {
         // Given
-        Account invalidAccount = new Account("not-an-email", "pass123");
+        String userID = "123";
+        String username = "username";
+        Account invalidAccount = new Account("not-an-email", "pass123", userID, username);
 
         // When & Then
         Assert.assertThrows(ConstraintViolationException.class, () -> {
@@ -72,8 +79,10 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldFindAccountByEmail() {
         // Given
+        String userID = "123";
+        String username = "username";
         String email = "szukany@test.com";
-        accountRepository.save(new Account(email, "someHash"));
+        accountRepository.save(new Account(email, "someHash", userID, username));
 
         // When
         Optional<Account> found = accountRepository.findByEmail(email);
@@ -81,5 +90,22 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
         // Then
         Assert.assertTrue(found.isPresent());
         Assert.assertEquals(found.get().getEmail(), email);
+    }
+
+    @Test
+    public void shouldThrowExceptionWhenLinkingTwoAccountsToSameUser() {        
+        // Given
+        String userId = "user_id_12345"; 
+
+        Account account1 = new Account("email1@test.com", "pass1", userId, "username");
+        Account account2 = new Account("email2@test.com", "pass2", userId, "username"); 
+
+        // When
+        accountRepository.save(account1);
+
+        // Then
+        Assert.assertThrows(DuplicateKeyException.class, () -> {
+            accountRepository.save(account2);
+        });
     }
 }
