@@ -1,6 +1,5 @@
 package com.online_games_service.authorization.config;
 
-import com.online_games_service.authorization.security.jwt.AuthTokenFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +11,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.online_games_service.authorization.security.AuthTokenFilter;
 
 @Configuration
 @RequiredArgsConstructor
@@ -33,9 +34,10 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configure(http))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/register", "/login", "/guest").permitAll()
+                .requestMatchers("/register", "/login", "/guest", "/logout").permitAll()
                 .anyRequest().authenticated()
             );
 

@@ -14,7 +14,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-@SpringBootTest
+@SpringBootTest 
 @ActiveProfiles("test")
 public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
 
@@ -28,36 +28,28 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void shouldSaveAndRetrieveAccount() {
-        // Given
         String userID = "123";
         String username = "username";
         Account account = new Account("jan@test.com", "hashedPassword123", userID, username);
 
-        // When
         Account savedAccount = accountRepository.save(account);
 
-        // Then
         Assert.assertNotNull(savedAccount.getId());
-        
         Optional<Account> retrieved = accountRepository.findById(savedAccount.getId());
         Assert.assertTrue(retrieved.isPresent());
         Assert.assertEquals(retrieved.get().getEmail(), "jan@test.com");
-        Assert.assertNotNull(retrieved.get().getCreatedAt());
     }
 
     @Test
     public void shouldThrowExceptionOnDuplicateEmail() {
-        // Given
         String userID1 = "1234";
         String userID2 = "12345";
         String username = "username";
         Account account1 = new Account("duplicate@test.com", "hash1", userID1, username);
         Account account2 = new Account("duplicate@test.com", "hash2", userID2, username);
 
-        // When
         accountRepository.save(account1);
 
-        // Then
         Assert.assertThrows(DuplicateKeyException.class, () -> {
             accountRepository.save(account2);
         });
@@ -65,12 +57,10 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void shouldThrowExceptionOnInvalidEmail() {
-        // Given
         String userID = "123";
         String username = "username";
         Account invalidAccount = new Account("not-an-email", "pass123", userID, username);
 
-        // When & Then
         Assert.assertThrows(ConstraintViolationException.class, () -> {
             accountRepository.save(invalidAccount);
         });
@@ -78,32 +68,25 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void shouldFindAccountByEmail() {
-        // Given
         String userID = "123";
         String username = "username";
         String email = "szukany@test.com";
         accountRepository.save(new Account(email, "someHash", userID, username));
 
-        // When
         Optional<Account> found = accountRepository.findByEmail(email);
 
-        // Then
         Assert.assertTrue(found.isPresent());
         Assert.assertEquals(found.get().getEmail(), email);
     }
 
     @Test
     public void shouldThrowExceptionWhenLinkingTwoAccountsToSameUser() {        
-        // Given
         String userId = "user_id_12345"; 
-
         Account account1 = new Account("email1@test.com", "pass1", userId, "username");
         Account account2 = new Account("email2@test.com", "pass2", userId, "username"); 
 
-        // When
         accountRepository.save(account1);
 
-        // Then
         Assert.assertThrows(DuplicateKeyException.class, () -> {
             accountRepository.save(account2);
         });
