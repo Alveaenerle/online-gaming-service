@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   mongo:
@@ -11,6 +11,15 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=rootpassword
     volumes:
       - mongo_data:/data/db
+
+  redis:
+    image: redis:alpine
+    container_name: og-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --requirepass redispassword
 
   authorization:
     build:
@@ -25,7 +34,8 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-       - mongo
+      - mongo
+      - redis
 
   menu:
     build:
@@ -41,6 +51,7 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
+      - redis
 
   social:
     build:
@@ -56,6 +67,7 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
+      - redis
 
   makao:
     build:
@@ -71,6 +83,7 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
+      - redis
 
   ludo:
     build:
@@ -86,6 +99,7 @@ services:
       - ./backend:/app
     depends_on:
       - mongo
+      - redis
 
   frontend:
     build:
@@ -115,3 +129,4 @@ services:
 
 volumes:
   mongo_data:
+  redis_data:
