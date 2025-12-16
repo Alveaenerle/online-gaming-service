@@ -20,7 +20,7 @@ public abstract class BaseIntegrationTest extends AbstractTestNGSpringContextTes
     static final GenericContainer<?> redisContainer;
 
     static {
-        mongoDBContainer = new MongoDBContainer(DockerImageName.parse("mongo:latest"));
+        mongoDBContainer = new MongoDBContainer(DockerImageName.parse("mongo:4.4"));
         mongoDBContainer.start();
 
         redisContainer = new GenericContainer<>(DockerImageName.parse("redis:latest"))
