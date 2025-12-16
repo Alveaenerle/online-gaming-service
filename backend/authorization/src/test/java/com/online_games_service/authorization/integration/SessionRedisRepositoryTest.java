@@ -2,12 +2,7 @@ package com.online_games_service.authorization.integration;
 
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.repository.redis.SessionRedisRepository;
-import com.online_games_service.common.config.BaseRedisConfig; 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.data.redis.DataRedisTest; 
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -15,10 +10,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.UUID;
 
-@DataRedisTest
-@ActiveProfiles("test")
-@Import({SessionRedisRepository.class, BaseRedisConfig.class}) 
-public class SessionRedisRepositoryTest extends AbstractTestNGSpringContextTests {
+public class SessionRedisRepositoryTest extends BaseIntegrationTest {
 
     @Autowired
     private SessionRedisRepository sessionRedisRepository;

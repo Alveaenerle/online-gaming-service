@@ -4,19 +4,14 @@ import com.online_games_service.authorization.model.Account;
 import com.online_games_service.authorization.repository.AccountRepository;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-@SpringBootTest 
-@ActiveProfiles("test")
-public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
+public class AccountRepositoryTest extends BaseIntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
