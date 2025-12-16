@@ -39,7 +39,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/register", "/login", "/guest", "/logout").permitAll()
                 .anyRequest().authenticated()
-            );
+            )
+            .logout(logout -> logout.disable());
 
         http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
