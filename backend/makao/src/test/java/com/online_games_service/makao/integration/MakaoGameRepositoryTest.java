@@ -8,6 +8,9 @@ import com.online_games_service.makao.model.MakaoGame;
 import com.online_games_service.makao.repository.redis.MakaoGameRedisRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.AfterMethod;
@@ -25,9 +28,21 @@ public class MakaoGameRepositoryTest extends AbstractTestNGSpringContextTests {
     @Autowired
     private MakaoGameRedisRepository repository;
 
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
     @AfterMethod
     public void cleanUp() {
-        repository.deleteAll();
+        ScanOptions options = ScanOptions.scanOptions()
+                .match(repository.getKeyPrefix() + "*")
+                .count(1000)
+                .build();
+        
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            while (cursor.hasNext()) {
+                redisTemplate.delete(cursor.next());
+            }
+        }
     }
 
     @Test(description = "Should save and retrieve full game state from Redis (JSON serialization verification)")
@@ -118,7 +133,7 @@ public class MakaoGameRepositoryTest extends AbstractTestNGSpringContextTests {
         repository.save(game2);
 
         // When
-        long count = repository.count();
+        long count = repository.countGames();
 
         // Then
         assertThat(count).isEqualTo(2);
