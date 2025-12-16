@@ -145,7 +145,6 @@ public class SessionServiceTest {
     public void shouldNotDeleteSessionWhenCookieIsMissing() {
         // Given
         MockHttpServletRequest request = new MockHttpServletRequest();
-        // Brak ciasteczek
 
         // When
         sessionService.deleteSession(request);

@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 public class AuthServiceTest {
@@ -36,9 +37,7 @@ public class AuthServiceTest {
         authService = new AuthService(accountRepository, passwordEncoder);
     }
 
-    // ==========================================
     // REGISTER TESTS
-    // ==========================================
 
     @Test
     public void shouldRegisterNewAccountSuccessfully() {
@@ -79,9 +78,7 @@ public class AuthServiceTest {
         verify(accountRepository, never()).save(any()); 
     }
 
-    // ==========================================
     // LOGIN TESTS
-    // ==========================================
 
     @Test
     public void shouldLoginSuccessfullyAndReturnUserDTO() {
@@ -128,12 +125,10 @@ public class AuthServiceTest {
         authService.login(request);
     }
 
-    // ==========================================
     // GUEST TESTS
-    // ==========================================
 
     @Test
-    public void shouldCreateGuestUserInMemoryOnly() {
+    public void shouldGenerateValidGuestUser() { 
         // When
         User guest = authService.createGuest();
 

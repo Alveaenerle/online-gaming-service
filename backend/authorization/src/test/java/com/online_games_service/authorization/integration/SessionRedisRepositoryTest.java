@@ -3,6 +3,7 @@ package com.online_games_service.authorization.integration;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.repository.redis.SessionRedisRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -16,6 +17,18 @@ public class SessionRedisRepositoryTest extends BaseIntegrationTest {
     private SessionRedisRepository sessionRedisRepository;
 
     private String sessionId;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @BeforeMethod 
+    public void cleanUp() {
+        java.util.Set<String> keys = redisTemplate.keys("auth:session:*");
+        
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
 
     @BeforeMethod
     public void setUp() {

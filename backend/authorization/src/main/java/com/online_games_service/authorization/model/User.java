@@ -19,7 +19,6 @@ public class User implements Serializable {
 
     /**
      * Creates a new User with strict validation.
-     * User objects should only be instantiated through authenticated flows (AuthService).
      *
      * @param id       Unique identifier, must not be null or blank.
      * @param username Display name, must not be null or blank.

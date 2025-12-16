@@ -10,6 +10,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.WebUtils;
 
+import java.time.Duration;
 import java.util.UUID;
 
 /**
@@ -31,7 +32,7 @@ import java.util.UUID;
 public class SessionService {
     private final SessionRedisRepository sessionRepository;
 
-    @Value("${onlinegamesservice.app.jwtCookieName:ogs_session}")
+    @Value("${onlinegamesservice.app.sessionCookieName:ogs_session}")
     private String cookieName;
 
     @Value("${onlinegamesservice.app.sessionTimeout:86400}")
@@ -109,11 +110,13 @@ public class SessionService {
     }
 
     private ResponseCookie generateCookie(String value) {
-        // 
-        // This diagram would illustrate HttpOnly blocking JS access and SameSite controlling cross-site requests.
+        // Generates a session cookie with security flags:
+        // - HttpOnly: Prevents JavaScript access to mitigate XSS.
+        // - SameSite=Lax: Helps protect against CSRF by restricting cross-site requests.
+        // - Secure: Should be enabled in production to ensure cookies are sent only over HTTPS.
         return ResponseCookie.from(cookieName, value)
                 .path("/")
-                .maxAge(sessionTimeout)
+                .maxAge(Duration.ofSeconds(sessionTimeout)) 
                 .httpOnly(true)   // Mitigates XSS: Client-side JS cannot read this cookie
                 .secure(false)    // TODO: Set to true in production (requires HTTPS)
                 .sameSite("Lax")  // Mitigates CSRF: Cookie not sent on cross-site subrequests
