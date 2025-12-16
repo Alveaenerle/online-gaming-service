@@ -1,63 +1,66 @@
 package com.online_games_service.authorization.service;
 
+import com.online_games_service.authorization.dto.LoginRequest;
+import com.online_games_service.authorization.dto.RegisterRequest;
+import com.online_games_service.authorization.exception.EmailAlreadyExistsException; 
+import com.online_games_service.authorization.exception.InvalidCredentialsException; 
+import com.online_games_service.authorization.model.Account;
+import com.online_games_service.authorization.model.User;
+import com.online_games_service.authorization.repository.AccountRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.online_games_service.authorization.security.jwt.JwtUtils;
-import com.online_games_service.authorization.dto.LoginRequest;
-import com.online_games_service.authorization.dto.RegisterRequest;
-import com.online_games_service.authorization.model.Account;
-import com.online_games_service.authorization.model.User;
-import com.online_games_service.authorization.repository.AccountRepository;
-import com.online_games_service.authorization.repository.UserRepository;
-
-import lombok.RequiredArgsConstructor;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-    private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtils jwtUtils;
 
     @Transactional
     public void register(RegisterRequest request) {
         if (accountRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Error: Email is already in use!");
+            throw new EmailAlreadyExistsException("Error: Email is already in use!");
         }
-
-        User newUser = new User(request.getUsername(), false);
-        User savedUser = userRepository.save(newUser);
+        
+        String generatedUserId = UUID.randomUUID().toString();
 
         Account newAccount = new Account(
             request.getEmail(), 
             passwordEncoder.encode(request.getPassword()), 
-            savedUser.getId(),
+            generatedUserId, 
             request.getUsername() 
         );
+        
         accountRepository.save(newAccount);
     }
 
-    public String login(LoginRequest request) {
+    public User login(LoginRequest request) {
         Account account = accountRepository.findByEmail(request.getEmail())
-            .orElseThrow(() -> new RuntimeException("Account not found"));
+            .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
         
-        if(!passwordEncoder.matches(request.getPassword(), account.getPasswordHash())) {
-            throw new RuntimeException("Invalid password");
+        if (!passwordEncoder.matches(request.getPassword(), account.getPasswordHash())) {
+            throw new InvalidCredentialsException("Invalid email or password");
         }
 
-        User user = userRepository.findById(account.getUserId())
-            .orElseThrow(() -> new RuntimeException("User data integrity error"));
-        
-        return jwtUtils.generateJwtToken(user);
+        return new User(
+            account.getUserId(), 
+            account.getUsername(),
+            false 
+        );
     }
 
-    public String createGuest() {
+    public User createGuest() {
+        String guestId = UUID.randomUUID().toString();
         String guestName = "Guest_" + System.currentTimeMillis();
-        User guestUser = new User(guestName, true);
-        userRepository.save(guestUser);
-        return jwtUtils.generateJwtToken(guestUser);
+        
+        return new User(
+            guestId, 
+            guestName, 
+            true 
+        );
     }
 }
