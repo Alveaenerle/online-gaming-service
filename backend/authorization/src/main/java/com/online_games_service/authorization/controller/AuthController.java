@@ -2,12 +2,16 @@ package com.online_games_service.authorization.controller;
 
 import com.online_games_service.authorization.dto.LoginRequest;
 import com.online_games_service.authorization.dto.RegisterRequest;
+import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
+import com.online_games_service.authorization.exception.InvalidCredentialsException;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.service.AuthService;
 import com.online_games_service.authorization.service.SessionService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid; 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -24,20 +28,23 @@ public class AuthController {
     private final SessionService sessionService;
 
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest request) {
         log.info("Attempting to register user: {}", request.getUsername());
         try {
             authService.register(request);
             log.info("User registered successfully: {}", request.getUsername());
             return ResponseEntity.ok("User registered successfully!");
-        } catch(RuntimeException e) {
-            log.error("Registration failed for user {}: {}", request.getUsername(), e.getMessage());
+        } catch (EmailAlreadyExistsException e) {
+            log.warn("Registration failed for user {}: {}", request.getUsername(), e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during registration", e);
+            return ResponseEntity.internalServerError().body("An unexpected error occurred");
         }
     }
     
     @PostMapping("/login")
-    public ResponseEntity<?> loginUser(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> loginUser(@Valid @RequestBody LoginRequest request) {
         log.info("Login attempt for email: {}", request.getEmail());
         try {
             User user = authService.login(request);
@@ -48,9 +55,12 @@ public class AuthController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
                     .body("Login successful");
-        } catch(RuntimeException e) {
+        } catch (InvalidCredentialsException e) { 
             log.warn("Login failed for email {}: {}", request.getEmail(), e.getMessage());
-            return ResponseEntity.status(401).body("Login failed: " + e.getMessage());
+            return ResponseEntity.status(401).body("Login failed: Invalid credentials");
+        } catch (Exception e) {
+            log.error("Unexpected error during login", e);
+            return ResponseEntity.internalServerError().body("An unexpected error occurred");
         }
     }
 
@@ -67,7 +77,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(jakarta.servlet.http.HttpServletRequest request) {
+    public ResponseEntity<?> logout(HttpServletRequest request) {
         sessionService.deleteSession(request);
         ResponseCookie cookie = sessionService.getCleanSessionCookie();
         return ResponseEntity.ok()

@@ -2,6 +2,8 @@ package com.online_games_service.authorization.service;
 
 import com.online_games_service.authorization.dto.LoginRequest;
 import com.online_games_service.authorization.dto.RegisterRequest;
+import com.online_games_service.authorization.exception.EmailAlreadyExistsException; 
+import com.online_games_service.authorization.exception.InvalidCredentialsException; 
 import com.online_games_service.authorization.model.Account;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.repository.AccountRepository;
@@ -21,7 +23,7 @@ public class AuthService {
     @Transactional
     public void register(RegisterRequest request) {
         if (accountRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Error: Email is already in use!");
+            throw new EmailAlreadyExistsException("Error: Email is already in use!");
         }
         
         String generatedUserId = UUID.randomUUID().toString();
@@ -38,10 +40,10 @@ public class AuthService {
 
     public User login(LoginRequest request) {
         Account account = accountRepository.findByEmail(request.getEmail())
-            .orElseThrow(() -> new RuntimeException("Account not found"));
+            .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
         
-        if(!passwordEncoder.matches(request.getPassword(), account.getPasswordHash())) {
-            throw new RuntimeException("Invalid password");
+        if (!passwordEncoder.matches(request.getPassword(), account.getPasswordHash())) {
+            throw new InvalidCredentialsException("Invalid email or password");
         }
 
         return new User(

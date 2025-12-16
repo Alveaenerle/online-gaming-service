@@ -66,8 +66,8 @@ public class RegisterRequestValidationTest {
     @Test
     public void testUsernameIsTooLong() {
         // Given
-        String longNick = "a".repeat(21);
-        RegisterRequest request = new RegisterRequest(longNick, "valid@email.com", "password123");
+        String longUsername = "a".repeat(21);
+        RegisterRequest request = new RegisterRequest(longUsername, "valid@email.com", "password123");
 
         // When
         Set<ConstraintViolation<RegisterRequest>> violations = validator.validate(request);
