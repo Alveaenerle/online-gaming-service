@@ -19,6 +19,9 @@ import java.util.ArrayList;
 
 @Component
 @RequiredArgsConstructor
+// TODO: This Bearer token solution is temporary.
+// We plan to switch to a cookie-oriented solution (HttpOnly Cookies) for better security.
+@SuppressWarnings("java:S1135") 
 public class AuthTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
@@ -44,7 +47,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Cannot set user authentication: " + e.getMessage());
+            logger.error("Cannot set user authentication: {}", e);
         }
 
         filterChain.doFilter(request, response);
