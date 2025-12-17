@@ -17,14 +17,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Sprawdź sesję przy starcie aplikacji
   useEffect(() => {
     const checkSession = async () => {
       try {
         const userData = await authService.getCurrentUser();
         setUser(userData);
       } catch {
-        // Brak aktywnej sesji - to normalne
         setUser(null);
       } finally {
         setIsLoading(false);
