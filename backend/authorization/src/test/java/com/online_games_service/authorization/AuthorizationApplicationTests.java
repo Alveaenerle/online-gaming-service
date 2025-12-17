@@ -1,14 +1,11 @@
 package com.online_games_service.authorization;
 
+import com.online_games_service.authorization.integration.BaseIntegrationTest;
 import org.testng.annotations.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 
-@SpringBootTest
-public class AuthorizationApplicationTests extends AbstractTestNGSpringContextTests {
+public class AuthorizationApplicationTests extends BaseIntegrationTest {
 
     @Test
     public void contextLoads() {
     }
-
 }

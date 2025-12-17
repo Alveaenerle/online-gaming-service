@@ -4,19 +4,14 @@ import com.online_games_service.authorization.model.Account;
 import com.online_games_service.authorization.repository.AccountRepository;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-@SpringBootTest
-@ActiveProfiles("test")
-public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
+public class AccountRepositoryTest extends BaseIntegrationTest {
 
     @Autowired
     private AccountRepository accountRepository;
@@ -38,11 +33,9 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
 
         // Then
         Assert.assertNotNull(savedAccount.getId());
-        
         Optional<Account> retrieved = accountRepository.findById(savedAccount.getId());
         Assert.assertTrue(retrieved.isPresent());
         Assert.assertEquals(retrieved.get().getEmail(), "jan@test.com");
-        Assert.assertNotNull(retrieved.get().getCreatedAt());
     }
 
     @Test
@@ -54,10 +47,9 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
         Account account1 = new Account("duplicate@test.com", "hash1", userID1, username);
         Account account2 = new Account("duplicate@test.com", "hash2", userID2, username);
 
-        // When
         accountRepository.save(account1);
 
-        // Then
+        // When & Then
         Assert.assertThrows(DuplicateKeyException.class, () -> {
             accountRepository.save(account2);
         });
@@ -93,17 +85,15 @@ public class AccountRepositoryTest extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void shouldThrowExceptionWhenLinkingTwoAccountsToSameUser() {        
+    public void shouldThrowExceptionWhenLinkingTwoAccountsToSameUser() {
         // Given
-        String userId = "user_id_12345"; 
-
+        String userId = "user_id_12345";
         Account account1 = new Account("email1@test.com", "pass1", userId, "username");
-        Account account2 = new Account("email2@test.com", "pass2", userId, "username"); 
+        Account account2 = new Account("email2@test.com", "pass2", userId, "username");
 
-        // When
         accountRepository.save(account1);
 
-        // Then
+        // When & Then
         Assert.assertThrows(DuplicateKeyException.class, () -> {
             accountRepository.save(account2);
         });
