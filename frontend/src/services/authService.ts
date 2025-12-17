@@ -31,7 +31,6 @@ export const authService = {
       throw new Error(errorText || 'Login failed');
     }
 
-    // Po pomyślnym logowaniu pobierz dane użytkownika
     return this.getCurrentUser();
   },
 
