@@ -63,25 +63,25 @@ pipeline {
             steps {
                 script {
                     def deployToProd = load('infra/deployToProd.groovy')
-                    withCredentials([usernamePassword(credentialsId: '86a5c18e-996c-42ea-bf9e-190b2cb978bd',
-                                                      usernameVariable: 'NEXUS_CREDS_USR',
-                                                      passwordVariable: 'NEXUS_CREDS_PSW')]) {
-                        deployToProd(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
-                    }
+                    deployToProd(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
                 }
             }
         }
     }
 
-    post {
+post {
         always {
             script {
-                def postBuildStatus = load('infra/postBuildStatus.groovy')
-                def result = currentBuild.currentResult
-                if (result == 'SUCCESS' || result == 'FAILURE') {
-                    postBuildStatus(result)
+                try {
+                    def postBuildStatus = load('infra/postBuildStatus.groovy')
+                    postBuildStatus(currentBuild.currentResult)
+                } catch (e) {
+                    echo "Could not execute postBuildStatus: ${e.message}"
                 }
             }
+        }
+        success {
+            sh "docker image prune -f --filter 'label=stage=intermediate'"
         }
     }
 }
