@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Spade, ChessPawn } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const games = [
   {
@@ -9,6 +10,7 @@ const games = [
     description:
       "A modern take on the classic board game. Compete with other players, block your opponents, and race your tokens to the finish before anyone else. Simple rules, fast-paced matches, and plenty of competitive fun.",
     icon: ChessPawn,
+    route: "/ludo",
   },
   {
     id: 2,
@@ -16,12 +18,14 @@ const games = [
     description:
       "A dynamic card game full of twists and strategy. Play your cards wisely, force opponents to draw or skip turns, and be the first to get rid of all your cards. Easy to learn, unpredictable, and highly competitive.",
     icon: Spade,
+    route: "/makao",
   },
 ];
 
 export const GameCarousel: React.FC = () => {
   const [centerIndex, setCenterIndex] = useState(0);
   const count = games.length;
+  const navigate = useNavigate();
 
   const prev = () => setCenterIndex((i) => (i === 0 ? count - 1 : i - 1));
   const next = () => setCenterIndex((i) => (i === count - 1 ? 0 : i + 1));
@@ -110,7 +114,10 @@ export const GameCarousel: React.FC = () => {
                     {game.description}
                   </p>
                   <div className="mt-7 flex justify-center">
-                    <button className="px-6 py-3 rounded-xl text-sm font-semibold bg-purple-600 hover:bg-purple-500 shadow shadow-purple-600/40 transition">
+                    <button
+                      onClick={() => navigate(game.route)}
+                      className="px-6 py-3 rounded-xl text-sm font-semibold bg-purple-600 hover:bg-purple-500 shadow shadow-purple-600/40 transition"
+                    >
                       Play
                     </button>
                   </div>

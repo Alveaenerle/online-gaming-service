@@ -1,8 +1,20 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { User, LogOut, ChevronDown } from "lucide-react";
 
 const Navbar: React.FC = () => {
+  const { user, isAuthenticated, logout } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    setDropdownOpen(false);
+    navigate("/");
+  };
+
   return (
     <header className="w-full py-4 px-6 md:px-12 flex items-center justify-between z-50 fixed top-0 left-0 bg-[#121018]/80 backdrop-blur-md">
       <motion.div
@@ -26,23 +38,68 @@ const Navbar: React.FC = () => {
           Rankings
         </a>
 
-        <Link to="/login">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            className="px-4 py-2 rounded-md border border-purpleEnd text-white transition-transform"
-          >
-            Login
-          </motion.button>
-        </Link>
+        {isAuthenticated && user ? (
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white shadow-neon transition-transform"
+            >
+              <User size={18} />
+              <span className="font-medium">{user.username}</span>
+              <ChevronDown
+                size={16}
+                className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+              />
+            </motion.button>
 
-        <Link to="/register">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            className="px-4 py-2 rounded-md bg-gradient-to-br from-purpleStart to-purpleEnd text-white shadow-neon transition-transform"
-          >
-            Register
-          </motion.button>
-        </Link>
+            <AnimatePresence>
+              {dropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute right-0 mt-2 w-48 bg-[#1a1a27] border border-white/10 rounded-xl shadow-lg overflow-hidden"
+                >
+                  <Link
+                    to="/home"
+                    onClick={() => setDropdownOpen(false)}
+                    className="block px-4 py-3 hover:bg-white/5 transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex items-center gap-2 text-red-400"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <>
+            <Link to="/login">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                className="px-4 py-2 rounded-md border border-purpleEnd text-white transition-transform"
+              >
+                Login
+              </motion.button>
+            </Link>
+
+            <Link to="/register">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                className="px-4 py-2 rounded-md bg-gradient-to-br from-purpleStart to-purpleEnd text-white shadow-neon transition-transform"
+              >
+                Register
+              </motion.button>
+            </Link>
+          </>
+        )}
       </nav>
     </header>
   );

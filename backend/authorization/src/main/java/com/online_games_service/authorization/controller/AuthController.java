@@ -9,7 +9,7 @@ import com.online_games_service.authorization.service.AuthService;
 import com.online_games_service.authorization.service.SessionService;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid; 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @CrossOrigin(origins = "${app.cors.allowed-origins}", allowCredentials = "true")
 public class AuthController {
-    
+
     private final AuthService authService;
     private final SessionService sessionService;
 
@@ -42,20 +42,20 @@ public class AuthController {
             return ResponseEntity.internalServerError().body("An unexpected error occurred");
         }
     }
-    
+
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@Valid @RequestBody LoginRequest request) {
         log.info("Login attempt for email: {}", request.getEmail());
         try {
             User user = authService.login(request);
-            
+
             ResponseCookie sessionCookie = sessionService.createSessionCookie(user);
-            
+
             log.info("Login successful for email: {}", request.getEmail());
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
                     .body("Login successful");
-        } catch (InvalidCredentialsException e) { 
+        } catch (InvalidCredentialsException e) {
             log.warn("Login failed for email {}: {}", request.getEmail(), e.getMessage());
             return ResponseEntity.status(401).body("Login failed: Invalid credentials");
         } catch (Exception e) {
@@ -68,9 +68,9 @@ public class AuthController {
     public ResponseEntity<?> playAsGuest() {
         log.info("Creating guest session");
         User guest = authService.createGuest();
-        
+
         ResponseCookie sessionCookie = sessionService.createSessionCookie(guest);
-        
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
                 .body("Logged in as Guest");
@@ -83,5 +83,16 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body("You've been signed out!");
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(HttpServletRequest request) {
+        User user = sessionService.getUserFromCookie(request);
+        if (user == null) {
+            log.debug("No active session found for /me request");
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+        log.debug("User {} retrieved from session", user.getUsername());
+        return ResponseEntity.ok(user);
     }
 }
