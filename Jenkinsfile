@@ -69,7 +69,7 @@ pipeline {
         }
     }
 
-post {
+    post {
         always {
             script {
                 try {

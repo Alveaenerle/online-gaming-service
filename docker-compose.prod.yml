@@ -116,16 +116,30 @@ services:
       - gaming-net
     volumes:
       - mongo_data:/data/db
+    logging: *production-logging
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@localhost:27017/test?authSource=admin --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
   
   redis:
     image: redis:7.2-alpine
     container_name: og-redis
     restart: always
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     networks:
       - gaming-net
     volumes:
       - redis_data:/data
+    logging: *production-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 networks:
   gaming-net:
