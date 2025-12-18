@@ -33,6 +33,11 @@ pipeline {
                         }
                     }
                 }
+                script {
+                    def postCoverage = load('infra/postCoverageReport.groovy')
+                    def modules = ['social', 'menu', 'makao', 'ludo', 'authorization']
+                    postCoverage(modules)
+                }
             }
         }
 
