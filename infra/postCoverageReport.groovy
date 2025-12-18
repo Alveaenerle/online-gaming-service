@@ -15,15 +15,16 @@ def call(List<String> modules) {
         if (fileExists(csvFile)) {
             anyReportFound = true
             def lines = readFile(csvFile).split('\n')
-            // Skip header
-            def dataLines = lines.drop(1)
             
             long totalLinesMissed = 0
             long totalLinesCovered = 0
             long totalInstructionsMissed = 0
             long totalInstructionsCovered = 0
 
-            dataLines.each { line ->
+            for (int i = 1; i < lines.length; i++) {
+                def line = lines[i]
+                if (!line.trim()) continue
+
                 def columns = line.split(',')
                 if (columns.size() > 8) {
                     totalInstructionsMissed += columns[3].toInteger()
@@ -56,7 +57,6 @@ def call(List<String> modules) {
         return
     }
 
-    // Manual JSON escaping
     def escapedBody = report.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
     def payload = "{\"body\": \"${escapedBody}\"}"
 
