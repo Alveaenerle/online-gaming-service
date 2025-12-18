@@ -37,13 +37,13 @@ def call(List<String> modules) {
             def lineCoverage = 0
             def totalLines = totalLinesMissed + totalLinesCovered
             if (totalLines > 0) {
-                lineCoverage = (totalLinesCovered * 100.0 / totalLines).round(2)
+                lineCoverage = (totalLinesCovered * 100.0 / totalLines).setScale(2, java.math.RoundingMode.HALF_UP)
             }
 
             def instructionCoverage = 0
             def totalInstructions = totalInstructionsMissed + totalInstructionsCovered
             if (totalInstructions > 0) {
-                instructionCoverage = (totalInstructionsCovered * 100.0 / totalInstructions).round(2)
+                instructionCoverage = (totalInstructionsCovered * 100.0 / totalInstructions).setScale(2, java.math.RoundingMode.HALF_UP)
             }
 
             report += "| **${module}** | ${lineCoverage}% | ${instructionCoverage}% |\n"
