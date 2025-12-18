@@ -7,9 +7,9 @@ COPY authorization/pom.xml authorization/
 COPY ludo/pom.xml ludo/
 COPY makao/pom.xml makao/
 COPY social/pom.xml social/
-COPY tests/pom.xml tests/
 COPY menu/pom.xml menu/
 COPY common/pom.xml common/
+COPY common-test-support/pom.xml common-test-support/
 
 RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline
