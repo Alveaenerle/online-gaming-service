@@ -26,7 +26,7 @@ pipeline {
 
                         sh "./mvnw -pl common,common-test-support -am clean install -DskipTests"
 
-                        def modules = ['social', 'menu', 'makao', 'ludo', 'authorization', 'tests']
+                        def modules = ['social', 'menu', 'makao', 'ludo', 'authorization', 'common']
 
                         modules.each { moduleName ->
                             sh "./backend_code_coverage.sh ${moduleName}"
