@@ -36,7 +36,11 @@
         <dependency>
             <groupId>com.online_games_service</groupId>
             <artifactId>common</artifactId>
-            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.online_games_service</groupId>
+            <artifactId>common-test-support</artifactId>
         </dependency>
     </dependencies>
 
