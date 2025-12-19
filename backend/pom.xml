@@ -98,6 +98,20 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>sonar</id>
+            <properties>
+                <sonar.host.url>https://sonar.yapyap.pl</sonar.host.url>
+                <sonar.projectKey>online-games-service</sonar.projectKey>
+                <sonar.moduleKey>${project.artifactId}</sonar.moduleKey>
+                <sonar.coverage.jacoco.xmlReportPaths>
+                    ${project.basedir}/target/site/jacoco/jacoco.xml
+                </sonar.coverage.jacoco.xmlReportPaths>
+            </properties>
+        </profile>
+    </profiles>
+
     <build>
         <pluginManagement>
             <plugins>

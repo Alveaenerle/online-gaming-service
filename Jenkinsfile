@@ -16,9 +16,13 @@ pipeline {
     stages {
         stage('Run tests & Code Coverage') {
             when {
-                changeRequest()
+                anyOf {
+                    changeRequest()
+                    branch 'main'
+                }
             }
             steps {
+                // Backend Tests
                 dir('backend') {
                     script {
                         sh "chmod +x mvnw"
@@ -33,10 +37,34 @@ pipeline {
                         }
                     }
                 }
+                
+                // Frontend Tests
+                dir('frontend') {
+                    script {
+                        sh "npm install"
+                        sh "npm run test:cov"
+                    }
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
                 script {
-                    def postCoverage = load('infra/postCoverageReport.groovy')
-                    def modules = ['social', 'menu', 'makao', 'ludo', 'authorization']
-                    postCoverage(modules)
+                    // Use the 'sonar-project.properties' file at the root
+                    // Requires 'sonar-scanner' tool to be available in Jenkins or PATH
+                    withSonarQubeEnv('Sonar') {
+                        sh "sonar-scanner"
+                    }
+                }
+            }
+        }
+
+        stage("Quality Gate") {
+            steps {
+                // Czekamy na wynik analizy (wymaga skonfigurowania Webhooka w Sonarze)
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
