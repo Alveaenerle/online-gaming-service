@@ -41,8 +41,11 @@ pipeline {
                 // Frontend Tests
                 dir('frontend') {
                     script {
-                        sh "npm install"
-                        sh "npm run test:cov"
+                        // Run in a Docker container to ensure Node.js/npm is available
+                        docker.image('node:20').inside {
+                            sh "npm install"
+                            sh "npm run test:cov"
+                        }
                     }
                 }
             }
