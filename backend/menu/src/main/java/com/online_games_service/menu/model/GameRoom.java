@@ -28,9 +28,9 @@ public class GameRoom {
 
     private GameType gameType;
 
-    private String hostId;
+    private String hostUsername;
 
-    private Set<String> playerIds = new HashSet<>();
+    private Set<String> playersUsernames = new HashSet<>();
 
     private int maxPlayers;
 
@@ -45,43 +45,43 @@ public class GameRoom {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    public GameRoom(String name, GameType gameType, String hostId, int maxPlayers, boolean isPrivate) {
+    public GameRoom(String name, GameType gameType, String hostUsername, int maxPlayers, boolean isPrivate) {
         this.name = name;
         this.gameType = gameType;
-        this.hostId = hostId;
+        this.hostUsername = hostUsername;
         this.maxPlayers = maxPlayers;
         this.isPrivate = isPrivate;
         this.status = RoomStatus.WAITING;
-        this.playerIds.add(hostId);
+        this.playersUsernames.add(hostUsername);
     }
     
     public boolean canJoin() {
-        return status == RoomStatus.WAITING && playerIds.size() < maxPlayers;
+        return status == RoomStatus.WAITING && playersUsernames.size() < maxPlayers;
     }
 
-    public Set<String> getPlayerIds() {
-        return Collections.unmodifiableSet(playerIds);
+    public Set<String> getPlayersUsernames() {
+        return Collections.unmodifiableSet(playersUsernames);
     }
 
-    public void setPlayerIds(Set<String> playerIds) {
-        this.playerIds = playerIds != null ? playerIds : new HashSet<>();
+    public void setPlayersUsernames(Set<String> playersUsernames) {
+        this.playersUsernames = playersUsernames != null ? playersUsernames : new HashSet<>();
     }
 
-    public void addPlayer(String playerId) {
+    public void addPlayer(String username) {
         if (!canJoin()) {
             throw new IllegalStateException("Cannot join room (Full or Game Started)");
         }
-        this.playerIds.add(playerId);
+        this.playersUsernames.add(username);
         
-        if (this.playerIds.size() >= maxPlayers) {
+        if (this.playersUsernames.size() >= maxPlayers) {
             this.status = RoomStatus.FULL;
         }
     }
 
-    public void removePlayer(String playerId) {
-        this.playerIds.remove(playerId);
+    public void removePlayer(String username) {
+        this.playersUsernames.remove(username);
         
-        if (this.status == RoomStatus.FULL && this.playerIds.size() < maxPlayers) {
+        if (this.status == RoomStatus.FULL && this.playersUsernames.size() < maxPlayers) {
             this.status = RoomStatus.WAITING;
         }
     }

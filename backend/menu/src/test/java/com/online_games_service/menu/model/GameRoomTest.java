@@ -10,15 +10,15 @@ public class GameRoomTest {
     @Test
     public void shouldInitializeCorrectly() {
         // Given
-        String hostId = "host_1";
+        String hostUsername = "host_user";
         
         // When
-        GameRoom room = new GameRoom("Test Room", GameType.LUDO, hostId, 4, false);
+        GameRoom room = new GameRoom("Test Room", GameType.LUDO, hostUsername, 4, false);
 
         // Then
         Assert.assertEquals(room.getStatus(), RoomStatus.WAITING);
-        Assert.assertEquals(room.getPlayerIds().size(), 1, "Host should be added automatically");
-        Assert.assertTrue(room.getPlayerIds().contains(hostId));
+        Assert.assertEquals(room.getPlayersUsernames().size(), 1, "Host should be added automatically");
+        Assert.assertTrue(room.getPlayersUsernames().contains(hostUsername));
     }
 
     @Test
@@ -43,7 +43,7 @@ public class GameRoomTest {
         room.addPlayer("p3");
         room.addPlayer("p4");
         
-        Assert.assertEquals(room.getPlayerIds().size(), 4);
+        Assert.assertEquals(room.getPlayersUsernames().size(), 4);
         Assert.assertFalse(room.canJoin(), "Should not join full room");
     }
 
@@ -54,7 +54,7 @@ public class GameRoomTest {
         
         // When & Then
         Assert.assertThrows(UnsupportedOperationException.class, () -> {
-            room.getPlayerIds().add("hacker");
+            room.getPlayersUsernames().add("hacker");
         });
     }
 
