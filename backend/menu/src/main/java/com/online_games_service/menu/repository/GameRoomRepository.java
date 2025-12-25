@@ -11,7 +11,7 @@ import java.util.List;
 @Repository
 public interface GameRoomRepository extends MongoRepository<GameRoom, String> {
     
-    List<GameRoom> findAllByGameTypeAndStatus(GameType gameType, RoomStatus status);
-    
+    List<GameRoom> findAllByGameType(GameType gameType);
     List<GameRoom> findAllByStatus(RoomStatus status);
+    List<GameRoom> findAllByGameTypeAndStatus(GameType gameType, RoomStatus status);
 }

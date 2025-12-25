@@ -11,9 +11,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document(collection = "game_rooms")
 @Data
@@ -30,7 +29,7 @@ public class GameRoom {
 
     private String hostUsername;
 
-    private Set<String> playersUsernames = new HashSet<>();
+    private List<String> playersUsernames = new ArrayList<>();
 
     private int maxPlayers;
 
@@ -52,26 +51,29 @@ public class GameRoom {
         this.maxPlayers = maxPlayers;
         this.isPrivate = isPrivate;
         this.status = RoomStatus.WAITING;
+
+        if (this.playersUsernames == null) {
+            this.playersUsernames = new ArrayList<>();
+        }
         this.playersUsernames.add(hostUsername);
+
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
     }
-    
+
     public boolean canJoin() {
         return status == RoomStatus.WAITING && playersUsernames.size() < maxPlayers;
-    }
-
-    public Set<String> getPlayersUsernames() {
-        return Collections.unmodifiableSet(playersUsernames);
-    }
-
-    public void setPlayersUsernames(Set<String> playersUsernames) {
-        this.playersUsernames = playersUsernames != null ? playersUsernames : new HashSet<>();
     }
 
     public void addPlayer(String username) {
         if (!canJoin()) {
             throw new IllegalStateException("Cannot join room (Full or Game Started)");
         }
-        this.playersUsernames.add(username);
+        if (!this.playersUsernames.contains(username)) {
+            this.playersUsernames.add(username);
+            this.updatedAt = LocalDateTime.now();
+        }
         
         if (this.playersUsernames.size() >= maxPlayers) {
             this.status = RoomStatus.FULL;
@@ -79,10 +81,22 @@ public class GameRoom {
     }
 
     public void removePlayer(String username) {
-        this.playersUsernames.remove(username);
+        boolean removed = this.playersUsernames.remove(username);
         
-        if (this.status == RoomStatus.FULL && this.playersUsernames.size() < maxPlayers) {
-            this.status = RoomStatus.WAITING;
+        if (removed) {
+            this.updatedAt = LocalDateTime.now();
+
+            if (this.status == RoomStatus.FULL && this.playersUsernames.size() < maxPlayers) {
+                this.status = RoomStatus.WAITING;
+            }
+
+            if (!this.playersUsernames.isEmpty() && username.equals(this.hostUsername)) {
+                this.hostUsername = this.playersUsernames.get(0);
+            }
         }
+    }
+
+    public void setPlayersUsernames(List<String> playersUsernames) {
+        this.playersUsernames = playersUsernames != null ? playersUsernames : new ArrayList<>();
     }
 }

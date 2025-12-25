@@ -14,11 +14,14 @@ public class FilterConfig {
     @Bean
     public FilterRegistrationBean<SessionUserFilter> sessionUserFilterRegistration(SessionUserFilter filter) {
         FilterRegistrationBean<SessionUserFilter> registrationBean = new FilterRegistrationBean<>();
-        
+
         registrationBean.setFilter(filter);
-        registrationBean.addUrlPatterns("/create", "/join", "/api/menu/*");
+
+        registrationBean.addUrlPatterns("/create", "/join", "/start", "/leave",
+                "/api/menu/*");
+
         registrationBean.setOrder(1);
-        
+
         return registrationBean;
     }
 }
