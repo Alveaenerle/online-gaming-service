@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import java.util.List;
 
+import com.online_games_service.common.enums.RoomStatus;
+
 @Data
 @AllArgsConstructor
 public class RoomInfoResponse {
@@ -13,4 +15,5 @@ public class RoomInfoResponse {
     private boolean isPrivate;
     private String accessCode;
     private String hostUsername;
+    private RoomStatus status;
 }

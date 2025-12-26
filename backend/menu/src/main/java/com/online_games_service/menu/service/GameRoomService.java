@@ -325,7 +325,8 @@ public class GameRoomService {
             room.getMaxPlayers(),
             room.isPrivate(),
             room.getAccessCode(),
-            room.getHostUsername()
+            room.getHostUsername(),
+            room.getStatus()
         );
     }
 }
