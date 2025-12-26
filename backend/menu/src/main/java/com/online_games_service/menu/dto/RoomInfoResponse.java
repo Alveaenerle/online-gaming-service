@@ -9,6 +9,7 @@ import java.util.List;
 public class RoomInfoResponse {
     private String name;
     private List<String> playersUsernames;
+    private int maxPlayers;
     private boolean isPrivate;
     private String accessCode;
     private String hostUsername;
