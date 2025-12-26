@@ -321,6 +321,7 @@ public class GameRoomService {
 
         return new RoomInfoResponse(
             room.getName(),
+            room.getGameType(),
             room.getPlayersUsernames(),
             room.getMaxPlayers(),
             room.isPrivate(),
