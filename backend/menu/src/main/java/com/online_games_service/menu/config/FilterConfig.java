@@ -17,7 +17,7 @@ public class FilterConfig {
 
         registrationBean.setFilter(filter);
 
-        registrationBean.addUrlPatterns("/create", "/join", "/start", "/leave",
+        registrationBean.addUrlPatterns("/create", "/join", "/start", "/leave", "/room-info",
                 "/api/menu/*");
 
         registrationBean.setOrder(1);

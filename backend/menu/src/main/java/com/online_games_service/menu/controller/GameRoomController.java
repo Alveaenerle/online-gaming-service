@@ -2,6 +2,7 @@ package com.online_games_service.menu.controller;
 
 import com.online_games_service.menu.dto.CreateRoomRequest;
 import com.online_games_service.menu.dto.JoinGameRequest;
+import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.model.GameRoom;
 import com.online_games_service.menu.service.GameRoomService;
 import jakarta.validation.Valid;
@@ -21,6 +22,17 @@ import java.util.Map;
 public class GameRoomController {
 
     private final GameRoomService gameRoomService;
+
+    @GetMapping("/room-info")
+    public ResponseEntity<RoomInfoResponse> getRoomInfo(
+            @RequestAttribute(value = "username", required = false) String username
+    ) {
+        if (username == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        return ResponseEntity.ok(gameRoomService.getPlayerRoomInfo(username));
+    }
 
     @PostMapping("/create")
     public ResponseEntity<GameRoom> createRoom(

@@ -5,6 +5,7 @@ import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.menu.config.GameLimitsConfig;
 import com.online_games_service.menu.dto.CreateRoomRequest;
 import com.online_games_service.menu.dto.JoinGameRequest;
+import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.model.GameRoom;
 import com.online_games_service.menu.repository.GameRoomRepository;
 import lombok.RequiredArgsConstructor;
@@ -304,5 +305,28 @@ public class GameRoomService {
             sb.append(chars.charAt(random.nextInt(chars.length())));
         }
         return sb.toString();
+    }
+
+    public RoomInfoResponse getPlayerRoomInfo(String username) {
+        String roomId = getUserCurrentRoomId(username);
+        
+        if (roomId == null) {
+            throw new IllegalStateException("You are not currently in any room.");
+        }
+
+        GameRoom room = getRoomFromRedis(roomId);
+        
+        if (room == null) {
+            clearUserRoomMapping(username);
+            throw new IllegalStateException("Room no longer exists.");
+        }
+
+        return new RoomInfoResponse(
+            room.getName(),
+            room.getPlayersUsernames(),
+            room.isPrivate(),
+            room.getAccessCode(),
+            room.getHostUsername()
+        );
     }
 }
