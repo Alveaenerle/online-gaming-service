@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -29,6 +30,25 @@ public class GameRoomService {
     private final GameRoomRepository gameRoomRepository;
     private final GameLimitsConfig gameLimitsConfig;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    private void broadcastRoomUpdate(GameRoom room) {
+        RoomInfoResponse response = new RoomInfoResponse(
+            room.getId(),
+            room.getName(),
+            room.getGameType(),
+            room.getPlayersUsernames(),
+            room.getMaxPlayers(),
+            room.isPrivate(),
+            room.getAccessCode(),
+            room.getHostUsername(),
+            room.getStatus()
+        );
+        
+        messagingTemplate.convertAndSend("/topic/room/" + room.getId(), response);
+        
+        log.info("Broadcasted room update for room {}", room.getId());
+    }
 
     // --- REDIS KEYS ---
     private static final String KEY_ROOM = "game:room:";       // Store object GameRoom
@@ -97,16 +117,21 @@ public class GameRoomService {
         if (existingRoomId != null) {
             GameRoom existingRoom = getRoomFromRedis(existingRoomId);
             if (existingRoom != null) {
+                broadcastRoomUpdate(existingRoom); 
                 return existingRoom;
             }
             clearUserRoomMapping(username);
         }
 
+        GameRoom room;
         if (request.isRandom()) {
-            return handleRandomJoin(request, username);
+            room = handleRandomJoin(request, username);
         } else {
-            return handlePrivateJoin(request, username);
+            room = handlePrivateJoin(request, username);
         }
+
+        broadcastRoomUpdate(room);
+        return room;
     }
 
     private GameRoom handleRandomJoin(JoinGameRequest request, String username) {
@@ -195,9 +220,11 @@ public class GameRoomService {
 
         saveRoomToRedis(room);
 
+        // TODO: GameRoom data will be extended with game-specific fields later.
+        // Not save in MongoDB. Game finish state will be only saved.
         GameRoom savedInDb = gameRoomRepository.save(room);
         log.info("Game started! Room {} persisted to MongoDB.", savedInDb.getId());
-        
+        broadcastRoomUpdate(room);
         return savedInDb;
     }
 
@@ -226,6 +253,8 @@ public class GameRoomService {
             
             log.info("User {} left room {}. Host is now: {}", username, roomId, room.getHostUsername());
         }
+
+        broadcastRoomUpdate(room);
     }
 
     public List<GameRoom> getWaitingRooms(GameType gameType) {
@@ -320,6 +349,7 @@ public class GameRoomService {
         }
 
         return new RoomInfoResponse(
+            room.getId(),
             room.getName(),
             room.getGameType(),
             room.getPlayersUsernames(),
@@ -365,6 +395,7 @@ public class GameRoomService {
 
         log.info("Host {} kicked user {} from room {}", hostUsername, playerToKickUsername, roomId);
 
+        broadcastRoomUpdate(room);
         return "Player " + playerToKickUsername + " has been kicked from the room.";
     }
 }

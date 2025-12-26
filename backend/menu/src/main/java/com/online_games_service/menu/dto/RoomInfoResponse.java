@@ -10,6 +10,7 @@ import com.online_games_service.common.enums.RoomStatus;
 @Data
 @AllArgsConstructor
 public class RoomInfoResponse {
+    private String id;
     private String name;
     private GameType gameType;
     private List<String> playersUsernames;
