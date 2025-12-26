@@ -26,20 +26,18 @@ public class GameRoomController {
 
     @GetMapping("/room-info")
     public ResponseEntity<RoomInfoResponse> getRoomInfo(
-            @RequestAttribute(value = "username", required = false) String username
-    ) {
+            @RequestAttribute(value = "username", required = false) String username) {
         if (username == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        
+
         return ResponseEntity.ok(gameRoomService.getPlayerRoomInfo(username));
     }
 
     @PostMapping("/create")
     public ResponseEntity<GameRoom> createRoom(
             @RequestBody @Valid CreateRoomRequest request,
-            @RequestAttribute(value = "username", required = false) String username
-    ) {
+            @RequestAttribute(value = "username", required = false) String username) {
         if (username == null) {
             log.warn("Unauthorized attempt to create game (No session found)");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -50,32 +48,31 @@ public class GameRoomController {
     @PostMapping("/join")
     public ResponseEntity<GameRoom> joinRoom(
             @RequestBody JoinGameRequest request,
-            @RequestAttribute(value = "username", required = false) String username
-    ) {
-        if (username == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            @RequestAttribute(value = "username", required = false) String username) {
+        if (username == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         return ResponseEntity.ok(gameRoomService.joinRoom(request, username));
     }
 
-    
     @PostMapping("/start")
     public ResponseEntity<GameRoom> startGame(
-            @RequestAttribute(value = "username", required = false) String username
-    ) {
+            @RequestAttribute(value = "username", required = false) String username) {
         if (username == null) {
             log.warn("Unauthorized attempt to start game (No session found)");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         log.info("Request to start game by user: {}", username);
-        
+
         GameRoom startedRoom = gameRoomService.startGame(username);
         return ResponseEntity.ok(startedRoom);
     }
 
     @PostMapping("/leave")
     public ResponseEntity<Void> leaveRoom(@RequestAttribute(value = "username", required = false) String username) {
-        if (username == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        
+        if (username == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
         gameRoomService.leaveRoom(username);
         return ResponseEntity.ok().build();
     }
@@ -83,15 +80,15 @@ public class GameRoomController {
     @PostMapping("/kick-player")
     public ResponseEntity<Map<String, String>> kickPlayer(
             @RequestBody @Valid KickPlayerRequest request,
-            @RequestAttribute(value = "username", required = false) String hostUsername
-    ) {
-        if (hostUsername == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        
+            @RequestAttribute(value = "username", required = false) String hostUsername) {
+        if (hostUsername == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
         String message = gameRoomService.kickPlayer(hostUsername, request.getUsername());
-        
+
         Map<String, String> response = new HashMap<>();
         response.put("message", message);
-        
+
         return ResponseEntity.ok(response);
     }
 

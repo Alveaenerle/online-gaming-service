@@ -32,28 +32,10 @@ public class GameRoomService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
 
-    private void broadcastRoomUpdate(GameRoom room) {
-        RoomInfoResponse response = new RoomInfoResponse(
-            room.getId(),
-            room.getName(),
-            room.getGameType(),
-            room.getPlayersUsernames(),
-            room.getMaxPlayers(),
-            room.isPrivate(),
-            room.getAccessCode(),
-            room.getHostUsername(),
-            room.getStatus()
-        );
-        
-        messagingTemplate.convertAndSend("/topic/room/" + room.getId(), response);
-        
-        log.info("Broadcasted room update for room {}", room.getId());
-    }
-
     // --- REDIS KEYS ---
-    private static final String KEY_ROOM = "game:room:";       // Store object GameRoom
+    private static final String KEY_ROOM = "game:room:"; // Store object GameRoom
     private static final String KEY_WAITING = "game:waiting:"; // Set ID public rooms (for Quick Match/Lobby)
-    private static final String KEY_CODE = "game:code:";       // Map CODE -> ID (for Private Join)
+    private static final String KEY_CODE = "game:code:"; // Map CODE -> ID (for Private Join)
     private static final String KEY_USER_ROOM = "game:user-room:"; // Map USER -> ID (for Start/Leave)
 
     private static final Duration ROOM_TTL = Duration.ofHours(1);
@@ -71,8 +53,7 @@ public class GameRoomService {
                 request.getGameType(),
                 hostUsername,
                 request.getMaxPlayers(),
-                request.isPrivate()
-        );
+                request.isPrivate());
 
         newRoom.setId(UUID.randomUUID().toString());
 
@@ -85,8 +66,7 @@ public class GameRoomService {
             String potentialCode = generateAccessCode();
 
             isUnique = Boolean.TRUE.equals(
-                redisTemplate.opsForValue().setIfAbsent(KEY_CODE + potentialCode, newRoom.getId(), ROOM_TTL)
-            );
+                    redisTemplate.opsForValue().setIfAbsent(KEY_CODE + potentialCode, newRoom.getId(), ROOM_TTL));
 
             if (isUnique) {
                 uniqueCode = potentialCode;
@@ -97,7 +77,7 @@ public class GameRoomService {
         if (uniqueCode == null) {
             throw new IllegalStateException("Server busy: Could not generate unique room code.");
         }
-        
+
         newRoom.setAccessCode(uniqueCode);
 
         saveRoomToRedis(newRoom);
@@ -111,13 +91,30 @@ public class GameRoomService {
         return newRoom;
     }
 
+    private void broadcastRoomUpdate(GameRoom room) {
+        RoomInfoResponse response = new RoomInfoResponse(
+                room.getId(),
+                room.getName(),
+                room.getGameType(),
+                room.getPlayersUsernames(),
+                room.getMaxPlayers(),
+                room.isPrivate(),
+                room.getAccessCode(),
+                room.getHostUsername(),
+                room.getStatus());
+
+        messagingTemplate.convertAndSend("/topic/room/" + room.getId(), response);
+
+        log.info("Broadcasted room update for room {}", room.getId());
+    }
+
     public GameRoom joinRoom(JoinGameRequest request, String username) {
         // Handle re-join or lock
         String existingRoomId = getUserCurrentRoomId(username);
         if (existingRoomId != null) {
             GameRoom existingRoom = getRoomFromRedis(existingRoomId);
             if (existingRoom != null) {
-                broadcastRoomUpdate(existingRoom); 
+                broadcastRoomUpdate(existingRoom);
                 return existingRoom;
             }
             clearUserRoomMapping(username);
@@ -149,8 +146,8 @@ public class GameRoomService {
                 }
 
                 if (room.getMaxPlayers() == request.getMaxPlayers() &&
-                    room.getPlayersUsernames().size() < room.getMaxPlayers() &&
-                    !room.getPlayersUsernames().contains(username)) {
+                        room.getPlayersUsernames().size() < room.getMaxPlayers() &&
+                        !room.getPlayersUsernames().contains(username)) {
 
                     return addUserToRoom(room, username);
                 }
@@ -173,13 +170,17 @@ public class GameRoomService {
         }
 
         String roomId = (String) redisTemplate.opsForValue().get(KEY_CODE + request.getAccessCode());
-        if (roomId == null) throw new IllegalArgumentException("Invalid access code");
+        if (roomId == null)
+            throw new IllegalArgumentException("Invalid access code");
 
         GameRoom room = getRoomFromRedis(roomId);
-        if (room == null) throw new IllegalArgumentException("Room expired");
+        if (room == null)
+            throw new IllegalArgumentException("Room expired");
 
-        if (room.getPlayersUsernames().contains(username)) return room;
-        if (room.getPlayersUsernames().size() >= room.getMaxPlayers()) throw new IllegalStateException("Room full");
+        if (room.getPlayersUsernames().contains(username))
+            return room;
+        if (room.getPlayersUsernames().size() >= room.getMaxPlayers())
+            throw new IllegalStateException("Room full");
 
         return addUserToRoom(room, username);
     }
@@ -198,7 +199,8 @@ public class GameRoomService {
     @Transactional
     public GameRoom startGame(String username) {
         String roomId = getUserCurrentRoomId(username);
-        if (roomId == null) throw new IllegalStateException("User is not in a room");
+        if (roomId == null)
+            throw new IllegalStateException("User is not in a room");
 
         GameRoom room = getRoomFromRedis(roomId);
         if (room == null) {
@@ -211,7 +213,6 @@ public class GameRoomService {
         }
 
         room.setStatus(RoomStatus.PLAYING);
-        
 
         removeFromWaitingPool(room);
         if (room.getAccessCode() != null) {
@@ -232,15 +233,17 @@ public class GameRoomService {
         log.info("User {} is attempting to leave room...", username);
 
         String roomId = getUserCurrentRoomId(username);
-        if (roomId == null) return;
+        if (roomId == null)
+            return;
 
         GameRoom room = getRoomFromRedis(roomId);
         clearUserRoomMapping(username);
 
-        if (room == null) return;
+        if (room == null)
+            return;
 
-        room.removePlayer(username); 
-        
+        room.removePlayer(username);
+
         if (room.getPlayersUsernames().isEmpty()) {
             deleteRoom(room);
             log.info("Room {} was empty and has been deleted.", roomId);
@@ -250,7 +253,7 @@ public class GameRoomService {
             if (!room.isPrivate() && room.getStatus() == RoomStatus.WAITING) {
                 addToWaitingPool(room);
             }
-            
+
             log.info("User {} left room {}. Host is now: {}", username, roomId, room.getHostUsername());
         }
 
@@ -258,7 +261,8 @@ public class GameRoomService {
     }
 
     public List<GameRoom> getWaitingRooms(GameType gameType) {
-        if (gameType == null) return Collections.emptyList();
+        if (gameType == null)
+            return Collections.emptyList();
 
         String waitingKey = KEY_WAITING + gameType;
         Set<Object> waitingRoomIds = redisTemplate.opsForSet().members(waitingKey);
@@ -318,7 +322,8 @@ public class GameRoomService {
     }
 
     private void validatePlayerLimits(int requestedMaxPlayers, GameLimitsConfig.Limit limit) {
-        if (limit == null) return;
+        if (limit == null)
+            return;
         if (requestedMaxPlayers < limit.getMin() || requestedMaxPlayers > limit.getMax()) {
             throw new IllegalArgumentException("Invalid player count for this game type");
         }
@@ -336,29 +341,28 @@ public class GameRoomService {
 
     public RoomInfoResponse getPlayerRoomInfo(String username) {
         String roomId = getUserCurrentRoomId(username);
-        
+
         if (roomId == null) {
             throw new IllegalStateException("You are not currently in any room.");
         }
 
         GameRoom room = getRoomFromRedis(roomId);
-        
+
         if (room == null) {
             clearUserRoomMapping(username);
             throw new IllegalStateException("Room no longer exists.");
         }
 
         return new RoomInfoResponse(
-            room.getId(),
-            room.getName(),
-            room.getGameType(),
-            room.getPlayersUsernames(),
-            room.getMaxPlayers(),
-            room.isPrivate(),
-            room.getAccessCode(),
-            room.getHostUsername(),
-            room.getStatus()
-        );
+                room.getId(),
+                room.getName(),
+                room.getGameType(),
+                room.getPlayersUsernames(),
+                room.getMaxPlayers(),
+                room.isPrivate(),
+                room.getAccessCode(),
+                room.getHostUsername(),
+                room.getStatus());
     }
 
     public String kickPlayer(String hostUsername, String playerToKickUsername) {

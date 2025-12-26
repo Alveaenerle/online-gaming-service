@@ -20,7 +20,7 @@ import java.util.Map;
 public class SessionUserFilter extends OncePerRequestFilter {
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper(); 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private static final String COOKIE_NAME = "ogs_session";
     private static final String REDIS_PREFIX = "auth:session:";
 
@@ -29,9 +29,9 @@ public class SessionUserFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         if (request.getCookies() != null) {
-             Arrays.stream(request.getCookies())
-                   .filter(c -> COOKIE_NAME.equals(c.getName()))
-                   .forEach(c -> log.info("[Filter] Cookie found: name={}, value={}", c.getName(), c.getValue()));
+            Arrays.stream(request.getCookies())
+                    .filter(c -> COOKIE_NAME.equals(c.getName()))
+                    .forEach(c -> log.info("[Filter] Cookie found: name={}, value={}", c.getName(), c.getValue()));
         }
 
         String sessionId = getSessionIdFromCookies(request);
@@ -40,7 +40,7 @@ public class SessionUserFilter extends OncePerRequestFilter {
             log.info("[Filter] Found session ID in cookie: {}", sessionId);
             try {
                 String redisKey = REDIS_PREFIX + sessionId;
-                
+
                 log.info("[Filter] Looking for key in Redis: {}", redisKey);
                 Object sessionData = redisTemplate.opsForValue().get(redisKey);
 
@@ -48,7 +48,7 @@ public class SessionUserFilter extends OncePerRequestFilter {
                     log.warn("[Filter] Key '{}' not found in Redis (expired or wrong prefix).", redisKey);
                 } else {
                     log.info("[Filter] Redis returned data type: {}", sessionData.getClass().getName());
-                    
+
                     String username = extractUsername(sessionData);
 
                     if (username != null) {
@@ -74,8 +74,9 @@ public class SessionUserFilter extends OncePerRequestFilter {
                 Object u = ((Map<?, ?>) sessionData).get("username");
                 return u != null ? u.toString() : null;
             }
-            
-            // Konwersja obiektu na Mapę, żeby uniknąć problemów z brakiem klasy User w ClassPath
+
+            // Konwersja obiektu na Mapę, żeby uniknąć problemów z brakiem klasy User w
+            // ClassPath
             Map<String, Object> map = objectMapper.convertValue(sessionData, Map.class);
             Object u = map.get("username");
             return u != null ? u.toString() : null;
@@ -87,7 +88,8 @@ public class SessionUserFilter extends OncePerRequestFilter {
     }
 
     private String getSessionIdFromCookies(HttpServletRequest request) {
-        if (request.getCookies() == null) return null;
+        if (request.getCookies() == null)
+            return null;
 
         return Arrays.stream(request.getCookies())
                 .filter(cookie -> COOKIE_NAME.equals(cookie.getName()))

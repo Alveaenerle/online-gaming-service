@@ -21,7 +21,7 @@ public class GameLimitsConfig {
         private int min;
         private int max;
     }
-    
+
     public Limit getLimitFor(GameType type) {
         if (limits != null && limits.containsKey(type)) {
             return limits.get(type);

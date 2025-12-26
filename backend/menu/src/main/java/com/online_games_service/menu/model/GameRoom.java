@@ -74,7 +74,7 @@ public class GameRoom {
             this.playersUsernames.add(username);
             this.updatedAt = LocalDateTime.now();
         }
-        
+
         if (this.playersUsernames.size() >= maxPlayers) {
             this.status = RoomStatus.FULL;
         }
@@ -82,7 +82,7 @@ public class GameRoom {
 
     public void removePlayer(String username) {
         boolean removed = this.playersUsernames.remove(username);
-        
+
         if (removed) {
             this.updatedAt = LocalDateTime.now();
 

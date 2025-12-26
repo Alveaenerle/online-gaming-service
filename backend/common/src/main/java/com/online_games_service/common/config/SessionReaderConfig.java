@@ -32,7 +32,8 @@ public class SessionReaderConfig {
     }
 
     @Bean
-    public SessionUserFilter sessionUserFilter(@Qualifier("sessionReadRedisTemplate") RedisTemplate<String, Object> template) {
+    public SessionUserFilter sessionUserFilter(
+            @Qualifier("sessionReadRedisTemplate") RedisTemplate<String, Object> template) {
         return new SessionUserFilter(template);
     }
 }
