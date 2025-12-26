@@ -56,31 +56,29 @@ public class GameRoomService {
 
         newRoom.setId(UUID.randomUUID().toString());
 
-        if (request.isPrivate()) {
-            String uniqueCode = null;
-            boolean isUnique = false;
-            int attempts = 0;
+        // unique code generation for private rooms only for Redis (not persisted)
+        String uniqueCode = null;
+        boolean isUnique = false;
+        int attempts = 0;
 
-            while (!isUnique && attempts < 5) {
-                String potentialCode = generateAccessCode();
-                
-                isUnique = Boolean.TRUE.equals(
-                    redisTemplate.opsForValue().setIfAbsent(KEY_CODE + potentialCode, newRoom.getId(), ROOM_TTL)
-                );
+        while (!isUnique && attempts < 5) {
+            String potentialCode = generateAccessCode();
 
-                if (isUnique) {
-                    uniqueCode = potentialCode;
-                }
-                attempts++;
+            isUnique = Boolean.TRUE.equals(
+                redisTemplate.opsForValue().setIfAbsent(KEY_CODE + potentialCode, newRoom.getId(), ROOM_TTL)
+            );
+
+            if (isUnique) {
+                uniqueCode = potentialCode;
             }
-
-            if (uniqueCode == null) {
-                throw new IllegalStateException("Server busy: Could not generate unique room code. Please try again.");
-            }
-            newRoom.setAccessCode(uniqueCode);
-        } else {
-            newRoom.setAccessCode(null);
+            attempts++;
         }
+
+        if (uniqueCode == null) {
+            throw new IllegalStateException("Server busy: Could not generate unique room code.");
+        }
+        
+        newRoom.setAccessCode(uniqueCode);
 
         saveRoomToRedis(newRoom);
         mapUserToRoom(hostUsername, newRoom.getId());
@@ -89,7 +87,7 @@ public class GameRoomService {
             addToWaitingPool(newRoom);
         }
 
-        log.info("Created room {} (Redis) for host {}", newRoom.getId(), hostUsername);
+        log.info("Created room {} (Redis) with code {} for host {}", newRoom.getId(), uniqueCode, hostUsername);
         return newRoom;
     }
 
