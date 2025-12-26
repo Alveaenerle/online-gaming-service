@@ -2,6 +2,7 @@ package com.online_games_service.menu.controller;
 
 import com.online_games_service.menu.dto.CreateRoomRequest;
 import com.online_games_service.menu.dto.JoinGameRequest;
+import com.online_games_service.menu.dto.KickPlayerRequest;
 import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.model.GameRoom;
 import com.online_games_service.menu.service.GameRoomService;
@@ -77,6 +78,21 @@ public class GameRoomController {
         
         gameRoomService.leaveRoom(username);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/kick-player")
+    public ResponseEntity<Map<String, String>> kickPlayer(
+            @RequestBody @Valid KickPlayerRequest request,
+            @RequestAttribute(value = "username", required = false) String hostUsername
+    ) {
+        if (hostUsername == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        
+        String message = gameRoomService.kickPlayer(hostUsername, request.getUsername());
+        
+        Map<String, String> response = new HashMap<>();
+        response.put("message", message);
+        
+        return ResponseEntity.ok(response);
     }
 
     @ExceptionHandler(IllegalStateException.class)

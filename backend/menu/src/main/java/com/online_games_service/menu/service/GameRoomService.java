@@ -329,4 +329,41 @@ public class GameRoomService {
             room.getStatus()
         );
     }
+
+    public String kickPlayer(String hostUsername, String playerToKickUsername) {
+        String roomId = getUserCurrentRoomId(hostUsername);
+        if (roomId == null) {
+            throw new IllegalStateException("You are not in any room.");
+        }
+
+        GameRoom room = getRoomFromRedis(roomId);
+        if (room == null) {
+            throw new IllegalStateException("Room no longer exists.");
+        }
+
+        if (!room.getHostUsername().equals(hostUsername)) {
+            throw new IllegalStateException("Only the host can kick players.");
+        }
+
+        if (hostUsername.equals(playerToKickUsername)) {
+            throw new IllegalStateException("You cannot kick yourself. Use /leave endpoint instead.");
+        }
+
+        if (!room.getPlayersUsernames().contains(playerToKickUsername)) {
+            throw new IllegalArgumentException("Player " + playerToKickUsername + " is not in this room.");
+        }
+
+        room.removePlayer(playerToKickUsername);
+        clearUserRoomMapping(playerToKickUsername);
+
+        saveRoomToRedis(room);
+
+        if (!room.isPrivate() && room.getStatus() == RoomStatus.WAITING) {
+            addToWaitingPool(room);
+        }
+
+        log.info("Host {} kicked user {} from room {}", hostUsername, playerToKickUsername, roomId);
+
+        return "Player " + playerToKickUsername + " has been kicked from the room.";
+    }
 }
