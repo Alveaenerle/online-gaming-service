@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>STOMP Game Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .box { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        #logs { height: 300px; overflow-y: scroll; background: #f0f0f0; border: 1px solid #999; padding: 5px;}
+        .log-entry { margin: 2px 0; border-bottom: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h2>WebSocket Test (Spring + STOMP)</h2>
+    
+    <div class="box">
+        <label>Status:</label> <b id="status" style="color:red">Disconnected</b>
+        <br><br>
+        <label>Room ID to listen to:</label>
+        <input type="text" id="roomId" placeholder="e.g. room-uuid">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <h3>Server Logs:</h3>
+    <div id="logs"></div>
+
+    <script>
+        var stompClient = null;
+
+        function log(message) {
+            var logsDiv = document.getElementById('logs');
+            var entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerText = new Date().toLocaleTimeString() + ": " + message;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight; 
+        }
+
+        function setStatus(connected) {
+            var el = document.getElementById('status');
+            el.innerText = connected ? "CONNECTED" : "DISCONNECTED";
+            el.style.color = connected ? "green" : "red";
+        }
+
+        function connect() {
+            var roomId = document.getElementById('roomId').value;
+            
+            // NOTE: Enter the public address here (via Nginx)
+            // SockJS will automatically swap http:// to ws:// where needed
+            var socket = new SockJS('http://localhost/api/menu/ws');
+            
+            stompClient = Stomp.over(socket);
+
+            // Disable console debugging (optional)
+            // stompClient.debug = null;
+
+            log("Attempting to connect...");
+
+            stompClient.connect({}, function (frame) {
+                setStatus(true);
+                log('Connected: ' + frame);
+
+                // Subscribe to the room channel
+                if(roomId) {
+                    var topic = '/topic/room/' + roomId;
+                    log('Subscribing to channel: ' + topic);
+                    
+                    stompClient.subscribe(topic, function (messageOutput) {
+                        log("RECEIVED ROOM UPDATE:");
+                        log(messageOutput.body);
+                    });
+                } else {
+                    log("WARNING: No Room ID provided, connected but not subscribed.");
+                }
+
+            }, function (error) {
+                log("Connection error: " + error);
+                setStatus(false);
+            });
+        }
+
+        function disconnect() {
+            if (stompClient !== null) {
+                stompClient.disconnect();
+            }
+            setStatus(false);
+            log("Disconnected.");
+        }
+    </script>
+</body>
+</html>
