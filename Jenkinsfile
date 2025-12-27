@@ -16,22 +16,30 @@ pipeline {
     stages {
         stage('Run tests & Code Coverage') {
             when {
-                changeRequest()
+                anyOf {
+                    changeRequest()
+                    branch 'main'
+                }
             }
             steps {
                 dir('backend') {
                     script {
                         sh "chmod +x mvnw"
-                        sh "chmod +x backend_code_coverage.sh"
-
-                        sh "./mvnw -pl common,common-test-support -am clean install -DskipTests"
-
-                        def modules = ['social', 'menu', 'makao', 'ludo', 'authorization']
-
-                        modules.each { moduleName ->
-                            sh "./backend_code_coverage.sh ${moduleName}"
-                        }
+                        sh "./mvnw clean verify"
                     }
+                }
+            }
+            post {
+                always {
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'backend/**/target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Coverage Report',
+                        reportTitles: 'Code Coverage'
+                    ])
                 }
             }
         }
