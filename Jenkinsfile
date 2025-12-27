@@ -29,6 +29,19 @@ pipeline {
                     }
                 }
             }
+            post {
+                always {
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'backend/**/target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Coverage Report',
+                        reportTitles: 'Code Coverage'
+                    ])
+                }
+            }
         }
 
         stage('Build & Push to Nexus') {
@@ -74,16 +87,6 @@ pipeline {
                     echo "Could not execute postBuildStatus: ${e.message}"
                 }
             }
-            // Publish JaCoCo HTML reports
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'backend/**/target/site/jacoco',
-                reportFiles: 'index.html',
-                reportName: 'JaCoCo Coverage Report',
-                reportTitles: 'Code Coverage'
-            ])
         }
         success {
             sh "docker image prune -f --filter 'label=stage=intermediate'"
