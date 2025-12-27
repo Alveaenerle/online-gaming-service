@@ -16,21 +16,14 @@ pipeline {
     stages {
         stage('Run tests & Code Coverage') {
             when {
-                changeRequest()
+                changeRequest(),
+                branch 'main'
             }
             steps {
                 dir('backend') {
                     script {
                         sh "chmod +x mvnw"
-                        sh "chmod +x backend_code_coverage.sh"
-
-                        sh "./mvnw -pl common,common-test-support -am clean install -DskipTests"
-
-                        def modules = ['social', 'menu', 'makao', 'ludo', 'authorization']
-
-                        modules.each { moduleName ->
-                            sh "./backend_code_coverage.sh ${moduleName}"
-                        }
+                        sh "./mvnw clean verify"
                     }
                 }
             }
@@ -79,6 +72,16 @@ pipeline {
                     echo "Could not execute postBuildStatus: ${e.message}"
                 }
             }
+            // Publish JaCoCo HTML reports
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'backend/**/target/site/jacoco',
+                reportFiles: 'index.html',
+                reportName: 'JaCoCo Coverage Report',
+                reportTitles: 'Code Coverage'
+            ])
         }
         success {
             sh "docker image prune -f --filter 'label=stage=intermediate'"
