@@ -16,8 +16,10 @@ pipeline {
     stages {
         stage('Run tests & Code Coverage') {
             when {
-                changeRequest(),
-                branch 'main'
+                anyOf {
+                    changeRequest()
+                    branch 'main'
+                }
             }
             steps {
                 dir('backend') {
