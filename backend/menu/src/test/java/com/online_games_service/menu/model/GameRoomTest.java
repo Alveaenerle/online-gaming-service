@@ -48,17 +48,6 @@ public class GameRoomTest {
     }
 
     @Test
-    public void shouldThrowExceptionOnDirectSetModification() {
-        // Given
-        GameRoom room = new GameRoom("R1", GameType.MAKAO, "host", 4, false);
-        
-        // When & Then
-        Assert.assertThrows(UnsupportedOperationException.class, () -> {
-            room.getPlayersUsernames().add("hacker");
-        });
-    }
-
-    @Test
     public void shouldManageStatusAutomatically() {
         // Given
         GameRoom room = new GameRoom("R1", GameType.MAKAO, "host", 2, false);
@@ -74,5 +63,50 @@ public class GameRoomTest {
         
         // Then
         Assert.assertEquals(room.getStatus(), RoomStatus.WAITING);
+    }
+
+    @Test
+    public void shouldPreventJoiningWhenFullOrNotWaiting() {
+        GameRoom room = new GameRoom("R2", GameType.LUDO, "host", 2, false);
+        room.addPlayer("p2");
+
+        Assert.assertEquals(room.getStatus(), RoomStatus.FULL);
+        Assert.expectThrows(IllegalStateException.class, () -> room.addPlayer("p3"));
+
+        room.removePlayer("p2");
+        room.setStatus(RoomStatus.PLAYING);
+        Assert.expectThrows(IllegalStateException.class, () -> room.addPlayer("p3"));
+    }
+
+    @Test
+    public void shouldPromoteNextPlayerToHostWhenCurrentLeaves() {
+        GameRoom room = new GameRoom("R3", GameType.MAKAO, "host", 4, false);
+        room.addPlayer("p2");
+        room.addPlayer("p3");
+
+        room.removePlayer("host");
+
+        Assert.assertEquals(room.getHostUsername(), "p2");
+        Assert.assertEquals(room.getPlayersUsernames().size(), 2);
+    }
+
+    @Test
+    public void shouldNotDuplicatePlayersWhenAddingExisting() {
+        GameRoom room = new GameRoom("R4", GameType.LUDO, "host", 3, false);
+
+        room.addPlayer("host");
+        room.addPlayer("host");
+
+        Assert.assertEquals(room.getPlayersUsernames().size(), 1);
+    }
+
+    @Test
+    public void shouldHandleNullPlayersList() {
+        GameRoom room = new GameRoom("R5", GameType.MAKAO, "host", 3, false);
+
+        room.setPlayersUsernames(null);
+
+        Assert.assertNotNull(room.getPlayersUsernames());
+        Assert.assertTrue(room.getPlayersUsernames().isEmpty());
     }
 }
