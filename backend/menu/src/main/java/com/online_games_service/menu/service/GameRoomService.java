@@ -12,13 +12,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,9 +37,11 @@ public class GameRoomService {
     private static final String KEY_WAITING = "game:waiting:"; // Set ID public rooms (for Quick Match/Lobby)
     private static final String KEY_CODE = "game:code:"; // Map CODE -> ID (for Private Join)
     private static final String KEY_USER_ROOM_BY_ID = "game:user-room:id:"; // Map userId -> room ID
-    private static final String KEY_USER_ROOM_BY_USERNAME = "game:user-room:uname:"; // Map username -> room ID (fallback)
+    private static final String KEY_USER_ROOM_BY_USERNAME = "game:user-room:uname:"; // Map username -> room ID
+                                                                                     // (fallback)
 
     private static final Duration ROOM_TTL = Duration.ofHours(1);
+    private static final Random RANDOM = new Random();
 
     public GameRoom createRoom(CreateRoomRequest request, String hostUserId, String hostUsername) {
         if (getUserCurrentRoomId(hostUserId, hostUsername) != null) {
@@ -50,30 +52,27 @@ public class GameRoomService {
         validatePlayerLimits(request.getMaxPlayers(), limit);
 
         GameRoom newRoom = new GameRoom(
-            request.getName(),
-            request.getGameType(),
-            hostUserId,
-            hostUsername,
-            request.getMaxPlayers(),
-            request.isPrivate());
+                request.getName(),
+                request.getGameType(),
+                hostUserId,
+                hostUsername,
+                request.getMaxPlayers(),
+                request.isPrivate());
 
         newRoom.setId(UUID.randomUUID().toString());
 
         // unique code generation for private rooms only for Redis (not persisted)
         String uniqueCode = null;
-        boolean isUnique = false;
-        int attempts = 0;
-
-        while (!isUnique && attempts < 5) {
+        for (int attempts = 0; attempts < 5; attempts++) {
             String potentialCode = generateAccessCode();
 
-            isUnique = Boolean.TRUE.equals(
+            boolean isUnique = Boolean.TRUE.equals(
                     redisTemplate.opsForValue().setIfAbsent(KEY_CODE + potentialCode, newRoom.getId(), ROOM_TTL));
 
             if (isUnique) {
                 uniqueCode = potentialCode;
+                break;
             }
-            attempts++;
         }
 
         if (uniqueCode == null) {
@@ -159,7 +158,7 @@ public class GameRoomService {
 
         log.info("No matching room found. Creating new one for {}", username);
         CreateRoomRequest createRequest = new CreateRoomRequest();
-        createRequest.setName("Room #" + (1000 + new java.util.Random().nextInt(9000)));
+        createRequest.setName("Room #" + (1000 + RANDOM.nextInt(9000)));
         createRequest.setGameType(request.getGameType());
         createRequest.setMaxPlayers(request.getMaxPlayers());
         createRequest.setPrivate(false);
@@ -199,7 +198,6 @@ public class GameRoomService {
         return room;
     }
 
-    @Transactional
     public GameRoom startGame(String userId, String username) {
         String roomId = getUserCurrentRoomId(userId, username);
         if (roomId == null)
@@ -224,7 +222,8 @@ public class GameRoomService {
 
         saveRoomToRedis(room);
 
-        // TODO: GameRoom data in Redis will be extended with game-specific fields later.
+        // TODO: GameRoom data in Redis will be extended with game-specific fields
+        // later.
         // Not save in MongoDB. Game finish state will be only saved.
         GameRoom savedInDb = gameRoomRepository.save(room);
         log.info("Game started! Room {} persisted to MongoDB.", savedInDb.getId());
@@ -265,7 +264,8 @@ public class GameRoomService {
             message = "Left room " + roomId + ". New host: " + room.getHostUsername();
         }
 
-        broadcastRoomUpdate(room);
+        if (room != null)
+            broadcastRoomUpdate(room);
         return message;
     }
 
@@ -351,9 +351,8 @@ public class GameRoomService {
     private String generateAccessCode() {
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         StringBuilder sb = new StringBuilder();
-        java.util.Random random = new java.util.Random();
         for (int i = 0; i < 6; i++) {
-            sb.append(chars.charAt(random.nextInt(chars.length())));
+            sb.append(chars.charAt(RANDOM.nextInt(chars.length())));
         }
         return sb.toString();
     }
