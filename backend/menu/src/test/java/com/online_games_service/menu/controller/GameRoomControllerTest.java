@@ -19,7 +19,7 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testng.annotations.Test;
 
-import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -50,12 +50,14 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldReturnRoomInfoWhenAuthorized() throws Exception {
         RoomInfoResponse response = sampleRoomInfo();
-        when(gameRoomService.getPlayerRoomInfo("alice")).thenReturn(response);
+        when(gameRoomService.getPlayerRoomInfo("alice-id", "alice")).thenReturn(response);
 
-        mockMvc.perform(get("/room-info").requestAttr("username", "alice"))
+        mockMvc.perform(get("/room-info").requestAttr("userId", "alice-id").requestAttr("username", "alice"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(response.getId()))
-                .andExpect(jsonPath("$.hostUsername").value("host"));
+            .andExpect(jsonPath("$.hostUsername").value("host"))
+            .andExpect(jsonPath("$.hostUserId").value("host-id"))
+            .andExpect(jsonPath("$.players.host-id").value("host"));
     }
 
     @Test
@@ -67,12 +69,13 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldCreateRoomWhenAuthorized() throws Exception {
         CreateRoomRequest request = sampleCreateRequest();
-        GameRoom room = new GameRoom("Room", GameType.LUDO, "host", 4, false);
+        GameRoom room = new GameRoom("Room", GameType.LUDO, "host-id", "host", 4, false);
         room.setId("room-1");
-        when(gameRoomService.createRoom(any(CreateRoomRequest.class), eq("host"))).thenReturn(room);
+        when(gameRoomService.createRoom(any(CreateRoomRequest.class), eq("host-id"), eq("host"))).thenReturn(room);
 
         mockMvc.perform(post("/create")
-                        .requestAttr("username", "host")
+                .requestAttr("userId", "host-id")
+                .requestAttr("username", "host")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -90,12 +93,13 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldJoinRoomWhenAuthorized() throws Exception {
         JoinGameRequest request = sampleJoinRequest();
-        GameRoom room = new GameRoom("Room", GameType.LUDO, "host", 4, false);
+        GameRoom room = new GameRoom("Room", GameType.LUDO, "host-id", "host", 4, false);
         room.setId("room-2");
-        when(gameRoomService.joinRoom(any(JoinGameRequest.class), eq("player"))).thenReturn(room);
+        when(gameRoomService.joinRoom(any(JoinGameRequest.class), eq("player-id"), eq("player"))).thenReturn(room);
 
         mockMvc.perform(post("/join")
-                        .requestAttr("username", "player")
+                .requestAttr("userId", "player-id")
+                .requestAttr("username", "player")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -112,12 +116,12 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void shouldStartGameWhenAuthorized() throws Exception {
-        GameRoom room = new GameRoom("Room", GameType.LUDO, "host", 4, false);
+        GameRoom room = new GameRoom("Room", GameType.LUDO, "host-id", "host", 4, false);
         room.setId("room-3");
         room.setStatus(RoomStatus.PLAYING);
-        when(gameRoomService.startGame("host")).thenReturn(room);
+        when(gameRoomService.startGame("host-id", "host")).thenReturn(room);
 
-        mockMvc.perform(post("/start").requestAttr("username", "host"))
+        mockMvc.perform(post("/start").requestAttr("userId", "host-id").requestAttr("username", "host"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PLAYING"));
     }
@@ -130,10 +134,13 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void shouldLeaveRoomWhenAuthorized() throws Exception {
-        mockMvc.perform(post("/leave").requestAttr("username", "player"))
-                .andExpect(status().isOk());
+        when(gameRoomService.leaveRoom("player-id", "player")).thenReturn("Left room");
 
-        verify(gameRoomService).leaveRoom("player");
+        mockMvc.perform(post("/leave").requestAttr("userId", "player-id").requestAttr("username", "player"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Left room"));
+
+        verify(gameRoomService).leaveRoom("player-id", "player");
     }
 
     @Test
@@ -145,11 +152,12 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldKickPlayerWhenAuthorized() throws Exception {
         KickPlayerRequest request = new KickPlayerRequest();
-        request.setUsername("guest");
-        when(gameRoomService.kickPlayer("host", "guest")).thenReturn("Player guest removed");
+        request.setUserId("guest-id");
+        when(gameRoomService.kickPlayer("host-id", "host", "guest-id")).thenReturn("Player guest removed");
 
         mockMvc.perform(post("/kick-player")
-                        .requestAttr("username", "host")
+                .requestAttr("userId", "host-id")
+                .requestAttr("username", "host")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -159,7 +167,7 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldRejectKickPlayerWhenUnauthorized() throws Exception {
         KickPlayerRequest request = new KickPlayerRequest();
-        request.setUsername("guest");
+        request.setUserId("guest-id");
 
         mockMvc.perform(post("/kick-player")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -170,6 +178,7 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
     @Test
     public void shouldFailValidationWhenKickRequestInvalid() throws Exception {
         mockMvc.perform(post("/kick-player")
+                        .requestAttr("userId", "host-id")
                         .requestAttr("username", "host")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -178,9 +187,9 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void shouldMapIllegalStateToConflict() throws Exception {
-        when(gameRoomService.startGame("host")).thenThrow(new IllegalStateException("Already started"));
+        when(gameRoomService.startGame("host-id", "host")).thenThrow(new IllegalStateException("Already started"));
 
-        mockMvc.perform(post("/start").requestAttr("username", "host"))
+        mockMvc.perform(post("/start").requestAttr("userId", "host-id").requestAttr("username", "host"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("Game Error"))
                 .andExpect(jsonPath("$.message").value("Already started"));
@@ -188,11 +197,12 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void shouldMapIllegalArgumentToBadRequest() throws Exception {
-        when(gameRoomService.joinRoom(any(JoinGameRequest.class), eq("player")))
+        when(gameRoomService.joinRoom(any(JoinGameRequest.class), eq("player-id"), eq("player")))
                 .thenThrow(new IllegalArgumentException("Bad data"));
 
         mockMvc.perform(post("/join")
-                        .requestAttr("username", "player")
+                .requestAttr("userId", "player-id")
+                .requestAttr("username", "player")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sampleJoinRequest())))
                 .andExpect(status().isBadRequest())
@@ -223,10 +233,11 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
                 "room-info",
                 "Room",
                 GameType.LUDO,
-                List.of("host"),
+                Map.of("host-id", "host"),
                 4,
                 false,
                 "CODE1",
+                "host-id",
                 "host",
                 RoomStatus.WAITING);
     }

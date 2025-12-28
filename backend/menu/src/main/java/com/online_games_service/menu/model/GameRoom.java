@@ -11,8 +11,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Document(collection = "game_rooms")
 @Data
@@ -27,9 +27,10 @@ public class GameRoom {
 
     private GameType gameType;
 
+    private String hostUserId;
     private String hostUsername;
 
-    private List<String> playersUsernames = new ArrayList<>();
+    private Map<String, String> players = new LinkedHashMap<>(); // userId -> username
 
     private int maxPlayers;
 
@@ -44,18 +45,15 @@ public class GameRoom {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    public GameRoom(String name, GameType gameType, String hostUsername, int maxPlayers, boolean isPrivate) {
+    public GameRoom(String name, GameType gameType, String hostUserId, String hostUsername, int maxPlayers, boolean isPrivate) {
         this.name = name;
         this.gameType = gameType;
+        this.hostUserId = hostUserId;
         this.hostUsername = hostUsername;
         this.maxPlayers = maxPlayers;
         this.isPrivate = isPrivate;
         this.status = RoomStatus.WAITING;
-
-        if (this.playersUsernames == null) {
-            this.playersUsernames = new ArrayList<>();
-        }
-        this.playersUsernames.add(hostUsername);
+        this.players.put(hostUserId, hostUsername);
 
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
@@ -63,40 +61,38 @@ public class GameRoom {
     }
 
     public boolean canJoin() {
-        return status == RoomStatus.WAITING && playersUsernames.size() < maxPlayers;
+        return status == RoomStatus.WAITING && players.size() < maxPlayers;
     }
 
-    public void addPlayer(String username) {
+    public void addPlayer(String userId, String username) {
         if (!canJoin()) {
             throw new IllegalStateException("Cannot join room (Full or Game Started)");
         }
-        if (!this.playersUsernames.contains(username)) {
-            this.playersUsernames.add(username);
+        if (!this.players.containsKey(userId)) {
+            this.players.put(userId, username);
             this.updatedAt = LocalDateTime.now();
         }
 
-        if (this.playersUsernames.size() >= maxPlayers) {
+        if (this.players.size() >= maxPlayers) {
             this.status = RoomStatus.FULL;
         }
     }
 
-    public void removePlayer(String username) {
-        boolean removed = this.playersUsernames.remove(username);
+    public void removePlayerById(String userId) {
+        String removedUsername = this.players.remove(userId);
 
-        if (removed) {
+        if (removedUsername != null) {
             this.updatedAt = LocalDateTime.now();
 
-            if (this.status == RoomStatus.FULL && this.playersUsernames.size() < maxPlayers) {
+            if (this.status == RoomStatus.FULL && this.players.size() < maxPlayers) {
                 this.status = RoomStatus.WAITING;
             }
 
-            if (!this.playersUsernames.isEmpty() && username.equals(this.hostUsername)) {
-                this.hostUsername = this.playersUsernames.get(0);
+            if (!this.players.isEmpty() && userId.equals(this.hostUserId)) {
+                Map.Entry<String, String> nextHost = this.players.entrySet().iterator().next();
+                this.hostUserId = nextHost.getKey();
+                this.hostUsername = nextHost.getValue();
             }
         }
-    }
-
-    public void setPlayersUsernames(List<String> playersUsernames) {
-        this.playersUsernames = playersUsernames != null ? playersUsernames : new ArrayList<>();
     }
 }

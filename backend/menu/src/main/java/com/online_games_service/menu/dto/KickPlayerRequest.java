@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Data
 public class KickPlayerRequest {
-    @NotBlank(message = "Username to kick is required")
-    private String username;
+    @NotBlank(message = "User ID to kick is required")
+    private String userId;
 }

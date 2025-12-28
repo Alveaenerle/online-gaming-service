@@ -49,7 +49,15 @@ public class SessionUserFilter extends OncePerRequestFilter {
                 } else {
                     log.info("[Filter] Redis returned data type: {}", sessionData.getClass().getName());
 
-                    String username = extractUsername(sessionData);
+                    String username = extractField(sessionData, "username");
+                    String userId = extractField(sessionData, "id");
+
+                    if (userId != null) {
+                        request.setAttribute("userId", userId);
+                        log.info("[Filter] SUCCESS! User ID extracted: {}", userId);
+                    } else {
+                        log.warn("[Filter] Could not extract 'id' field from session data.");
+                    }
 
                     if (username != null) {
                         request.setAttribute("username", username);
@@ -68,18 +76,18 @@ public class SessionUserFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private String extractUsername(Object sessionData) {
+    private String extractField(Object sessionData, String key) {
         try {
             if (sessionData instanceof Map) {
-                Object u = ((Map<?, ?>) sessionData).get("username");
-                return u != null ? u.toString() : null;
+                Object value = ((Map<?, ?>) sessionData).get(key);
+                return value != null ? value.toString() : null;
             }
 
             // Konwersja obiektu na Mapę, żeby uniknąć problemów z brakiem klasy User w
             // ClassPath
             Map<String, Object> map = objectMapper.convertValue(sessionData, Map.class);
-            Object u = map.get("username");
-            return u != null ? u.toString() : null;
+            Object value = map.get(key);
+            return value != null ? value.toString() : null;
 
         } catch (Exception e) {
             log.error("[Filter] Parsing error for type {}: {}", sessionData.getClass().getName(), e.getMessage());

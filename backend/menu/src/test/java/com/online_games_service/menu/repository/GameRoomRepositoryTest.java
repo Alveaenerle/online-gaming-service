@@ -29,7 +29,7 @@ public class GameRoomRepositoryTest extends BaseIntegrationTest {
     @Test
     public void shouldSaveAndRetrieveRoom() {
         // Given
-        GameRoom room = new GameRoom("Test Room", GameType.LUDO, "host1", 4, false);
+        GameRoom room = new GameRoom("Test Room", GameType.LUDO, "host1-id", "host1", 4, false);
         
         // When
         GameRoom saved = gameRoomRepository.save(room);
@@ -45,10 +45,10 @@ public class GameRoomRepositoryTest extends BaseIntegrationTest {
     @Test
     public void shouldFilterRoomsByTypeAndStatus() {
         // Given
-        gameRoomRepository.save(new GameRoom("Ludo Open", GameType.LUDO, "h1", 4, false));
-        gameRoomRepository.save(new GameRoom("Makao Open", GameType.MAKAO, "h2", 4, false));
+        gameRoomRepository.save(new GameRoom("Ludo Open", GameType.LUDO, "h1-id", "h1", 4, false));
+        gameRoomRepository.save(new GameRoom("Makao Open", GameType.MAKAO, "h2-id", "h2", 4, false));
         
-        GameRoom startedRoom = new GameRoom("Ludo Started", GameType.LUDO, "h3", 4, false);
+        GameRoom startedRoom = new GameRoom("Ludo Started", GameType.LUDO, "h3-id", "h3", 4, false);
         startedRoom.setStatus(RoomStatus.PLAYING);
         gameRoomRepository.save(startedRoom);
 
@@ -63,10 +63,10 @@ public class GameRoomRepositoryTest extends BaseIntegrationTest {
     @Test
     public void shouldFindAllActiveRooms() {
         // Given
-        gameRoomRepository.save(new GameRoom("R1", GameType.MAKAO, "h1", 2, false));
-        gameRoomRepository.save(new GameRoom("R2", GameType.LUDO, "h2", 4, false));
+        gameRoomRepository.save(new GameRoom("R1", GameType.MAKAO, "h1-id", "h1", 2, false));
+        gameRoomRepository.save(new GameRoom("R2", GameType.LUDO, "h2-id", "h2", 4, false));
         
-        GameRoom finishedRoom = new GameRoom("R3", GameType.MAKAO, "h3", 2, false);
+        GameRoom finishedRoom = new GameRoom("R3", GameType.MAKAO, "h3-id", "h3", 2, false);
         finishedRoom.setStatus(RoomStatus.FINISHED);
         gameRoomRepository.save(finishedRoom);
 
