@@ -11,4 +11,9 @@ public class LudoApplicationTests extends AbstractTestNGSpringContextTests {
 	public void contextLoads() {
 	}
 
+	@Test
+	public void main() {
+		LudoApplication.main(new String[] {});
+	}
+
 }
