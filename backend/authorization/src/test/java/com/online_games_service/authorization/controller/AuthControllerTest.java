@@ -8,7 +8,6 @@ import com.online_games_service.authorization.exception.InvalidCredentialsExcept
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.service.AuthService;
 import com.online_games_service.authorization.service.SessionService;
-import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -17,6 +16,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testng.annotations.Test;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -26,7 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
-class AuthControllerTest {
+@ActiveProfiles("test")
+public class AuthControllerTest extends AbstractTestNGSpringContextTests {
 
     @Autowired
     private MockMvc mockMvc;
@@ -43,7 +46,7 @@ class AuthControllerTest {
     // REGSITER TESTS
 
     @Test
-    void shouldRegisterUserSuccessfully() throws Exception {
+    public void shouldRegisterUserSuccessfully() throws Exception {
         // Given
         RegisterRequest request = new RegisterRequest("testuser", "test@email.com", "password123");
         
@@ -60,7 +63,7 @@ class AuthControllerTest {
     }
 
     @Test
-    void shouldReturnBadRequestWhenEmailAlreadyExists() throws Exception {
+    public void shouldReturnBadRequestWhenEmailAlreadyExists() throws Exception {
         // Given
         RegisterRequest request = new RegisterRequest("testuser", "duplicate@email.com", "password123");
         doThrow(new EmailAlreadyExistsException("Email already taken"))
@@ -75,7 +78,7 @@ class AuthControllerTest {
     }
 
     @Test
-    void shouldReturnInternalServerErrorOnUnexpectedRegistrationError() throws Exception {
+    public void shouldReturnInternalServerErrorOnUnexpectedRegistrationError() throws Exception {
         // Given
         RegisterRequest request = new RegisterRequest("testuser", "error@email.com", "password123");
         doThrow(new RuntimeException("DB down"))
@@ -89,10 +92,22 @@ class AuthControllerTest {
                 .andExpect(content().string("An unexpected error occurred"));
     }
 
+    @Test
+    public void shouldReturnBadRequestWhenRegistrationRequestIsInvalid() throws Exception {
+        // Given
+        RegisterRequest request = new RegisterRequest("", "invalid-email", "");
+
+        // When & Then
+        mockMvc.perform(post("/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
     // LOGIN TESTS
 
     @Test
-    void shouldLoginUserAndSetCookieSuccessfully() throws Exception {
+    public void shouldLoginUserAndSetCookieSuccessfully() throws Exception {
         // Given
         LoginRequest loginRequest = new LoginRequest("test@email.com", "password123");
         
@@ -113,7 +128,7 @@ class AuthControllerTest {
     }
 
     @Test
-    void shouldReturnUnauthorizedOnInvalidCredentials() throws Exception {
+    public void shouldReturnUnauthorizedOnInvalidCredentials() throws Exception {
         // Given
         LoginRequest loginRequest = new LoginRequest("test@email.com", "wrongpassword");
         given(authService.login(any(LoginRequest.class)))
@@ -127,10 +142,37 @@ class AuthControllerTest {
                 .andExpect(content().string("Login failed: Invalid credentials"));
     }
 
+    @Test
+    public void shouldReturnInternalServerErrorOnUnexpectedLoginError() throws Exception {
+        // Given
+        LoginRequest loginRequest = new LoginRequest("test@email.com", "password123");
+        given(authService.login(any(LoginRequest.class)))
+                .willThrow(new RuntimeException("Redis down"));
+
+        // When & Then
+        mockMvc.perform(post("/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().string("An unexpected error occurred"));
+    }
+
+    @Test
+    public void shouldReturnBadRequestWhenLoginRequestIsInvalid() throws Exception {
+        // Given
+        LoginRequest request = new LoginRequest("", "");
+
+        // When & Then
+        mockMvc.perform(post("/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
     // GUEST TESTS
 
     @Test
-    void shouldCreateGuestSessionSuccessfully() throws Exception {
+    public void shouldCreateGuestSessionSuccessfully() throws Exception {
         // Given
         User guestUser = new User("2", "Guest_123", true);
         
@@ -149,7 +191,7 @@ class AuthControllerTest {
     // LOGOUT TESTS
 
     @Test
-    void shouldLogoutAndCleanCookie() throws Exception {
+    public void shouldLogoutAndCleanCookie() throws Exception {
         // Given
         ResponseCookie cleanCookie = ResponseCookie.from("ogs_session", "").maxAge(0).build();
         given(sessionService.getCleanSessionCookie()).willReturn(cleanCookie);
