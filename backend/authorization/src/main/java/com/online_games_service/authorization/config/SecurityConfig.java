@@ -43,7 +43,7 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/register", "/login", "/guest", "/logout", "/me").permitAll()
+                .requestMatchers("/register", "/login", "/guest", "/logout").permitAll()
                 .anyRequest().authenticated()
             )
             .logout(logout -> logout.disable());
