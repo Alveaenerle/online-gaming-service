@@ -38,6 +38,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (data: RegisterRequest) => {
     await authService.register(data);
+    const userData = await authService.login({ email: data.email, password: data.password });
+    setUser(userData);
   };
 
   const loginAsGuest = async () => {
@@ -46,8 +48,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+    }
   };
 
   return (

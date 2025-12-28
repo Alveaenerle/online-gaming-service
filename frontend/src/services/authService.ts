@@ -17,6 +17,46 @@ export interface User {
   isGuest: boolean;
 }
 
+async function parseErrorResponse(response: Response, fallbackMessage: string): Promise<string> {
+  const status = response.status;
+  
+  try {
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const errorData = await response.json();
+      return errorData.message || errorData.error || fallbackMessage;
+    }
+    
+    const errorText = await response.text();
+    if (errorText) {
+      return errorText;
+    }
+  } catch {
+    // Failed to parse response body
+  }
+
+  switch (status) {
+    case 400:
+      return 'Invalid request. Please check your input.';
+    case 401:
+      return 'Invalid credentials. Please try again.';
+    case 403:
+      return 'Access denied.';
+    case 404:
+      return 'Service not found. Please try again later.';
+    case 409:
+      return 'Account already exists with this email.';
+    case 429:
+      return 'Too many attempts. Please try again later.';
+    case 500:
+    case 502:
+    case 503:
+      return 'Server error. Please try again later.';
+    default:
+      return fallbackMessage;
+  }
+}
+
 export const authService = {
   async login(credentials: LoginRequest): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/login`, {
@@ -27,8 +67,8 @@ export const authService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Login failed');
+      const errorMessage = await parseErrorResponse(response, 'Login failed. Please try again.');
+      throw new Error(errorMessage);
     }
 
     return this.getCurrentUser();
@@ -43,8 +83,8 @@ export const authService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Registration failed');
+      const errorMessage = await parseErrorResponse(response, 'Registration failed. Please try again.');
+      throw new Error(errorMessage);
     }
 
     return response.text();
@@ -57,17 +97,23 @@ export const authService = {
     });
 
     if (!response.ok) {
-      throw new Error('Guest login failed');
+      const errorMessage = await parseErrorResponse(response, 'Guest login failed. Please try again.');
+      throw new Error(errorMessage);
     }
 
     return this.getCurrentUser();
   },
 
   async logout(): Promise<void> {
-    await fetch(`${API_BASE_URL}/logout`, {
+    const response = await fetch(`${API_BASE_URL}/logout`, {
       method: 'POST',
       credentials: 'include',
     });
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response, 'Logout failed. Please try again.');
+      throw new Error(errorMessage);
+    }
   },
 
   async getCurrentUser(): Promise<User> {
@@ -77,7 +123,12 @@ export const authService = {
     });
 
     if (!response.ok) {
-      throw new Error('Not authenticated');
+      const status = response.status;
+      if (status === 401) {
+        throw new Error('Session expired. Please log in again.');
+      }
+      const errorMessage = await parseErrorResponse(response, 'Unable to retrieve user information. Please try again.');
+      throw new Error(errorMessage);
     }
 
     return response.json();

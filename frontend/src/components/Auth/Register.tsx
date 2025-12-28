@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -13,9 +13,18 @@ const Register: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,10 +43,10 @@ const Register: React.FC = () => {
 
     try {
       await register({ username, email, password });
-      setSuccessMessage("Account created successfully! Redirecting to login...");
-      setTimeout(() => {
-        navigate("/login");
-      }, 2000);
+      setSuccessMessage("Account created successfully! Redirecting...");
+      timeoutRef.current = setTimeout(() => {
+        navigate("/home");
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

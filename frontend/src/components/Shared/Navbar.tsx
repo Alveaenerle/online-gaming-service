@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -7,7 +7,24 @@ import { User, LogOut, ChevronDown } from "lucide-react";
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   const handleLogout = async () => {
     await logout();
@@ -39,10 +56,12 @@ const Navbar: React.FC = () => {
         </a>
 
         {isAuthenticated && user ? (
-          <div className="relative">
+          <div className="relative" ref={dropdownRef}>
             <motion.button
               whileHover={{ scale: 1.05 }}
               onClick={() => setDropdownOpen(!dropdownOpen)}
+              aria-expanded={dropdownOpen}
+              aria-haspopup="true"
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white shadow-neon transition-transform"
             >
               <User size={18} />

@@ -20,7 +20,7 @@ ARG MODULE_NAME
 ENV MODULE_NAME=${MODULE_NAME}
 COPY . .
 RUN chmod +x mvnw
-CMD ["sh", "-c", "chmod +x mvnw && ./mvnw -q spring-boot:run -pl ${MODULE_NAME} -am"]
+CMD ["sh", "-c", "./mvnw -q spring-boot:run -pl ${MODULE_NAME} -am"]
 
 FROM base AS build
 ARG MODULE_NAME
