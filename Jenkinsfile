@@ -25,7 +25,7 @@ pipeline {
                 dir('backend') {
                     script {
                         sh "chmod +x mvnw"
-                        sh "./mvnw clean verify"
+                        sh "./mvnw clean verify jacoco:report-aggregate"
                     }
                 }
             }
@@ -35,10 +35,10 @@ pipeline {
                         allowMissing: true,
                         alwaysLinkToLastBuild: true,
                         keepAll: true,
-                        reportDir: 'backend/**/target/site/jacoco',
+                        reportDir: 'backend/target/site/jacoco-aggregate',
                         reportFiles: 'index.html',
-                        reportName: 'JaCoCo Coverage Report',
-                        reportTitles: 'Code Coverage'
+                        reportName: 'JaCoCo Aggregate Coverage Report',
+                        reportTitles: 'Aggregate Code Coverage'
                     ])
                 }
             }
