@@ -25,7 +25,7 @@ pipeline {
                 dir('backend') {
                     script {
                         sh "chmod +x mvnw"
-                        sh "./mvnw clean verify jacoco:report-aggregate"
+                        sh "./mvnw -T 1C clean verify jacoco:report-aggregate"
                     }
                 }
             }
@@ -55,12 +55,19 @@ pipeline {
                     sh "echo ${NEXUS_CREDS_PSW} | docker login ${NEXUS_URL} -u ${NEXUS_CREDS_USR} --password-stdin"
 
                     def backendModules = ['social', 'menu', 'makao', 'ludo', 'authorization']
+                    def builds = [:]
+
                     backendModules.each { module ->
-                        deployService("online-gaming-${module}", './backend', module)
+                        builds[module] = {
+                            deployService("online-gaming-${module}", './backend', module)
+                        }
                     }
 
-                    // Frontend doesn't need the 3rd arg
-                    deployService('online-gaming-frontend', './frontend')
+                    builds['frontend'] = {
+                        deployService('online-gaming-frontend', './frontend')
+                    }
+
+                    parallel builds
 
                     sh "docker logout ${NEXUS_URL}"
                 }

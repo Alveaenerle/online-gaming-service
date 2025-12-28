@@ -155,6 +155,8 @@
                     <excludes>
                         <exclude>**/integration/**</exclude>
                     </excludes>
+                    <parallel>methods</parallel>
+                    <threadCount>4</threadCount>
                 </configuration>
             </plugin>
 
