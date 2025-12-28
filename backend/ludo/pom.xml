@@ -33,6 +33,11 @@
             <version>${testng.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.online_games_service</groupId>
+            <artifactId>common-test-support</artifactId>
+        </dependency>
     </dependencies>
     
     <build>

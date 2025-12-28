@@ -1,7 +1,4 @@
-// infra/postBuildStatus.groovy
-
 def call(String status) {
-    // Sprawdzamy, czy to PR
     if (!env.CHANGE_ID) {
         return
     }
@@ -12,10 +9,8 @@ def call(String status) {
     
     def message = "${icon} Jenkins build **${verb}** for this PR ([build #${env.BUILD_NUMBER}](${env.BUILD_URL}))$action"
     
-    // KLUCZOWA POPRAWKA: Definicja zmiennej JSON z użyciem .trim()
     def jsonPayload = """{ "body": "${message}" }""".trim()
     
-    // Używamy oryginalnej, działającej struktury 'sh' i interpolujemy CZYSTY payload
     sh """
     curl -sS -X POST \\
       -H "Authorization: token ${env.GITHUB_TOKEN}" \\

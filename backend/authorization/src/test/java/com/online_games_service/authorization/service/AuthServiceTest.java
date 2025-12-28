@@ -78,6 +78,21 @@ public class AuthServiceTest {
         verify(accountRepository, never()).save(any()); 
     }
 
+    @Test
+    public void shouldHandleExceptionDuringRegistration() {
+        // Given
+        RegisterRequest request = new RegisterRequest("user", "test@test.com", "pass");
+        when(accountRepository.existsByEmail(any())).thenThrow(new RuntimeException("DB Error"));
+
+        // When
+        try {
+            authService.register(request);
+            Assert.fail("Should have thrown exception");
+        } catch (RuntimeException e) {
+            Assert.assertEquals(e.getMessage(), "DB Error");
+        }
+    }
+
     // LOGIN TESTS
 
     @Test
@@ -120,6 +135,16 @@ public class AuthServiceTest {
 
         when(accountRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(foundAccount));
         when(passwordEncoder.matches(request.getPassword(), "correct_hash")).thenReturn(false);
+
+        // When
+        authService.login(request);
+    }
+
+    @Test(expectedExceptions = RuntimeException.class)
+    public void shouldPropagateExceptionWhenRepositoryFailsDuringLogin() {
+        // Given
+        LoginRequest request = new LoginRequest("test@test.com", "pass");
+        when(accountRepository.findByEmail(any())).thenThrow(new RuntimeException("DB Error"));
 
         // When
         authService.login(request);
