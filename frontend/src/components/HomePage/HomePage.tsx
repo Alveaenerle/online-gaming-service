@@ -4,9 +4,11 @@ import { Users } from "lucide-react";
 import { FriendsSidebar } from "../Shared/FriendsSidebar";
 import Navbar from "../Shared/Navbar";
 import { GameCarousel } from "./GamesCarousel";
+import { useAuth } from "../../context/AuthContext";
 
 const Home: React.FC = () => {
   const [friendsOpen, setFriendsOpen] = useState(false);
+  const { user, isAuthenticated } = useAuth();
 
   return (
     <div className="min-h-screen bg-bg text-white overflow-hidden">
@@ -19,7 +21,9 @@ const Home: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-4xl font-bold mb-4">Welcome Back</h2>
+          <h2 className="text-4xl font-bold mb-4">
+            Welcome Back{isAuthenticated && user ? `, ${user.username}` : ""}!
+          </h2>
           <p className="text-gray-400">Choose your game below:</p>
         </motion.div>
 

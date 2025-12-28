@@ -1,15 +1,43 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { login, loginAsGuest } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement login logic
-    console.log("Login:", { email, password });
+    setError("");
+    setIsLoading(true);
+
+    try {
+      await login({ email, password });
+      navigate("/home");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setError("");
+    setIsLoading(true);
+    try {
+      await loginAsGuest();
+      navigate("/home");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Guest login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -34,6 +62,16 @@ const Login: React.FC = () => {
         <p className="text-gray-400 text-center mb-8">
           Log in to continue your adventure
         </p>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 text-sm text-center"
+          >
+            {error}
+          </motion.div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -84,13 +122,24 @@ const Login: React.FC = () => {
 
           <motion.button
             type="submit"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full py-3 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white font-semibold shadow-neon transition-transform"
+            disabled={isLoading}
+            whileHover={{ scale: isLoading ? 1 : 1.02 }}
+            whileTap={{ scale: isLoading ? 1 : 0.98 }}
+            className="w-full py-3 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white font-semibold shadow-neon transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Log in
+            {isLoading ? "Logging in..." : "Log in"}
           </motion.button>
         </form>
+
+        <motion.button
+          onClick={handleGuestLogin}
+          disabled={isLoading}
+          whileHover={{ scale: isLoading ? 1 : 1.02 }}
+          whileTap={{ scale: isLoading ? 1 : 0.98 }}
+          className="w-full mt-4 py-3 rounded-xl border border-white/20 text-white font-semibold hover:bg-white/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? "Please wait..." : "Play as Guest"}
+        </motion.button>
 
         <div className="mt-6 text-center text-sm text-gray-400">
           Don't have an account?{" "}

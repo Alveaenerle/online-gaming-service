@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -8,11 +9,28 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement registration logic
+    setError("");
+    setSuccessMessage("");
+
     if (password !== confirmPassword) {
       setPasswordError("Passwords don't match!");
       setPassword("");
@@ -21,7 +39,19 @@ const Register: React.FC = () => {
       return;
     }
     setPasswordError("");
-    console.log("Register:", { username, email, password });
+    setIsLoading(true);
+
+    try {
+      await register({ username, email, password });
+      setSuccessMessage("Account created successfully! Redirecting...");
+      timeoutRef.current = setTimeout(() => {
+        navigate("/home");
+      }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,6 +76,26 @@ const Register: React.FC = () => {
         <p className="text-gray-400 text-center mb-8">
           Join our gaming community today
         </p>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 text-sm text-center"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-xl text-green-400 text-sm text-center"
+          >
+            {successMessage}
+          </motion.div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -157,11 +207,12 @@ const Register: React.FC = () => {
 
           <motion.button
             type="submit"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full py-3 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white font-semibold shadow-neon transition-transform"
+            disabled={isLoading}
+            whileHover={{ scale: isLoading ? 1 : 1.02 }}
+            whileTap={{ scale: isLoading ? 1 : 0.98 }}
+            className="w-full py-3 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white font-semibold shadow-neon transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create account
+            {isLoading ? "Creating account..." : "Create account"}
           </motion.button>
         </form>
 

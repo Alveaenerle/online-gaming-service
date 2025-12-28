@@ -166,4 +166,18 @@ public class SessionServiceTest {
         // Then
         verify(sessionRepository, never()).deleteSession(any());
     }
+
+    @Test
+    public void shouldReturnNullWhenSessionIdFromCookieIsNull() {
+        // Given
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie(TEST_COOKIE_NAME, null));
+
+        // When
+        User result = sessionService.getUserFromCookie(request);
+
+        // Then
+        Assert.assertNull(result);
+        verify(sessionRepository, never()).findUserBySessionId(any());
+    }
 }

@@ -10,6 +10,7 @@ COPY social/pom.xml social/
 COPY menu/pom.xml menu/
 COPY common/pom.xml common/
 COPY common-test-support/pom.xml common-test-support/
+COPY coverage-report/pom.xml coverage-report/
 
 RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline

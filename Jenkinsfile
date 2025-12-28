@@ -16,22 +16,31 @@ pipeline {
     stages {
         stage('Run tests & Code Coverage') {
             when {
-                changeRequest()
+                anyOf {
+                    changeRequest()
+                    branch 'main'
+                }
             }
             steps {
                 dir('backend') {
                     script {
                         sh "chmod +x mvnw"
-                        sh "chmod +x backend_code_coverage.sh"
-
-                        sh "./mvnw -pl common,common-test-support -am clean install -DskipTests"
-
-                        def modules = ['social', 'menu', 'makao', 'ludo', 'authorization']
-
-                        modules.each { moduleName ->
-                            sh "./backend_code_coverage.sh ${moduleName}"
-                        }
+                        sh "./mvnw -T 1C clean verify jacoco:report-aggregate"
                     }
+                }
+            }
+            post {
+                always {
+
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'backend/coverage-report/target/site/jacoco-aggregate',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Aggregate Coverage Report',
+                        reportTitles: 'Aggregate Code Coverage'
+                    ])
                 }
             }
         }
@@ -46,12 +55,19 @@ pipeline {
                     sh "echo ${NEXUS_CREDS_PSW} | docker login ${NEXUS_URL} -u ${NEXUS_CREDS_USR} --password-stdin"
 
                     def backendModules = ['social', 'menu', 'makao', 'ludo', 'authorization']
+                    def builds = [:]
+
                     backendModules.each { module ->
-                        deployService("online-gaming-${module}", './backend', module)
+                        builds[module] = {
+                            deployService("online-gaming-${module}", './backend', module)
+                        }
                     }
 
-                    // Frontend doesn't need the 3rd arg
-                    deployService('online-gaming-frontend', './frontend')
+                    builds['frontend'] = {
+                        deployService('online-gaming-frontend', './frontend')
+                    }
+
+                    parallel builds
 
                     sh "docker logout ${NEXUS_URL}"
                 }
