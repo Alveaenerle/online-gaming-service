@@ -26,6 +26,7 @@
         <module>menu</module>
         <module>common</module>
         <module>common-test-support</module>
+        <module>coverage-report</module>
     </modules>
 
     <properties>

@@ -31,11 +31,12 @@ pipeline {
             }
             post {
                 always {
+
                     publishHTML(target: [
                         allowMissing: true,
                         alwaysLinkToLastBuild: true,
                         keepAll: true,
-                        reportDir: 'backend/target/site/jacoco-aggregate',
+                        reportDir: 'backend/coverage-report/target/site/jacoco-aggregate',
                         reportFiles: 'index.html',
                         reportName: 'JaCoCo Aggregate Coverage Report',
                         reportTitles: 'Aggregate Code Coverage'
