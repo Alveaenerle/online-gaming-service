@@ -113,7 +113,7 @@ export const GameCarousel: React.FC = () => {
                   <p className="mt-7 text-center text-gray-200 text-base">
                     {game.description}
                   </p>
-                  <div className="mt-7 flex justify-center">
+                  <div className="mt-7 flex justify-center gap-4">
                     <button
                       onClick={() => navigate(game.route)}
                       className="px-6 py-3 rounded-xl text-sm font-semibold bg-purple-600 hover:bg-purple-500 shadow shadow-purple-600/40 transition"

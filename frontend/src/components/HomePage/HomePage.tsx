@@ -13,7 +13,15 @@ const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-bg text-white overflow-hidden">
       <Navbar />
-
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0b1f] via-[#05060f] to-black" />
+        <div
+          className="absolute top-[-20%] left-1/2 -translate-x-1/2
+                        w-[900px] h-[900px]
+                        bg-purple-900/30 blur-[140px]"
+        />
+        <div className="absolute inset-0 bg-black/40" />
+      </div>
       <section className="relative py-32 px-6 max-w-7xl mx-auto">
         <motion.div
           className="text-center mb-3"
@@ -38,7 +46,7 @@ const Home: React.FC = () => {
 
       <motion.button
         onClick={() => setFriendsOpen(true)}
-        className="fixed bottom-6 right-6 z-30
+        className="fixed bottom-10 right-10 z-30
                    flex items-center gap-3
                    rounded-2xl bg-purple-600 px-5 py-3
                    font-semibold shadow-lg shadow-purple-600/40
