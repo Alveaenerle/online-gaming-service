@@ -108,6 +108,7 @@ public class GameRoomService {
         messagingTemplate.convertAndSend("/topic/room/" + room.getId(), response);
 
         log.info("Broadcasted room update for room {}", room.getId());
+        System.out.println("Broadcasted room update for room " + room.getId());
     }
 
     public GameRoom joinRoom(JoinGameRequest request, String userId, String username) {

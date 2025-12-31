@@ -1,15 +1,29 @@
-export interface LobbyPlayer {
-  id: string;
+export type LobbyPlayer = {
+  userId: string;
   username: string;
   avatar: string;
-  isHost?: boolean;
-  isReady?: boolean;
-  isYou?: boolean;
-}
+  isReady: boolean;
+  isHost: boolean;
+  isYou: boolean;
+};
 
-export interface GameLobbyConfig {
-  gameKey: string;
-  title: string;
-  minPlayers: number;
+export type LobbyInfoRaw = {
+  id: string;
+  gameType: string;
   maxPlayers: number;
-}
+  hostUserId: string;
+  players: Record<string, string>;
+  status: "WAITING" | "STARTED";
+  name: string;
+  accessCode: string;
+};
+
+export type LobbyInfo = {
+  roomId: string;
+  gameType: string;
+  maxPlayers: number;
+  players: LobbyPlayer[];
+  gameStarted: boolean;
+  name: string;
+  accessCode: string;
+};

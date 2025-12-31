@@ -26,14 +26,14 @@ export function LobbyPlayersSection({
       >
         {Array.from({ length: maxPlayers - 1 }).map((_, i) => {
           const player = others[i];
-          return <PlayerCard key={player?.id ?? i} player={player} />;
+          return <PlayerCard key={player?.userId ?? i} player={player} />;
         })}
       </div>
 
       {you && (
         <BigPlayerCard
           player={you}
-          onAvatarClick={() => onAvatarSelect(you.id)}
+          onAvatarClick={() => onAvatarSelect(you.userId)}
           onToggleReady={onToggleReady}
         />
       )}
