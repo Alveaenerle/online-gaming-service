@@ -39,10 +39,8 @@ public class GameRoom {
 
     private RoomStatus status;
 
-    @CreatedDate
     private LocalDateTime createdAt;
 
-    @LastModifiedDate
     private LocalDateTime updatedAt;
 
     public GameRoom(String name, GameType gameType, String hostUserId, String hostUsername, int maxPlayers, boolean isPrivate) {

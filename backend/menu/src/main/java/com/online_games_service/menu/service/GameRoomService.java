@@ -108,7 +108,6 @@ public class GameRoomService {
         messagingTemplate.convertAndSend("/topic/room/" + room.getId(), response);
 
         log.info("Broadcasted room update for room {}", room.getId());
-        System.out.println("Broadcasted room update for room " + room.getId());
     }
 
     public GameRoom joinRoom(JoinGameRequest request, String userId, String username) {
@@ -135,7 +134,12 @@ public class GameRoomService {
     }
 
     private GameRoom handleRandomJoin(JoinGameRequest request, String userId, String username) {
-        String waitingKey = KEY_WAITING + request.getGameType();
+        GameType requestedType = request.getGameType();
+        if (requestedType == null) {
+            throw new IllegalArgumentException("Game type is required for random join");
+        }
+
+        String waitingKey = KEY_WAITING + requestedType;
         Set<Object> waitingRoomIds = redisTemplate.opsForSet().members(waitingKey);
 
         if (waitingRoomIds != null) {
@@ -160,7 +164,7 @@ public class GameRoomService {
         log.info("No matching room found. Creating new one for {}", username);
         CreateRoomRequest createRequest = new CreateRoomRequest();
         createRequest.setName("Room #" + (1000 + RANDOM.nextInt(9000)));
-        createRequest.setGameType(request.getGameType());
+        createRequest.setGameType(requestedType);
         createRequest.setMaxPlayers(request.getMaxPlayers());
         createRequest.setPrivate(false);
 
