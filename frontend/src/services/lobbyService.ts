@@ -1,9 +1,7 @@
-import { LobbyInfoRaw } from "../components/Games/shared/types";
+import { LobbyInfoRaw } from "../components/Games/utils/types";
 
-/* ===== API URL ===== */
 const API_URL = import.meta.env.VITE_API_URL ?? "/api/menu";
 
-/* ===== GENERIC REQUEST ===== */
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${endpoint}`, {
     credentials: "include",
@@ -20,24 +18,18 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
       if (typeof error?.message === "string") {
         errorMessage = error.message;
       }
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     throw new Error(errorMessage);
   }
 
   return res.json() as Promise<T>;
 }
 
-/* ===== SERVICE ===== */
 export const lobbyService = {
-  /* ===== ROOM INFO ===== */
   getRoomInfo(): Promise<LobbyInfoRaw> {
-    // backend zwraca lobby przypisane do sesji użytkownika
     return request<LobbyInfoRaw>("/room-info");
   },
 
-  /* ===== CREATE / JOIN ===== */
   createRoom(
     gameType: string,
     maxPlayers: number,
@@ -70,7 +62,6 @@ export const lobbyService = {
     });
   },
 
-  /* ===== GAME FLOW ===== */
   startGame(): Promise<LobbyInfoRaw> {
     return request<LobbyInfoRaw>("/start", {
       method: "POST",

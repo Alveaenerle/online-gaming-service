@@ -1,84 +1,98 @@
 import { motion } from "framer-motion";
-import { Crown } from "lucide-react";
+import { Crown, UserMinus } from "lucide-react";
 
 type Props = {
   player?: {
+    userId: string;
     username: string;
     avatar: string;
     isHost?: boolean;
     isReady?: boolean;
   };
+  onKick?: (userId: string) => void;
+  showKickButton?: boolean;
 };
 
-export function PlayerCard({ player }: Props) {
+export function PlayerCard({ player, onKick, showKickButton }: Props) {
   return (
     <motion.div
       layout
-      whileHover={player ? { scale: 1.03 } : undefined}
-      className={`relative w-[80%] h-60 rounded-2xl p-4
-        flex flex-col items-center justify-center
-        ${
-          player
-            ? `
-              bg-gradient-to-b from-[#14162b] to-[#0b0d1a]
-              border border-white/10
-              ${
-                player.isReady
-                  ? "shadow-[0_0_30px_rgba(139,92,246,0.4)]"
-                  : "opacity-90"
-              }
-            `
-            : "bg-transparent border border-dashed border-white/20"
-        }`}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={`relative w-full h-60 rounded-3xl p-5 flex flex-col items-center justify-center transition-all duration-500 ${
+        player
+          ? `bg-[#121018] border border-white/5 shadow-2xl ${
+              player.isReady ? "border-purple-500/40" : ""
+            }`
+          : "bg-white/[0.02] border border-dashed border-white/10"
+      }`}
     >
       {player ? (
         <>
           <div
-            className="relative w-20 h-20 rounded-full
-                       border-2 border-purple-500
-                       overflow-hidden p-1"
+            className={`relative w-24 h-24 rounded-full p-1 border-2 transition-colors duration-500 ${
+              player.isReady
+                ? "border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                : "border-purple-500/50"
+            }`}
           >
             <img
               src={player.avatar}
               alt=""
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover rounded-full"
             />
-
             {player.isReady && (
-              <div
-                className="absolute inset-0
-                           shadow-[inset_0_0_25px_rgba(139,92,246,0.8)]"
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="absolute inset-0 rounded-full shadow-[inset_0_0_15px_rgba(34,197,94,0.6)]"
               />
             )}
           </div>
 
-          <div className="mt-3 text-center">
-            <div className="flex justify-center items-center gap-1">
-              {player.isHost && <Crown size={14} className="text-yellow-400" />}
-              <span className="font-semibold tracking-wide">
+          <div className="mt-4 text-center">
+            <div className="flex justify-center items-center gap-2">
+              {player.isHost && (
+                <Crown
+                  size={14}
+                  className="text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.4)]"
+                />
+              )}
+              <span className="text-lg font-bold text-gray-200 tracking-tight truncate max-w-[180px]">
                 {player.username}
               </span>
             </div>
 
-            <span
-              className={`mt-2 flex items-center justify-center gap-2
-                        text-xs tracking-widest
-                        ${player.isReady ? "text-green-400" : "text-gray-500"}
-            `}
+            <div
+              className={`mt-2 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] ${
+                player.isReady ? "text-green-400" : "text-gray-500"
+              }`}
             >
               <span
-                className={`w-2 h-2 rounded-full ${
-                  player.isReady ? "bg-green-500" : "bg-gray-500"
+                className={`w-1.5 h-1.5 rounded-full ${
+                  player.isReady ? "bg-green-500 animate-pulse" : "bg-gray-600"
                 }`}
               />
-              {player.isReady ? "READY" : "NOT READY"}
-            </span>
+              {player.isReady ? "Ready" : "Waiting"}
+            </div>
           </div>
+
+          {showKickButton && onKick && (
+            <button
+              onClick={() => onKick(player.userId)}
+              className="absolute top-3 right-3 p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all duration-300 border border-red-500/20"
+            >
+              <UserMinus size={14} />
+            </button>
+          )}
         </>
       ) : (
-        <span className="text-gray-500 text-sm tracking-wide">
-          Waiting for player
-        </span>
+        <div className="flex flex-col items-center gap-2 opacity-30">
+          <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">
+            Empty Slot
+          </span>
+        </div>
       )}
     </motion.div>
   );

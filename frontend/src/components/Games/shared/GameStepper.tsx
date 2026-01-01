@@ -1,0 +1,55 @@
+import { motion, AnimatePresence } from "framer-motion";
+
+interface StepperProps {
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (val: number) => void;
+  label: string;
+}
+
+export function GameStepper({
+  value,
+  min = 1,
+  max = 8,
+  onChange,
+  label,
+}: StepperProps) {
+  return (
+    <div className="space-y-3">
+      <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">
+        {label}
+      </label>
+      <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-[1.5rem] p-2 h-20">
+        <button
+          onClick={() => onChange(Math.max(min, value - 1))}
+          className="w-20 h-full flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-3xl font-light transition-all active:scale-90"
+        >
+          −
+        </button>
+        <div className="flex flex-col items-center">
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={value}
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -10, opacity: 0 }}
+              className="text-4xl font-black text-white"
+            >
+              {value}
+            </motion.span>
+          </AnimatePresence>
+          <span className="text-[10px] text-gray-500 uppercase font-black tracking-tighter">
+            Players
+          </span>
+        </div>
+        <button
+          onClick={() => onChange(Math.min(max, value + 1))}
+          className="w-20 h-full flex items-center justify-center rounded-xl bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 text-3xl font-light transition-all active:scale-90"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
