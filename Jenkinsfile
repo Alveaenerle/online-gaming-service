@@ -89,7 +89,7 @@ pipeline {
         }
 
         stage('Deploy to Prod') {
-            when { tag 'v*' }
+            when { expression { env.TAG_NAME != null && env.TAG_NAME.startsWith('v') } }
             steps {
                 script {
                     def deployToProd = load('infra/deploy.groovy')
