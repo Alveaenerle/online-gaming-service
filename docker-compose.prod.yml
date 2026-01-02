@@ -20,6 +20,14 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
 
   menu:
     image: ${NEXUS_URL}/online-gaming-menu:${TAG}
@@ -37,6 +45,14 @@ services:
       - mongodb
       - redis
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
 
   social:
     image: ${NEXUS_URL}/online-gaming-social:${TAG}
@@ -54,6 +70,14 @@ services:
       - mongodb
       - redis
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
 
   makao:
     image: ${NEXUS_URL}/online-gaming-makao:${TAG}
@@ -71,6 +95,14 @@ services:
       - mongodb
       - redis
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
 
   ludo:
     image: ${NEXUS_URL}/online-gaming-ludo:${TAG}
@@ -88,6 +120,14 @@ services:
       - mongodb
       - redis
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
 
   frontend:
     image: ${NEXUS_URL}/online-gaming-frontend:${TAG}
@@ -98,6 +138,14 @@ services:
     networks:
       - gaming-net
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
     depends_on:
       - authorization
       - menu
@@ -117,6 +165,14 @@ services:
     volumes:
       - mongo_data:/data/db
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@localhost:27017/test?authSource=admin --quiet
       interval: 10s
@@ -134,6 +190,14 @@ services:
     volumes:
       - redis_data:/data
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
