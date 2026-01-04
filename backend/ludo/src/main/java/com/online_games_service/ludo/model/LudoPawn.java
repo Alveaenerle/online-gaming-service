@@ -1,5 +1,7 @@
 package com.online_games_service.ludo.model;
 
+import com.online_games_service.ludo.enums.PlayerColor;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +12,8 @@ import lombok.NoArgsConstructor;
 public class LudoPawn {
     private int id;         
     private int position;   
+    private PlayerColor color;
+    private int stepsMoved;
     private boolean inBase; 
     private boolean inHome; 
 }
