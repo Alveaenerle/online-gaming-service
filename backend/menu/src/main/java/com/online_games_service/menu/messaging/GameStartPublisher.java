@@ -5,6 +5,7 @@ import com.online_games_service.common.messaging.GameStartMessage;
 import com.online_games_service.menu.model.GameRoom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,8 +41,13 @@ public class GameStartPublisher {
                 room.getHostUsername()
         );
 
-        rabbitTemplate.convertAndSend(gameEventsExchange.getName(), routingKey, payload);
-        log.info("Published game start for room {} to exchange {} with routing {}", room.getId(), gameEventsExchange.getName(), routingKey);
+        try {
+            rabbitTemplate.convertAndSend(gameEventsExchange.getName(), routingKey, payload);
+            log.info("Published game start for room {} to exchange {} with routing {}", room.getId(), gameEventsExchange.getName(), routingKey);
+        } catch (AmqpException ex) {
+            log.error("Failed to publish game start for room {} to exchange {} with routing {}", room.getId(), gameEventsExchange.getName(), routingKey, ex);
+            throw new IllegalStateException("Failed to publish game start event", ex);
+        }
     }
 
     private String routingKeyFor(GameType gameType) {

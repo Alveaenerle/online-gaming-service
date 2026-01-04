@@ -39,6 +39,10 @@ public class GameStartListener {
         }
 
         List<String> playerOrder = buildPlayerOrder(message.hostUserId(), message.players());
+        if (playerOrder.isEmpty()) {
+            log.warn("Cannot create Makao game {} because no players were provided in GameStartMessage", gameId);
+            return;
+        }
         MakaoGame game = new MakaoGame(gameId, playerOrder);
 
         gameRedisRepository.save(game);
@@ -50,12 +54,12 @@ public class GameStartListener {
         if (hostUserId != null && !hostUserId.isBlank()) {
             ordered.add(hostUserId);
         }
-        if (players != null) {
-            for (String userId : players.keySet()) {
-                if (!Objects.equals(userId, hostUserId)) {
-                    ordered.add(userId);
-                }
-            }
+        if (players != null && !players.isEmpty()) {
+            players.entrySet().stream()
+                    .map(Map.Entry::getKey)
+                    .filter(userId -> !Objects.equals(userId, hostUserId))
+                    .sorted()
+                    .forEach(ordered::add);
         }
         return ordered;
     }
