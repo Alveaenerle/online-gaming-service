@@ -8,11 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -38,29 +33,14 @@ public class GameStartListener {
             return;
         }
 
-        List<String> playerOrder = buildPlayerOrder(message.hostUserId(), message.players());
-        if (playerOrder.isEmpty()) {
+        if (message.players() == null || message.players().isEmpty()) {
             log.warn("Cannot create Makao game {} because no players were provided in GameStartMessage", gameId);
             return;
         }
-        MakaoGame game = new MakaoGame(gameId, playerOrder);
+
+        MakaoGame game = new MakaoGame(gameId, message.players(), message.hostUserId(), message.maxPlayers());
 
         gameRedisRepository.save(game);
-        log.info("Makao game {} created with {} players and persisted to Redis", gameId, playerOrder.size());
-    }
-
-    private List<String> buildPlayerOrder(String hostUserId, Map<String, String> players) {
-        List<String> ordered = new ArrayList<>();
-        if (hostUserId != null && !hostUserId.isBlank()) {
-            ordered.add(hostUserId);
-        }
-        if (players != null && !players.isEmpty()) {
-            players.entrySet().stream()
-                    .map(Map.Entry::getKey)
-                    .filter(userId -> !Objects.equals(userId, hostUserId))
-                    .sorted()
-                    .forEach(ordered::add);
-        }
-        return ordered;
+        log.info("Makao game {} created with {} players and persisted to Redis", gameId, message.players().size());
     }
 }

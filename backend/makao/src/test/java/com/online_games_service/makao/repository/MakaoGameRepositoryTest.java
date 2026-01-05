@@ -16,6 +16,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,10 +51,10 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
         String player1 = "jan_kowalski";
         String player2 = "anna_nowak";
         
-        MakaoGame game = new MakaoGame(roomId, List.of(player1, player2));
+        MakaoGame game = new MakaoGame(roomId, Map.of(player1, "Player 1", player2, "Player 2"), player1, 4);
 
         game.setStatus(RoomStatus.FINISHED);
-        game.setWinnerId(player1);
+        game.getRanking().put(player1, 0);
         game.setDemandedRank(CardRank.JACK);
         game.setDemandedSuit(CardSuit.DIAMONDS);
 
@@ -76,7 +77,7 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
 
         assertThat(loadedGame.getId()).isEqualTo(roomId);
         assertThat(loadedGame.getStatus()).isEqualTo(RoomStatus.FINISHED);
-        assertThat(loadedGame.getWinnerId()).isEqualTo(player1);
+        assertThat(loadedGame.getRanking()).containsEntry(player1, 0);
 
         assertThat(loadedGame.getDemandedRank()).isEqualTo(CardRank.JACK);
         assertThat(loadedGame.getDemandedSuit()).isEqualTo(CardSuit.DIAMONDS);
@@ -93,7 +94,7 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
     public void shouldUpdateExistingGame() {
         // Given
         String roomId = "update_test";
-        MakaoGame game = new MakaoGame(roomId, List.of("p1"));
+        MakaoGame game = new MakaoGame(roomId, Map.of("p1", "P1"), "p1", 4);
         repository.save(game);
 
         // When
@@ -112,7 +113,7 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
     public void shouldDeleteGame() {
         // Given
         String roomId = "delete_test";
-        MakaoGame game = new MakaoGame(roomId, List.of("p1"));
+        MakaoGame game = new MakaoGame(roomId, Map.of("p1", "P1"), "p1", 4);
         repository.save(game);
 
         // When
@@ -125,8 +126,8 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
     @Test(description = "Should count games in Redis")
     public void shouldCountGames() {
         // Given
-        MakaoGame game1 = new MakaoGame("count_test_1", List.of("p1"));
-        MakaoGame game2 = new MakaoGame("count_test_2", List.of("p2"));
+        MakaoGame game1 = new MakaoGame("count_test_1", Map.of("p1", "P1"), "p1", 4);
+        MakaoGame game2 = new MakaoGame("count_test_2", Map.of("p2", "P2"), "p2", 4);
         repository.save(game1);
         repository.save(game2);
 

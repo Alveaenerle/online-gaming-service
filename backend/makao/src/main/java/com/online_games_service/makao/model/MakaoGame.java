@@ -26,8 +26,12 @@ public class MakaoGame implements Serializable {
 
     private RoomStatus status; 
     
-    private List<String> playerIds = new ArrayList<>();
-    private String currentPlayerId;
+    private List<String> playersOrderIds = new ArrayList<>();
+    private String activePlayerId;
+
+    private int maxPlayers;
+
+    private Map<String, String> playersUsernames = new HashMap<>(); // playerId -> username
 
     private Map<String, List<Card>> playersHands = new HashMap<>();
     private List<Card> drawPile = new ArrayList<>();
@@ -38,20 +42,31 @@ public class MakaoGame implements Serializable {
     
     private CardRank demandedRank = null; 
     private CardSuit demandedSuit = null; 
-    
-    private String winnerId;
 
-    public MakaoGame(String id, List<String> playerIds) {
+    // playerId -> score (winner has 0, others get summed card values)
+    private Map<String, Integer> ranking = new HashMap<>();
+    private List<String> losers = new ArrayList<>();
+
+    public MakaoGame(String id, Map<String, String> players, String hostUserId, int maxPlayers) {
         this.id = id;
-        this.playerIds = playerIds;
-        
-        this.status = RoomStatus.PLAYING; 
+        this.maxPlayers = maxPlayers;
 
-        if (!playerIds.isEmpty()) {
-            this.currentPlayerId = playerIds.get(0);
+        if (players != null && !players.isEmpty()) {
+            this.playersUsernames.putAll(players);
+
+            List<String> randomized = new ArrayList<>(players.keySet());
+            Collections.shuffle(randomized);
+
+            this.playersOrderIds = randomized;
         }
 
-        for (String playerId : playerIds) {
+        this.status = RoomStatus.PLAYING; 
+
+        if (!this.playersOrderIds.isEmpty()) {
+            this.activePlayerId = this.playersOrderIds.get(0);
+        }
+
+        for (String playerId : this.playersOrderIds) {
             playersHands.put(playerId, new ArrayList<>());
         }
     }
