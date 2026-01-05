@@ -495,6 +495,10 @@ public class MakaoGameService {
 
         rabbitTemplate.convertAndSend(gameEventsExchange.getName(), finishRoutingKey, message);
         saveAndBroadcast(game);
+
+        if (game.getRoomId() != null) {
+            gameRepository.deleteById(game.getRoomId());
+        }
     }
 
     private void persistGameResult(MakaoGame game) {
