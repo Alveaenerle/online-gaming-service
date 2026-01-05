@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GameStateMessage {
+    private String roomId;
     private String activePlayerId;
     private Card currentCard;
     private List<PlayerCardView> myCards;

@@ -563,6 +563,7 @@ public class MakaoGameService {
             }
 
             GameStateMessage message = new GameStateMessage(
+                    game.getRoomId(),
                     game.getActivePlayerId(),
                     game.getCurrentCard(),
                     myCards,
