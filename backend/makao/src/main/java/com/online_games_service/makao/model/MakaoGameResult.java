@@ -1,5 +1,6 @@
 package com.online_games_service.makao.model;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.annotation.Id;
@@ -21,4 +22,5 @@ public class MakaoGameResult {
     private Map<String, String> players;
     private Map<String, Integer> ranking;
     private Map<String, Integer> placement;
+    private List<String> losers;
 }

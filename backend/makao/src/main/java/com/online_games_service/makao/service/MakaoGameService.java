@@ -30,6 +30,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +48,11 @@ public class MakaoGameService {
     private final TopicExchange gameEventsExchange;
     private final SimpMessagingTemplate messagingTemplate;
     private final Random random = new Random();
+    private final ScheduledExecutorService turnTimeoutScheduler = Executors.newSingleThreadScheduledExecutor();
+    private final Map<String, ScheduledFuture<?>> turnTimeouts = new ConcurrentHashMap<>();
+
+    @Value("${makao.turn-timeout-seconds:65}")
+    private long turnTimeoutSeconds;
 
     @Value("${makao.amqp.routing.finish:makao.finish}")
     private String finishRoutingKey;
@@ -97,6 +107,7 @@ public class MakaoGameService {
         if (playable) {
             game.setActivePlayerPlayableCards(List.of(drawn));
             saveAndBroadcast(game);
+            scheduleTurnTimeout(game);
             return new DrawCardResponse(drawn, true);
         }
 
@@ -338,6 +349,12 @@ public class MakaoGameService {
             return;
         }
 
+        boolean onlyBots = order.stream().allMatch(this::isBot);
+        if (onlyBots) {
+            endGame(game);
+            return;
+        }
+
         game.setDrawnCard(null);
         game.setActivePlayerPlayableCards(new ArrayList<>());
 
@@ -371,14 +388,15 @@ public class MakaoGameService {
 
             if (isBot(candidate)) {
                 game.setActivePlayerId(candidate);
-                handleBotTurn(game, candidate, playable);
                 saveAndBroadcast(game);
+                handleBotTurn(game, candidate, playable);
                 nextTurn(game);
                 return;
             }
 
             game.setActivePlayerId(candidate);
             saveAndBroadcast(game);
+            scheduleTurnTimeout(game);
             return;
         }
     }
@@ -446,6 +464,7 @@ public class MakaoGameService {
         List<Card> playable = gatherPlayableCards(game, activePlayerId);
         game.setActivePlayerPlayableCards(playable);
         saveAndBroadcast(game);
+        scheduleTurnTimeout(game);
 
         if (isBot(activePlayerId)) {
             handleBotTurn(game, activePlayerId, playable);
@@ -454,6 +473,7 @@ public class MakaoGameService {
     }
 
     private void endGame(MakaoGame game) {
+        cancelTurnTimeout(game.getRoomId());
         game.setStatus(RoomStatus.FINISHED);
         game.setSpecialEffectActive(false);
         game.setDrawnCard(null);
@@ -517,7 +537,8 @@ public class MakaoGameService {
             game.getMaxPlayers(),
             game.getPlayersUsernames() != null ? new HashMap<>(game.getPlayersUsernames()) : new HashMap<>(),
             game.getRanking() != null ? new HashMap<>(game.getRanking()) : new HashMap<>(),
-            game.getPlacement() != null ? new HashMap<>(game.getPlacement()) : new HashMap<>());
+            game.getPlacement() != null ? new HashMap<>(game.getPlacement()) : new HashMap<>(),
+            game.getLosers() != null ? new ArrayList<>(game.getLosers()) : new ArrayList<>());
 
         try {
             gameResultRepository.save(result);
@@ -715,5 +736,108 @@ public class MakaoGameService {
         game.setDrawDeck(newDraw);
 
         return game.getDrawDeck().draw();
+    }
+
+    private void scheduleTurnTimeout(MakaoGame game) {
+        if (game == null || game.getRoomId() == null) {
+            return;
+        }
+        cancelTurnTimeout(game.getRoomId());
+
+        if (game.getStatus() != RoomStatus.PLAYING) {
+            return;
+        }
+
+        String activePlayer = game.getActivePlayerId();
+        if (activePlayer == null || isBot(activePlayer)) {
+            return;
+        }
+
+        ScheduledFuture<?> future = turnTimeoutScheduler.schedule(
+                () -> handleTurnTimeout(game.getRoomId(), activePlayer),
+                turnTimeoutSeconds,
+                TimeUnit.SECONDS);
+        turnTimeouts.put(game.getRoomId(), future);
+    }
+
+    private void cancelTurnTimeout(String roomId) {
+        if (roomId == null) {
+            return;
+        }
+        ScheduledFuture<?> future = turnTimeouts.remove(roomId);
+        if (future != null) {
+            future.cancel(false);
+        }
+    }
+
+    private void handleTurnTimeout(String roomId, String timedOutPlayer) {
+        // Remove the triggered timer so a new one can be scheduled without being cancelled later in this call stack.
+        turnTimeouts.remove(roomId);
+        try {
+            MakaoGame game = gameRepository.findById(roomId).orElse(null);
+            if (game == null) {
+                return;
+            }
+
+            if (game.getStatus() != RoomStatus.PLAYING) {
+                return;
+            }
+
+            if (!timedOutPlayer.equals(game.getActivePlayerId())) {
+                return;
+            }
+
+            int nextBot = game.getBotCounter() + 1;
+            String botId = "bot-" + nextBot;
+            game.setBotCounter(nextBot);
+
+            Map<String, List<Card>> hands = new HashMap<>(game.getPlayersHands());
+            List<Card> timedOutHand = hands.getOrDefault(timedOutPlayer, new ArrayList<>());
+            hands.remove(timedOutPlayer);
+            hands.put(botId, timedOutHand);
+            game.setPlayersHands(hands);
+
+            Map<String, Integer> skipTurns = game.getPlayersSkipTurns() != null
+                    ? new HashMap<>(game.getPlayersSkipTurns())
+                    : new HashMap<>();
+            int pendingSkips = skipTurns.getOrDefault(timedOutPlayer, 0);
+            skipTurns.remove(timedOutPlayer);
+            skipTurns.put(botId, pendingSkips);
+            game.setPlayersSkipTurns(skipTurns);
+
+            Map<String, String> usernames = game.getPlayersUsernames() != null
+                    ? new HashMap<>(game.getPlayersUsernames())
+                    : new HashMap<>();
+            usernames.remove(timedOutPlayer);
+            usernames.put(botId, "Bot " + nextBot);
+            game.setPlayersUsernames(usernames);
+
+            List<String> updatedOrder = game.getPlayersOrderIds() != null
+                    ? new ArrayList<>(game.getPlayersOrderIds())
+                    : new ArrayList<>();
+            int idx = updatedOrder.indexOf(timedOutPlayer);
+            if (idx >= 0) {
+                updatedOrder.set(idx, botId);
+            }
+            game.setPlayersOrderIds(updatedOrder);
+
+            List<String> losers = game.getLosers() != null
+                    ? new ArrayList<>(game.getLosers())
+                    : new ArrayList<>();
+            if (!losers.contains(timedOutPlayer)) {
+                losers.add(timedOutPlayer);
+            }
+            game.setLosers(losers);
+
+            game.setActivePlayerId(botId);
+
+            List<Card> playable = gatherPlayableCards(game, botId);
+            game.setActivePlayerPlayableCards(playable);
+
+            handleBotTurn(game, botId, playable);
+            nextTurn(game);
+        } catch (Exception e) {
+            log.error("Failed to handle turn timeout for room {} player {}", roomId, timedOutPlayer, e);
+        }
     }
 }
