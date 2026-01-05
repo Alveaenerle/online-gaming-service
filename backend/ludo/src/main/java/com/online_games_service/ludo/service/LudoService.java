@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,8 +22,7 @@ public class LudoService {
 
     private static final int BOARD_SIZE = 40; 
 
-    public LudoGame createGame(List<String> playerIds) {
-        String gameId = UUID.randomUUID().toString();
+    public LudoGame createGameWithId(String gameId, List<String> playerIds) {
         LudoGame game = new LudoGame(gameId, playerIds);
         
         if (!game.getPlayers().isEmpty()) {
