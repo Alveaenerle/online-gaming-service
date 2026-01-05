@@ -1,5 +1,7 @@
 package com.online_games_service.common.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.online_games_service.common.enums.CardRank;
 import com.online_games_service.common.enums.CardSuit;
 
@@ -8,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Deck implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -97,5 +100,11 @@ public class Deck implements Serializable {
 
     public List<Card> getCards() {
         return Collections.unmodifiableList(cards);
+    }
+
+    @JsonProperty("cards")
+    private void setCards(List<Card> incoming) {
+        cards.clear();
+        addCards(incoming);
     }
 }

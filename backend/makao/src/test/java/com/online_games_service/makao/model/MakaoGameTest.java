@@ -23,7 +23,7 @@ public class MakaoGameTest {
         MakaoGame game = new MakaoGame(roomId, players, "player1", 4);
 
         // Then
-        Assert.assertEquals(game.getId(), roomId);
+        Assert.assertEquals(game.getRoomId(), roomId);
         Assert.assertEquals(game.getStatus(), RoomStatus.PLAYING);
         Assert.assertTrue(players.containsKey(game.getActivePlayerId()) || game.getActivePlayerId().startsWith("bot-"));
         Assert.assertEquals(game.getPlayersHands().size(), 4);
@@ -51,59 +51,6 @@ public class MakaoGameTest {
     }
 
     @Test
-    public void shouldReturnTopCardFromDiscardPile() {
-        // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
-        Card card = new Card(CardSuit.HEARTS, CardRank.ACE);
-        game.addToDiscardPile(card);
-
-        // When
-        Card topCard = game.getTopCard();
-
-        // Then
-        Assert.assertEquals(topCard, card);
-    }
-
-    @Test
-    public void shouldReturnNullTopCardWhenDiscardPileIsEmpty() {
-        // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
-
-        // When
-        Card topCard = game.getTopCard();
-
-        // Then
-        Assert.assertNull(topCard);
-    }
-
-    @Test
-    public void shouldHandleEmptyDiscardPileGracefully() {
-        // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
-        // Ensure discard pile is empty (it is by default)
-
-        // When
-        Card topCard = game.getTopCard();
-
-        // Then
-        Assert.assertNull(topCard);
-    }
-
-    @Test
-    public void shouldAddCardToDrawPile() {
-        // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
-        Card card = new Card(CardSuit.SPADES, CardRank.KING);
-        int initialSize = game.getDrawPile().size();
-
-        // When
-        game.addToDrawPile(card);
-
-        // Then
-        Assert.assertEquals(game.getDrawPile().size(), initialSize + 1);
-        Assert.assertEquals(game.getDrawPile().get(game.getDrawPile().size() - 1), card);
-    }
-
     @Test
     public void shouldAddCardToPlayerHand() {
         // Given
@@ -136,7 +83,6 @@ public class MakaoGameTest {
     public void shouldSetAndGetGameProperties() {
         // Given
         MakaoGame game = new MakaoGame();
-        game.setId("test_id");
         game.setStatus(RoomStatus.FINISHED);
         game.setActivePlayerId("p2");
         game.setPendingDrawCount(2);
@@ -148,7 +94,6 @@ public class MakaoGameTest {
         game.getLosers().add("p3");
 
         // Then
-        Assert.assertEquals(game.getId(), "test_id");
         Assert.assertEquals(game.getStatus(), RoomStatus.FINISHED);
         Assert.assertEquals(game.getActivePlayerId(), "p2");
         Assert.assertEquals(game.getPendingDrawCount(), 2);
@@ -161,29 +106,6 @@ public class MakaoGameTest {
     }
 
     @Test
-    public void shouldReturnUnmodifiableDrawPile() {
-        // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
-
-        // When
-        List<Card> drawPile = game.getDrawPile();
-
-        // Then
-        Assert.assertThrows(UnsupportedOperationException.class, () -> drawPile.add(new Card(CardSuit.HEARTS, CardRank.ACE)));
-    }
-
-    @Test
-    public void shouldReturnUnmodifiableDiscardPile() {
-        // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
-
-        // When
-        List<Card> discardPile = game.getDiscardPile();
-
-        // Then
-        Assert.assertThrows(UnsupportedOperationException.class, () -> discardPile.add(new Card(CardSuit.HEARTS, CardRank.ACE)));
-    }
-
     @Test
     public void shouldReturnUnmodifiablePlayersHands() {
         // Given
@@ -196,26 +118,5 @@ public class MakaoGameTest {
         Assert.assertThrows(UnsupportedOperationException.class, () -> hands.put("p2", Collections.emptyList()));
     }
 
-    @Test
-    public void shouldInitializeWithDefaultValues() {
-        // Given
-        MakaoGame game = new MakaoGame();
-
-        // Then
-        Assert.assertNotNull(game.getPlayersOrderIds());
-        Assert.assertTrue(game.getPlayersOrderIds().isEmpty());
-        Assert.assertNotNull(game.getPlayersHands());
-        Assert.assertTrue(game.getPlayersHands().isEmpty());
-        Assert.assertNotNull(game.getDrawPile());
-        Assert.assertTrue(game.getDrawPile().isEmpty());
-        Assert.assertNotNull(game.getDiscardPile());
-        Assert.assertTrue(game.getDiscardPile().isEmpty());
-        Assert.assertEquals(game.getPendingDrawCount(), 0);
-        Assert.assertEquals(game.getPendingSkipTurns(), 0);
-        Assert.assertNull(game.getDemandedRank());
-        Assert.assertNull(game.getDemandedSuit());
-        Assert.assertTrue(game.getRanking().isEmpty());
-        Assert.assertTrue(game.getLosers().isEmpty());
-        Assert.assertEquals(game.getMaxPlayers(), 0);
-    }
+    // Tests depending on direct pile access removed; current model exposes only hands and current card
 }

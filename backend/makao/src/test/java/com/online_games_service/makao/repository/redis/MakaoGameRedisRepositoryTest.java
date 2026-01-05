@@ -48,7 +48,7 @@ public class MakaoGameRedisRepositoryTest {
     @Test
     public void testSave() {
         MakaoGame game = new MakaoGame();
-        game.setId("game1");
+        game.setRoomId("game1");
 
         MakaoGame savedGame = repository.save(game);
 
@@ -60,7 +60,7 @@ public class MakaoGameRedisRepositoryTest {
     public void testFindById_Found() {
         String gameId = "game1";
         MakaoGame game = new MakaoGame();
-        game.setId(gameId);
+        game.setRoomId(gameId);
 
         when(valueOperations.get(KEY_PREFIX + gameId)).thenReturn(game);
 

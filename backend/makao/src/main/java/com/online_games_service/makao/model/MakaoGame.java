@@ -1,5 +1,6 @@
 package com.online_games_service.makao.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.online_games_service.common.enums.CardRank;
 import com.online_games_service.common.enums.CardSuit;
 import com.online_games_service.common.enums.RoomStatus;
@@ -18,26 +19,28 @@ import java.util.UUID;
 
 @Data
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class MakaoGame implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private String roomId;
-
-    private String gameId = "Makao-" + UUID.randomUUID();
-
+    private String gameId = "MAKAO-" + UUID.randomUUID();
     private RoomStatus status;
-
     private String hostUserId;
+    private int maxPlayers;
 
     private List<String> playersOrderIds = new ArrayList<>();
     private String activePlayerId;
+    private boolean ReverseMovement = false;
+    private boolean SpecialEffectActive = false;
+    private List<Card> activePlayerPlayableCards = new ArrayList<>();
+    private Card drawnCard = null;
 
-    private int maxPlayers;
-
+    private Map<String, Integer> playersSkipTurns = new HashMap<>();
     private Map<String, String> playersUsernames = new HashMap<>(); // playerId -> username
-
     private Map<String, List<Card>> playersHands = new HashMap<>();
+    
     private MakaoDeck drawDeck;
     private MakaoDeck discardDeck;
 
@@ -55,7 +58,7 @@ public class MakaoGame implements Serializable {
 
     public MakaoGame(String roomId, Map<String, String> players, String hostUserId, int maxPlayers) {
         this.roomId = roomId;
-        this.gameId = "Makao-" + UUID.randomUUID();
+        this.gameId = "MAKAO-" + UUID.randomUUID();
         this.maxPlayers = maxPlayers;
         this.hostUserId = hostUserId;
 
@@ -87,6 +90,7 @@ public class MakaoGame implements Serializable {
 
         for (String playerId : this.playersOrderIds) {
             playersHands.put(playerId, new ArrayList<>());
+            playersSkipTurns.put(playerId, 0);
         }
 
         this.drawDeck = new MakaoDeck(this.playersOrderIds.size());

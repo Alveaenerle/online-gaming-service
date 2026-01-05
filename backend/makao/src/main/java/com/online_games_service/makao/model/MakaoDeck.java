@@ -1,7 +1,9 @@
 package com.online_games_service.makao.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.online_games_service.common.model.Deck;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class MakaoDeck extends Deck {
 
     public MakaoDeck(int playerCount) {

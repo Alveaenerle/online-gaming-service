@@ -65,4 +65,5 @@ public class MakaoGameRedisRepository {
         }
         return count;
     }
+
 }

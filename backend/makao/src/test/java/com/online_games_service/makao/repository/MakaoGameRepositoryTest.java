@@ -64,8 +64,6 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
         game.addCardToHand(player1, aceHearts);
         game.addCardToHand(player1, tenClubs);
 
-        game.addToDiscardPile(new Card(CardSuit.SPADES, CardRank.TWO));
-
         // When
         repository.save(game);
 
@@ -75,7 +73,7 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
 
         MakaoGame loadedGame = loadedGameOpt.get();
 
-        assertThat(loadedGame.getId()).isEqualTo(roomId);
+        assertThat(loadedGame.getRoomId()).isEqualTo(roomId);
         assertThat(loadedGame.getStatus()).isEqualTo(RoomStatus.FINISHED);
         assertThat(loadedGame.getRanking()).containsEntry(player1, 0);
 

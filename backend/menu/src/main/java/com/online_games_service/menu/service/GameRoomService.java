@@ -233,6 +233,24 @@ public class GameRoomService {
         return room;
     }
 
+    public void markFinished(String roomId, RoomStatus status) {
+        if (roomId == null || roomId.isBlank()) {
+            log.warn("Cannot finish room: roomId is blank");
+            return;
+        }
+
+        GameRoom room = getRoomFromRedis(roomId);
+        if (room == null) {
+            log.warn("Cannot finish room {}: not found in Redis", roomId);
+            return;
+        }
+
+        room.setStatus(status != null ? status : RoomStatus.FINISHED);
+        saveRoomToRedis(room);
+        broadcastRoomUpdate(room);
+        log.info("Marked room {} as {} via makao.finish", roomId, room.getStatus());
+    }
+
     public String leaveRoom(String userId, String username) {
         log.info("User {} is attempting to leave room...", username);
 
