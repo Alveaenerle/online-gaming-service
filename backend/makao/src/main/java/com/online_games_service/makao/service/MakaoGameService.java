@@ -6,8 +6,10 @@ import com.online_games_service.common.model.Card;
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
 import com.online_games_service.makao.dto.PlayCardRequest;
+import com.online_games_service.makao.dto.PlayerCardView;
 import com.online_games_service.makao.dto.DrawCardResponse;
 import com.online_games_service.makao.dto.EndGameRequest;
+import com.online_games_service.makao.dto.GameStateMessage;
 import com.online_games_service.makao.model.MakaoDeck;
 import com.online_games_service.makao.model.MakaoGame;
 import com.online_games_service.makao.model.MakaoGameResult;
@@ -19,6 +21,7 @@ import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -38,6 +41,7 @@ public class MakaoGameService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final RabbitTemplate rabbitTemplate;
     private final TopicExchange gameEventsExchange;
+    private final SimpMessagingTemplate messagingTemplate;
     private final Random random = new Random();
 
     @Value("${makao.amqp.routing.finish:makao.finish}")
@@ -77,6 +81,10 @@ public class MakaoGameService {
             throw new IllegalStateException("Player has already drawn a card this turn");
         }
 
+        if (game.isSpecialEffectActive()) {
+            throw new IllegalStateException("Special effect is active; accept the effect instead of drawing");
+        }
+
         Card drawn = drawWithRecycle(game);
         if (drawn == null) {
             throw new IllegalStateException("No cards left to draw");
@@ -88,14 +96,13 @@ public class MakaoGameService {
         boolean playable = isPlayable(game, drawn);
         if (playable) {
             game.setActivePlayerPlayableCards(List.of(drawn));
-            gameRepository.save(game);
+            saveAndBroadcast(game);
             return new DrawCardResponse(drawn, true);
         }
 
         game.setActivePlayerPlayableCards(new ArrayList<>());
         game.setDrawnCard(null);
         nextTurn(game);
-        gameRepository.save(game);
         return new DrawCardResponse(drawn, false);
     }
 
@@ -129,7 +136,7 @@ public class MakaoGameService {
 
         // Clear drawnCard before delegating to avoid re-use
         game.setDrawnCard(null);
-        gameRepository.save(game);
+        saveAndBroadcast(game);
 
         return playCard(derived, userId);
     }
@@ -159,7 +166,6 @@ public class MakaoGameService {
         game.setActivePlayerPlayableCards(new ArrayList<>());
 
         nextTurn(game);
-        gameRepository.save(game);
         return game;
     }
 
@@ -252,8 +258,6 @@ public class MakaoGameService {
         setCardEffect(game, playedCard, request);
 
         nextTurn(game);
-
-        gameRepository.save(game);
         return game;
     }
 
@@ -352,6 +356,7 @@ public class MakaoGameService {
 
             if (skipTurns > 0) {
                 game.getPlayersSkipTurns().put(candidate, skipTurns - 1);
+                saveAndBroadcast(game);
                 continue; // skip this player and look for the next one
             }
 
@@ -360,17 +365,20 @@ public class MakaoGameService {
 
             if (playable.isEmpty() && game.isSpecialEffectActive()) {
                 applySpecialEffectPenalty(game, candidate);
-                gameRepository.save(game);
+                saveAndBroadcast(game);
                 return;
             }
 
             if (isBot(candidate)) {
                 game.setActivePlayerId(candidate);
                 handleBotTurn(game, candidate, playable);
+                saveAndBroadcast(game);
+                nextTurn(game);
                 return;
             }
 
             game.setActivePlayerId(candidate);
+            saveAndBroadcast(game);
             return;
         }
     }
@@ -409,7 +417,6 @@ public class MakaoGameService {
 
         game.setSpecialEffectActive(false);
         nextTurn(game);
-        gameRepository.save(game);
     }
 
     private List<Card> gatherPlayableCards(MakaoGame game, String playerId) {
@@ -438,10 +445,11 @@ public class MakaoGameService {
 
         List<Card> playable = gatherPlayableCards(game, activePlayerId);
         game.setActivePlayerPlayableCards(playable);
-        gameRepository.save(game);
+        saveAndBroadcast(game);
 
         if (isBot(activePlayerId)) {
             handleBotTurn(game, activePlayerId, playable);
+            nextTurn(game);
         }
     }
 
@@ -486,7 +494,7 @@ public class MakaoGameService {
                 RoomStatus.FINISHED);
 
         rabbitTemplate.convertAndSend(gameEventsExchange.getName(), finishRoutingKey, message);
-        gameRepository.save(game);
+        saveAndBroadcast(game);
     }
 
     private void persistGameResult(MakaoGame game) {
@@ -512,6 +520,75 @@ public class MakaoGameService {
         } catch (Exception e) {
             log.error("Failed to persist Makao game result for {}", game.getGameId(), e);
         }
+    }
+
+    private void saveAndBroadcast(MakaoGame game) {
+        if (game == null) {
+            return;
+        }
+        gameRepository.save(game);
+        broadcastPlayerStates(game);
+    }
+
+    private void broadcastPlayerStates(MakaoGame game) {
+        if (game == null || game.getPlayersHands() == null) {
+            return;
+        }
+
+        Map<String, List<Card>> hands = game.getPlayersHands();
+        Map<String, Integer> cardsAmount = new HashMap<>();
+        hands.forEach((pid, cards) -> cardsAmount.put(pid, cards != null ? cards.size() : 0));
+
+        List<Card> activePlayable = game.getActivePlayerPlayableCards() != null
+                ? game.getActivePlayerPlayableCards()
+                : new ArrayList<>();
+
+        for (Map.Entry<String, List<Card>> entry : hands.entrySet()) {
+            String playerId = entry.getKey();
+            if (isBot(playerId)) {
+                continue;
+            }
+
+            List<Card> hand = entry.getValue() != null ? entry.getValue() : new ArrayList<>();
+            List<PlayerCardView> myCards = new ArrayList<>();
+            boolean isActive = playerId.equals(game.getActivePlayerId());
+
+            for (Card card : hand) {
+                boolean playable = isActive && containsCard(activePlayable, card);
+                myCards.add(new PlayerCardView(card, playable));
+            }
+
+            GameStateMessage message = new GameStateMessage(
+                    game.getActivePlayerId(),
+                    game.getCurrentCard(),
+                    myCards,
+                    new HashMap<>(cardsAmount),
+                    game.getPlayersSkipTurns() != null ? new HashMap<>(game.getPlayersSkipTurns()) : new HashMap<>(),
+                    game.isSpecialEffectActive(),
+                    game.getDemandedRank(),
+                    game.getDemandedSuit(),
+                    game.getRanking() != null ? new HashMap<>(game.getRanking()) : new HashMap<>(),
+                    game.getPlacement() != null ? new HashMap<>(game.getPlacement()) : new HashMap<>(),
+                    game.getLosers() != null ? new ArrayList<>(game.getLosers()) : new ArrayList<>(),
+                    game.getStatus(),
+                    game.getDrawDeck() != null ? game.getDrawDeck().size() : 0,
+                    game.getDiscardDeck() != null ? game.getDiscardDeck().size() : 0
+            );
+
+            messagingTemplate.convertAndSend("/topic/makao/" + playerId, message);
+        }
+    }
+
+    private boolean containsCard(List<Card> cards, Card target) {
+        if (cards == null || target == null) {
+            return false;
+        }
+        for (Card c : cards) {
+            if (c != null && c.getRank() == target.getRank() && c.getSuit() == target.getSuit()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int calculateHandValue(List<Card> hand) {
@@ -559,8 +636,6 @@ public class MakaoGameService {
 
         game.setDrawnCard(null);
         game.setActivePlayerPlayableCards(new ArrayList<>());
-        nextTurn(game);
-        gameRepository.save(game);
     }
 
     private void playCardAsBot(MakaoGame game, String botId, Card card, CardRank requestRank, CardSuit requestSuit) {
@@ -578,7 +653,6 @@ public class MakaoGameService {
         if (!isPlayable(game, card)) {
             game.setDrawnCard(null);
             game.setActivePlayerPlayableCards(new ArrayList<>());
-            nextTurn(game);
             return;
         }
 
@@ -598,8 +672,6 @@ public class MakaoGameService {
         game.setActivePlayerPlayableCards(new ArrayList<>());
 
         setCardEffect(game, card, req);
-        nextTurn(game);
-        gameRepository.save(game);
     }
 
     private CardRank randomRankDemand() {

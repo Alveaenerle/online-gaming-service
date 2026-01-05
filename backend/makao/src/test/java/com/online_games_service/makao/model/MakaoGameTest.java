@@ -51,7 +51,6 @@ public class MakaoGameTest {
     }
 
     @Test
-    @Test
     public void shouldAddCardToPlayerHand() {
         // Given
         String playerId = "p1";
@@ -105,7 +104,6 @@ public class MakaoGameTest {
         Assert.assertEquals(game.getLosers(), List.of("p3"));
     }
 
-    @Test
     @Test
     public void shouldReturnUnmodifiablePlayersHands() {
         // Given
