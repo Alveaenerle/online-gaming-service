@@ -2,6 +2,7 @@ package com.online_games_service.makao.controller;
 
 import com.online_games_service.makao.dto.PlayCardRequest;
 import com.online_games_service.makao.dto.DrawCardResponse;
+import com.online_games_service.makao.dto.EndGameRequest;
 import com.online_games_service.makao.service.MakaoGameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -80,6 +81,12 @@ public class MakaoGameController {
         }
 
         makaoGameService.acceptEffect(userId);
+        return ResponseEntity.ok(successBody());
+    }
+
+    @PostMapping("/end-game")
+    public ResponseEntity<Map<String, String>> endGame(@RequestBody @Valid EndGameRequest request) {
+        makaoGameService.forceEndGame(request);
         return ResponseEntity.ok(successBody());
     }
 

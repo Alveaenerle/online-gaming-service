@@ -245,10 +245,14 @@ public class GameRoomService {
             return;
         }
 
-        room.setStatus(status != null ? status : RoomStatus.FINISHED);
-        saveRoomToRedis(room);
+        RoomStatus finalStatus = status != null ? status : RoomStatus.FINISHED;
+        room.setStatus(finalStatus);
+
+        room.getPlayers().forEach(this::clearUserRoomMapping);
         broadcastRoomUpdate(room);
-        log.info("Marked room {} as {} via makao.finish", roomId, room.getStatus());
+
+        deleteRoom(room);
+        log.info("Marked room {} as {} via makao.finish and removed from Redis", roomId, finalStatus);
     }
 
     public String leaveRoom(String userId, String username) {

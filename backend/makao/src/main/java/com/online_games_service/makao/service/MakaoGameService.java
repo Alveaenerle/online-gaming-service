@@ -7,8 +7,11 @@ import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
 import com.online_games_service.makao.dto.PlayCardRequest;
 import com.online_games_service.makao.dto.DrawCardResponse;
+import com.online_games_service.makao.dto.EndGameRequest;
 import com.online_games_service.makao.model.MakaoDeck;
 import com.online_games_service.makao.model.MakaoGame;
+import com.online_games_service.makao.model.MakaoGameResult;
+import com.online_games_service.makao.repository.mongo.MakaoGameResultRepository;
 import com.online_games_service.makao.repository.redis.MakaoGameRedisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -30,6 +34,7 @@ import java.util.Random;
 public class MakaoGameService {
 
     private final MakaoGameRedisRepository gameRepository;
+    private final MakaoGameResultRepository gameResultRepository;
     private final RedisTemplate<String, Object> redisTemplate;
     private final RabbitTemplate rabbitTemplate;
     private final TopicExchange gameEventsExchange;
@@ -39,6 +44,17 @@ public class MakaoGameService {
     private String finishRoutingKey;
 
     private static final String KEY_USER_ROOM_BY_ID = "game:user-room:id:";
+
+    public void forceEndGame(EndGameRequest request) {
+        if (request == null || request.getRoomId() == null || request.getRoomId().isBlank()) {
+            throw new IllegalArgumentException("roomId is required to end the game");
+        }
+
+        MakaoGame game = gameRepository.findById(request.getRoomId())
+                .orElseThrow(() -> new IllegalArgumentException("Game not found for roomId: " + request.getRoomId()));
+
+        endGame(game);
+    }
 
     public DrawCardResponse drawCard(String userId) {
         if (userId == null) {
@@ -224,7 +240,7 @@ public class MakaoGameService {
         hand.remove(playedCard);
 
         if (hand.isEmpty()) {
-            endGame(game, userId);
+            endGame(game);
             return game;
         }
 
@@ -429,25 +445,41 @@ public class MakaoGameService {
         }
     }
 
-    private void endGame(MakaoGame game, String winnerId) {
+    private void endGame(MakaoGame game) {
         game.setStatus(RoomStatus.FINISHED);
         game.setSpecialEffectActive(false);
         game.setDrawnCard(null);
         game.setActivePlayerPlayableCards(new ArrayList<>());
 
+        Map<String, List<Card>> hands = game.getPlayersHands();
         Map<String, Integer> ranking = new HashMap<>();
-        ranking.put(winnerId, 0);
+        Map<String, Integer> placement = new LinkedHashMap<>();
 
-        for (Map.Entry<String, List<Card>> entry : game.getPlayersHands().entrySet()) {
-            String playerId = entry.getKey();
-            if (winnerId.equals(playerId)) {
-                continue;
-            }
-            int value = calculateHandValue(entry.getValue());
-            ranking.put(playerId, value);
+        if (hands != null) {
+            hands.forEach((playerId, cards) -> ranking.put(playerId, calculateHandValue(cards)));
+
+            final int[] index = {0};
+            final Integer[] lastScore = {null};
+            final int[] lastPlace = {0};
+
+            ranking.entrySet().stream()
+                    .sorted(Map.Entry.comparingByValue())
+                    .forEachOrdered(entry -> {
+                        index[0]++;
+                        int score = entry.getValue();
+                        int place = (lastScore[0] != null && lastScore[0].equals(score))
+                                ? lastPlace[0]
+                                : index[0];
+                        placement.put(entry.getKey(), place);
+                        lastScore[0] = score;
+                        lastPlace[0] = place;
+                    });
         }
 
         game.setRanking(ranking);
+        game.setPlacement(placement);
+
+        persistGameResult(game);
 
         GameFinishMessage message = new GameFinishMessage(
                 game.getRoomId(),
@@ -455,6 +487,31 @@ public class MakaoGameService {
 
         rabbitTemplate.convertAndSend(gameEventsExchange.getName(), finishRoutingKey, message);
         gameRepository.save(game);
+    }
+
+    private void persistGameResult(MakaoGame game) {
+        if (game == null) {
+            return;
+        }
+
+        String gameId = game.getGameId() != null ? game.getGameId() : game.getRoomId();
+        if (gameId == null) {
+            log.warn("Skipping persistence: game has no id");
+            return;
+        }
+
+        MakaoGameResult result = new MakaoGameResult(
+            gameId,
+            game.getMaxPlayers(),
+            game.getPlayersUsernames() != null ? new HashMap<>(game.getPlayersUsernames()) : new HashMap<>(),
+            game.getRanking() != null ? new HashMap<>(game.getRanking()) : new HashMap<>(),
+            game.getPlacement() != null ? new HashMap<>(game.getPlacement()) : new HashMap<>());
+
+        try {
+            gameResultRepository.save(result);
+        } catch (Exception e) {
+            log.error("Failed to persist Makao game result for {}", game.getGameId(), e);
+        }
     }
 
     private int calculateHandValue(List<Card> hand) {
@@ -528,7 +585,7 @@ public class MakaoGameService {
         hand.remove(card);
 
         if (hand.isEmpty()) {
-            endGame(game, botId);
+            endGame(game);
             return;
         }
 

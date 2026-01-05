@@ -52,6 +52,8 @@ public class MakaoGame implements Serializable {
 
     // playerId -> score (winner has 0, others get summed card values)
     private Map<String, Integer> ranking = new HashMap<>();
+    // playerId -> placement (1 = best score)
+    private Map<String, Integer> placement = new HashMap<>();
     private List<String> losers = new ArrayList<>();
 
     private int botCounter = 0;
