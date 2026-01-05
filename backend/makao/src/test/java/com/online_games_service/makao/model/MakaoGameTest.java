@@ -25,9 +25,13 @@ public class MakaoGameTest {
         // Then
         Assert.assertEquals(game.getId(), roomId);
         Assert.assertEquals(game.getStatus(), RoomStatus.PLAYING);
-        Assert.assertTrue(players.containsKey(game.getActivePlayerId()));
-        Assert.assertEquals(game.getPlayersHands().size(), 2);
-        Assert.assertTrue(game.getPlayersHands().get(game.getActivePlayerId()).isEmpty());
+        Assert.assertTrue(players.containsKey(game.getActivePlayerId()) || game.getActivePlayerId().startsWith("bot-"));
+        Assert.assertEquals(game.getPlayersHands().size(), 4);
+        Assert.assertEquals(game.getPlayersOrderIds().size(), 4);
+        Assert.assertEquals(game.getPlayersHands().get(game.getActivePlayerId()).size(), 5);
+        Assert.assertTrue(game.getPlayersHands().containsKey("player1"));
+        Assert.assertTrue(game.getPlayersHands().containsKey("player2"));
+        Assert.assertTrue(game.getPlayersHands().values().stream().allMatch(hand -> hand.size() == 5));
     }
 
     @Test
@@ -40,8 +44,10 @@ public class MakaoGameTest {
         MakaoGame game = new MakaoGame(roomId, players, "host", 4);
 
         // Then
-        Assert.assertNull(game.getActivePlayerId());
-        Assert.assertTrue(game.getPlayersHands().isEmpty());
+        Assert.assertNotNull(game.getActivePlayerId());
+        Assert.assertEquals(game.getPlayersHands().size(), 4);
+        Assert.assertEquals(game.getPlayersOrderIds().size(), 4);
+        Assert.assertTrue(game.getPlayersHands().values().stream().allMatch(hand -> hand.size() == 5));
     }
 
     @Test
@@ -88,13 +94,14 @@ public class MakaoGameTest {
         // Given
         MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
         Card card = new Card(CardSuit.SPADES, CardRank.KING);
+        int initialSize = game.getDrawPile().size();
 
         // When
         game.addToDrawPile(card);
 
         // Then
-        Assert.assertEquals(game.getDrawPile().size(), 1);
-        Assert.assertEquals(game.getDrawPile().get(0), card);
+        Assert.assertEquals(game.getDrawPile().size(), initialSize + 1);
+        Assert.assertEquals(game.getDrawPile().get(game.getDrawPile().size() - 1), card);
     }
 
     @Test
@@ -108,8 +115,8 @@ public class MakaoGameTest {
         game.addCardToHand(playerId, card);
 
         // Then
-        Assert.assertEquals(game.getPlayersHands().get(playerId).size(), 1);
-        Assert.assertEquals(game.getPlayersHands().get(playerId).get(0), card);
+        Assert.assertEquals(game.getPlayersHands().get(playerId).size(), 6);
+        Assert.assertEquals(game.getPlayersHands().get(playerId).get(5), card);
     }
 
     @Test

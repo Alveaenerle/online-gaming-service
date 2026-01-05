@@ -85,9 +85,8 @@ public class MakaoGameRepositoryTest extends BaseIntegrationTest {
         assertThat(loadedGame.getPlayersHands()).containsKey(player1);
         List<Card> player1Hand = loadedGame.getPlayersHands().get(player1);
         
-        assertThat(player1Hand).hasSize(2);
-        assertThat(player1Hand.get(0).getSuit()).isEqualTo(CardSuit.HEARTS); 
-        assertThat(player1Hand.get(0).getRank()).isEqualTo(CardRank.ACE);
+        assertThat(player1Hand).hasSize(7);
+        assertThat(player1Hand).contains(aceHearts, tenClubs);
     }
 
     @Test(description = "Should update existing game in Redis")

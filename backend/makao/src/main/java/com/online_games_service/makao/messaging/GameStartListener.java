@@ -22,25 +22,25 @@ public class GameStartListener {
             return;
         }
 
-        String gameId = message.roomId();
-        if (gameId == null || gameId.isBlank()) {
+        String roomId = message.roomId();
+        if (roomId == null || roomId.isBlank()) {
             log.warn("Received GameStartMessage without roomId; skipping");
             return;
         }
 
-        if (gameRedisRepository.existsById(gameId)) {
-            log.info("Makao game {} already exists in Redis; skipping creation", gameId);
+        if (gameRedisRepository.existsById(roomId)) {
+            log.info("Makao game {} already exists in Redis; skipping creation", roomId);
             return;
         }
 
         if (message.players() == null || message.players().isEmpty()) {
-            log.warn("Cannot create Makao game {} because no players were provided in GameStartMessage", gameId);
+            log.warn("Cannot create Makao game {} because no players were provided in GameStartMessage", roomId);
             return;
         }
 
-        MakaoGame game = new MakaoGame(gameId, message.players(), message.hostUserId(), message.maxPlayers());
+        MakaoGame game = new MakaoGame(roomId, message.players(), message.hostUserId(), message.maxPlayers());
 
         gameRedisRepository.save(game);
-        log.info("Makao game {} created with {} players and persisted to Redis", gameId, message.players().size());
+        log.info("Makao game {} created with {} players and persisted to Redis", roomId, message.players().size());
     }
 }
