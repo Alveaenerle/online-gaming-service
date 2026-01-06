@@ -84,11 +84,12 @@ public class MakaoGameController {
         return ResponseEntity.ok(successBody());
     }
 
-    @PostMapping("/end-game")
-    public ResponseEntity<Map<String, String>> endGame(@RequestBody @Valid EndGameRequest request) {
-        makaoGameService.forceEndGame(request);
-        return ResponseEntity.ok(successBody());
-    }
+    // for debugging purposes only
+    // @PostMapping("/end-game")
+    // public ResponseEntity<Map<String, String>> endGame(@RequestBody @Valid EndGameRequest request) {
+    //     makaoGameService.forceEndGame(request);
+    //     return ResponseEntity.ok(successBody());
+    // }
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
