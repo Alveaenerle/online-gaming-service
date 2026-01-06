@@ -29,7 +29,7 @@ public class LudoGameRedisRepository {
     }
 
     public LudoGame save(LudoGame game) {
-        String key = keyPrefix + game.getId();
+        String key = keyPrefix + game.getRoomId();
         redisTemplate.opsForValue().set(key, game, TTL_SECONDS, TimeUnit.SECONDS);
         return game;
     }

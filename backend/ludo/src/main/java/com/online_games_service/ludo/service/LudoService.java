@@ -1,52 +1,82 @@
 package com.online_games_service.ludo.service;
 
 import com.online_games_service.common.enums.RoomStatus;
+import com.online_games_service.common.messaging.GameFinishMessage;
+import com.online_games_service.ludo.dto.LudoGameStateMessage;
 import com.online_games_service.ludo.enums.PlayerColor;
 import com.online_games_service.ludo.model.LudoGame;
+import com.online_games_service.ludo.model.LudoGameResult;
 import com.online_games_service.ludo.model.LudoPawn;
 import com.online_games_service.ludo.model.LudoPlayer;
+import com.online_games_service.ludo.repository.mongo.LudoGameResultRepository;
 import com.online_games_service.ludo.repository.redis.LudoGameRedisRepository;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LudoService {
 
-    private final LudoGameRedisRepository ludoRepository;
+    private final LudoGameRedisRepository gameRepository;
+    private final LudoGameResultRepository gameResultRepository;
+    private final RabbitTemplate rabbitTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
+    
     private final Random random = new Random();
+    private final ScheduledExecutorService turnTimeoutScheduler = Executors.newSingleThreadScheduledExecutor();
+    private final Map<String, ScheduledFuture<?>> turnTimeouts = new ConcurrentHashMap<>();
 
-    private static final int BOARD_SIZE = 40; 
+    @Value("${ludo.amqp.exchange:game.events}")
+    private String exchangeName;
 
-    public LudoGame createGameWithId(String gameId, List<String> playerIds) {
-        LudoGame game = new LudoGame(gameId, playerIds);
-        
-        if (!game.getPlayers().isEmpty()) {
-            updateRollsCountForPlayer(game, game.getPlayers().get(0));
+    @Value("${ludo.amqp.routing.finish:ludo.finish}")
+    private String finishRoutingKey;
+
+    @Value("${ludo.turn-timeout-seconds:60}")
+    private long turnTimeoutSeconds;
+
+    private static final int BOARD_SIZE = 40;
+
+    public void createGame(String roomId, List<String> playerIds, String hostUserId, Map<String, String> usernames) {
+        if (gameRepository.existsById(roomId)) {
+            log.info("Ludo game for room {} already exists", roomId);
+            return;
         }
+
+        LudoGame game = new LudoGame(roomId, playerIds, hostUserId, usernames);
         
-        return ludoRepository.save(game);
+        updateRollsCountForPlayer(game, game.getPlayers().get(0));
+        
+        saveAndBroadcast(game);
+        scheduleTurnTimeout(game);
+        
+        log.info("Ludo game created for room: {}, gameId: {}", roomId, game.getGameId());
     }
 
-    public LudoGame getGame(String gameId) {
-        return ludoRepository.findById(gameId)
-                .orElseThrow(() -> new RuntimeException("Game not found: " + gameId));
+    public LudoGame getGame(String roomId) {
+        return gameRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Game not found for room: " + roomId));
     }
 
-    public LudoGame rollDice(String gameId, String playerId) {
-        LudoGame game = getGame(gameId);
+    // --- ROLL DICE ---
+    public LudoGame rollDice(String roomId, String playerId) {
+        LudoGame game = getGame(roomId);
         validateTurn(game, playerId);
-        
+
         if (game.isDiceRolled() && game.isWaitingForMove()) {
             throw new IllegalStateException("You must move before rolling again!");
         }
-
         if (game.getRollsLeft() <= 0) {
-             throw new IllegalStateException("No rolls left in this turn!");
+             throw new IllegalStateException("No rolls left!");
         }
 
         int roll = random.nextInt(6) + 1;
@@ -55,7 +85,7 @@ public class LudoService {
         game.setRollsLeft(game.getRollsLeft() - 1);
 
         if (roll == 6) {
-            game.setWaitingForMove(true); 
+            game.setWaitingForMove(true);
         } else {
             if (canPlayerMove(game, playerId, roll)) {
                 game.setWaitingForMove(true);
@@ -69,134 +99,134 @@ public class LudoService {
             }
         }
 
-        return ludoRepository.save(game);
+        saveAndBroadcast(game);
+        if (game.getStatus() == RoomStatus.PLAYING) {
+            scheduleTurnTimeout(game);
+        }
+        return game;
     }
 
-    public LudoGame movePawn(String gameId, String playerId, int pawnIndex) {
-        LudoGame game = getGame(gameId);
+    // --- MOVE PAWN ---
+    public LudoGame movePawn(String roomId, String playerId, int pawnIndex) {
+        LudoGame game = getGame(roomId);
         validateTurn(game, playerId);
-        
+
         if (!game.isDiceRolled()) {
-            throw new IllegalStateException("You must roll the dice first!");
+            throw new IllegalStateException("Roll dice first!");
+        }
+
+        LudoPlayer player = game.getPlayerById(playerId);
+        if (player == null) throw new IllegalArgumentException("Player not found in game");
+
+        if (pawnIndex < 0 || pawnIndex >= player.getPawns().size()) {
+             throw new IllegalArgumentException("Invalid pawn index");
         }
         
+        LudoPawn pawn = player.getPawns().get(pawnIndex);
         int roll = game.getLastDiceRoll();
-        LudoPlayer currentPlayer = getPlayerById(game, playerId);
-        
-        if (pawnIndex < 0 || pawnIndex >= currentPlayer.getPawns().size()) {
-            throw new IllegalArgumentException("Invalid pawn index");
-        }
-        
-        LudoPawn pawn = currentPlayer.getPawns().get(pawnIndex);
 
-        if (pawn.isInHome()) {
-            throw new IllegalArgumentException("This pawn is already in home!");
-        }
+        performMoveLogic(game, player, pawn, roll);
 
-        // MOVE LOGIC 
-
-        if (pawn.isInBase()) {
-            if (roll != 6) {
-                throw new IllegalArgumentException("You must roll a 6 to leave the base!");
-            }
-
-            int startPos = currentPlayer.getColor().getStartPosition();
-
-            if (isFieldOccupiedBySelf(game, startPos, currentPlayer.getColor())) {
-                throw new IllegalArgumentException("Start position blocked by self!");
-            }
-            
-            handleCollision(game, startPos, currentPlayer);
-
-            pawn.setInBase(false);
-            pawn.setPosition(startPos);
-            pawn.setStepsMoved(0); 
-
-        } else {
-            int potentialSteps = pawn.getStepsMoved() + roll;
-            
-            if (potentialSteps >= BOARD_SIZE) {
-                long pawnsAlreadyInHome = currentPlayer.getPawns().stream()
-                        .filter(LudoPawn::isInHome)
-                        .count();
-
-                if (pawnsAlreadyInHome >= 4) {
-                     throw new IllegalStateException("Home is full!");
-                }
-                
-                pawn.setInHome(true);
-                pawn.setPosition((int) pawnsAlreadyInHome); 
-                pawn.setStepsMoved(BOARD_SIZE + (int) pawnsAlreadyInHome); 
-
-            } else {
-                int nextPos = (pawn.getPosition() + roll) % BOARD_SIZE;
-
-                if (isFieldOccupiedBySelf(game, nextPos, currentPlayer.getColor())) {
-                    throw new IllegalArgumentException("Field occupied by your own pawn!");
-                }
-
-                if (isOpponentOnTheirSafePosition(game, nextPos, currentPlayer.getColor())) {
-                    throw new IllegalArgumentException("Cannot capture opponent on their safe start field!");
-                }
-
-                handleCollision(game, nextPos, currentPlayer);
-                
-                pawn.setPosition(nextPos);
-                pawn.setStepsMoved(potentialSteps);
-            }
-        }
-
-        // AFTER MOVE
-
-        if (checkWinCondition(currentPlayer)) {
-            game.setStatus(RoomStatus.FINISHED);
-            game.setWinnerId(currentPlayer.getUserId());
+        if (checkWinCondition(player)) {
+            handleGameFinish(game, player);
         } else {
             if (roll == 6) {
                 game.setDiceRolled(false);
                 game.setWaitingForMove(false);
-                game.setRollsLeft(1); 
+                game.setRollsLeft(1);
+                saveAndBroadcast(game);
+                scheduleTurnTimeout(game);
             } else {
                 passTurnToNextPlayer(game);
             }
         }
-
-        return ludoRepository.save(game);
+        
+        return game;
     }
 
-    // HELPER METHODS
+    // --- MOVE LOGIC ---
+    private void performMoveLogic(LudoGame game, LudoPlayer currentPlayer, LudoPawn pawn, int roll) {
+        if (pawn.isInHome()) {
+            throw new IllegalArgumentException("Pawn already in home");
+        }
+
+        if (pawn.isInBase()) {
+            if (roll != 6) throw new IllegalArgumentException("Need 6 to start");
+            int startPos = currentPlayer.getColor().getStartPosition();
+            if (isFieldOccupiedBySelf(game, startPos, currentPlayer.getColor())) {
+                throw new IllegalArgumentException("Start blocked by self");
+            }
+            handleCollision(game, startPos, currentPlayer);
+            pawn.setInBase(false);
+            pawn.setPosition(startPos);
+            pawn.setStepsMoved(0);
+        } else {
+            int potentialSteps = pawn.getStepsMoved() + roll;
+            if (potentialSteps >= BOARD_SIZE) {
+                long inHomeCount = currentPlayer.getPawns().stream().filter(LudoPawn::isInHome).count();
+                if (inHomeCount >= 4) throw new IllegalStateException("Home full");
+                pawn.setInHome(true);
+                pawn.setPosition((int) inHomeCount);
+                pawn.setStepsMoved(BOARD_SIZE + (int) inHomeCount);
+            } else {
+                int nextPos = (pawn.getPosition() + roll) % BOARD_SIZE;
+                if (isFieldOccupiedBySelf(game, nextPos, currentPlayer.getColor())) {
+                    throw new IllegalArgumentException("Blocked by self");
+                }
+                if (isOpponentOnSafePos(game, nextPos, currentPlayer.getColor())) {
+                    throw new IllegalArgumentException("Cannot capture on safe spot");
+                }
+                handleCollision(game, nextPos, currentPlayer);
+                pawn.setPosition(nextPos);
+                pawn.setStepsMoved(potentialSteps);
+            }
+        }
+    }
+
+    // --- HELPER FUNCTIONS ---
 
     private void validateTurn(LudoGame game, String playerId) {
-        LudoPlayer current = getPlayerByColor(game, game.getCurrentPlayerColor());
-        if (!current.getUserId().equals(playerId)) {
-            throw new IllegalStateException("It is not your turn!");
+        if (game.getActivePlayerId() == null || !game.getActivePlayerId().equals(playerId)) {
+            throw new IllegalStateException("Not your turn!");
         }
     }
 
     private void passTurnToNextPlayer(LudoGame game) {
         game.setDiceRolled(false);
         game.setWaitingForMove(false);
-        
+
         PlayerColor nextColor = game.getCurrentPlayerColor().next();
-        game.setCurrentPlayerColor(nextColor);
+        LudoPlayer nextPlayer = null;
+        
+        int attempts = 0;
+        while (nextPlayer == null && attempts < 4) {
+            nextPlayer = game.getPlayerByColor(nextColor);
+            if (nextPlayer == null) {
+                nextColor = nextColor.next();
+            }
+            attempts++;
+        }
 
-        LudoPlayer nextPlayer = getPlayerByColor(game, nextColor);
-        updateRollsCountForPlayer(game, nextPlayer);
-    }
-
-    private void updateRollsCountForPlayer(LudoGame game, LudoPlayer player) {
-        boolean hasActivePawns = player.getPawns().stream()
-                .anyMatch(p -> !p.isInBase() && !p.isInHome()); 
-
-        if (!hasActivePawns) {
-            game.setRollsLeft(3);
-        } else {
-            game.setRollsLeft(1);
+        if (nextPlayer != null) {
+            game.setCurrentPlayerColor(nextColor);
+            game.setActivePlayerId(nextPlayer.getUserId());
+            updateRollsCountForPlayer(game, nextPlayer);
+            
+            saveAndBroadcast(game);
+            scheduleTurnTimeout(game);
+            
+           
         }
     }
 
-    public boolean canPlayerMove(LudoGame game, String playerId, int roll) {
-        LudoPlayer p = getPlayerById(game, playerId);
+    private void updateRollsCountForPlayer(LudoGame game, LudoPlayer player) {
+        boolean hasActive = player.getPawns().stream().anyMatch(p -> !p.isInBase() && !p.isInHome());
+        game.setRollsLeft(hasActive ? 1 : 3);
+    }
+
+    private boolean canPlayerMove(LudoGame game, String playerId, int roll) {
+        LudoPlayer p = game.getPlayerById(playerId);
+        if (p == null) return false;
         
         if (roll == 6 && hasPawnInBase(p)) return true;
         
@@ -204,20 +234,18 @@ public class LudoService {
                 .filter(pawn -> !pawn.isInBase() && !pawn.isInHome())
                 .anyMatch(pawn -> {
                     int potentialSteps = pawn.getStepsMoved() + roll;
-                    
                     if (potentialSteps >= BOARD_SIZE) return true;
                     
                     int nextPos = (pawn.getPosition() + roll) % BOARD_SIZE;
-                    
                     if (isFieldOccupiedBySelf(game, nextPos, p.getColor())) return false;
-                    
-                    if (isOpponentOnTheirSafePosition(game, nextPos, p.getColor())) return false;
-
+                    if (isOpponentOnSafePos(game, nextPos, p.getColor())) return false;
                     return true; 
                 });
     }
 
-    public boolean hasPawnInBase(LudoPlayer player) {
+    // --- COLLISION & SAFE SPOTS ---
+    
+    private boolean hasPawnInBase(LudoPlayer player) {
         return player.getPawns().stream().anyMatch(LudoPawn::isInBase);
     }
 
@@ -226,32 +254,29 @@ public class LudoService {
                 .map(p -> p.getColor() == myColor)
                 .orElse(false);
     }
-    
-    private boolean isOpponentOnTheirSafePosition(LudoGame game, int pos, PlayerColor myColor) {
+
+    private boolean isOpponentOnSafePos(LudoGame game, int pos, PlayerColor myColor) {
         return getPawnOnPosition(game, pos)
-                .filter(p -> p.getColor() != myColor) 
+                .filter(p -> p.getColor() != myColor)
                 .map(p -> p.getPosition() == p.getColor().getStartPosition())
                 .orElse(false);
     }
-    
+
     private void handleCollision(LudoGame game, int pos, LudoPlayer movingPlayer) {
-        Optional<LudoPawn> targetPawn = getPawnOnPosition(game, pos);
-        
-        if (targetPawn.isPresent()) {
-            LudoPawn enemyPawn = targetPawn.get();
-            if (enemyPawn.getColor() != movingPlayer.getColor()) {
-                enemyPawn.setInBase(true);
-                enemyPawn.setPosition(-1);
-                enemyPawn.setStepsMoved(0); 
-                enemyPawn.setInHome(false);
+        getPawnOnPosition(game, pos).ifPresent(enemy -> {
+            if (enemy.getColor() != movingPlayer.getColor()) {
+                enemy.setInBase(true);
+                enemy.setPosition(-1);
+                enemy.setStepsMoved(0);
+                enemy.setInHome(false);
             }
-        }
+        });
     }
 
     private Optional<LudoPawn> getPawnOnPosition(LudoGame game, int pos) {
         return game.getPlayers().stream()
                 .flatMap(p -> p.getPawns().stream())
-                .filter(p -> !p.isInBase() && !p.isInHome()) 
+                .filter(p -> !p.isInBase() && !p.isInHome())
                 .filter(p -> p.getPosition() == pos)
                 .findFirst();
     }
@@ -259,18 +284,88 @@ public class LudoService {
     private boolean checkWinCondition(LudoPlayer player) {
         return player.getPawns().stream().allMatch(LudoPawn::isInHome);
     }
-    
-    private LudoPlayer getPlayerById(LudoGame game, String playerId) {
-        return game.getPlayers().stream()
-                .filter(p -> p.getUserId().equals(playerId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Player not found in game"));
+
+    // --- PERSISTENCE & BROADCAST ---
+
+    private void saveAndBroadcast(LudoGame game) {
+        gameRepository.save(game); 
+        
+        LudoGameStateMessage msg = new LudoGameStateMessage(
+                game.getRoomId(),
+                game.getStatus(),
+                game.getCurrentPlayerColor(),
+                game.getActivePlayerId(),
+                game.getLastDiceRoll(),
+                game.isDiceRolled(),
+                game.isWaitingForMove(),
+                game.getRollsLeft(),
+                game.getPlayers(),
+                game.getPlayersUsernames(),
+                game.getWinnerId()
+        );
+        
+        messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
     }
-    
-    private LudoPlayer getPlayerByColor(LudoGame game, PlayerColor color) {
-        return game.getPlayers().stream()
-                .filter(p -> p.getColor() == color)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Color not found in game"));
+
+    private void handleGameFinish(LudoGame game, LudoPlayer winner) {
+        cancelTurnTimeout(game.getRoomId());
+        game.setStatus(RoomStatus.FINISHED);
+        game.setWinnerId(winner.getUserId());
+        
+        LudoGameResult result = new LudoGameResult(
+                game.getGameId(),
+                game.getMaxPlayers(),
+                game.getPlayersUsernames(),
+                winner.getUserId(),
+                game.getPlacement() 
+        );
+        gameResultRepository.save(result);
+        
+        GameFinishMessage finishMsg = new GameFinishMessage(game.getRoomId(), RoomStatus.FINISHED);
+        rabbitTemplate.convertAndSend(exchangeName, finishRoutingKey, finishMsg);
+        
+        saveAndBroadcast(game);
+        
+        if (game.getRoomId() != null) {
+            gameRepository.deleteById(game.getRoomId());
+        }
+    }
+
+    // --- TIMEOUT HANDLING ---
+
+    private void scheduleTurnTimeout(LudoGame game) {
+        if (game.getStatus() != RoomStatus.PLAYING) return;
+        cancelTurnTimeout(game.getRoomId());
+        
+        ScheduledFuture<?> future = turnTimeoutScheduler.schedule(() -> {
+            handleTurnTimeout(game.getRoomId(), game.getActivePlayerId());
+        }, turnTimeoutSeconds, TimeUnit.SECONDS);
+        
+        turnTimeouts.put(game.getRoomId(), future);
+    }
+
+    private void handleTurnTimeout(String roomId, String timedOutPlayerId) {
+        try {
+            LudoGame game = gameRepository.findById(roomId).orElse(null);
+            if (game == null || game.getStatus() != RoomStatus.PLAYING) return;
+            if (!game.getActivePlayerId().equals(timedOutPlayerId)) return;
+
+            log.info("Timeout for player {} in room {}", timedOutPlayerId, roomId);
+            
+            passTurnToNextPlayer(game);
+            
+        } catch (Exception e) {
+            log.error("Error handling timeout", e);
+        }
+    }
+
+    private void cancelTurnTimeout(String roomId) {
+        ScheduledFuture<?> future = turnTimeouts.remove(roomId);
+        if (future != null) future.cancel(false);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        turnTimeoutScheduler.shutdown();
     }
 }
