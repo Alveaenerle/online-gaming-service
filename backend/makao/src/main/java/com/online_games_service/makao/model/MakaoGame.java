@@ -25,15 +25,15 @@ public class MakaoGame implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String roomId;
-    private String gameId = "MAKAO-" + UUID.randomUUID();
+    private String gameId;
     private RoomStatus status;
     private String hostUserId;
     private int maxPlayers;
 
     private List<String> playersOrderIds = new ArrayList<>();
     private String activePlayerId;
-    private boolean ReverseMovement = false;
-    private boolean SpecialEffectActive = false;
+    private boolean reverseMovement = false;
+    private boolean specialEffectActive = false;
     private List<Card> activePlayerPlayableCards = new ArrayList<>();
     private Card drawnCard = null;
 
@@ -61,6 +61,9 @@ public class MakaoGame implements Serializable {
     public MakaoGame(String roomId, Map<String, String> players, String hostUserId, int maxPlayers) {
         this.roomId = roomId;
         this.gameId = "MAKAO-" + UUID.randomUUID();
+        if (maxPlayers < 2) {
+            throw new IllegalArgumentException("maxPlayers must be at least 2");
+        }
         this.maxPlayers = maxPlayers;
         this.hostUserId = hostUserId;
 

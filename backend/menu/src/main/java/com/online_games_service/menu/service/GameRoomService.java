@@ -252,7 +252,7 @@ public class GameRoomService {
         broadcastRoomUpdate(room);
 
         deleteRoom(room);
-        log.info("Marked room {} as {} via makao.finish and removed from Redis", roomId, finalStatus);
+        log.info("Marked room {} as {} via gameType.finish and removed from Redis", roomId, finalStatus);
     }
 
     public String leaveRoom(String userId, String username) {

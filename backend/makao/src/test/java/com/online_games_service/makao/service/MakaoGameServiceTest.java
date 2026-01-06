@@ -621,7 +621,7 @@ public class MakaoGameServiceTest {
 		game.setActivePlayerId("human-1");
 		game.setPlayersOrderIds(new ArrayList<>(List.of("human-1", "bot-1")));
 		Map<String, List<Card>> initHands = new HashMap<>();
-		initHands.put("human-1", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))));
+		initHands.put("human-1", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.TEN))));
 		initHands.put("bot-1", new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.SIX))));
 		game.setPlayersHands(initHands);
 		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of("human-1", 0, "bot-1", 0)));

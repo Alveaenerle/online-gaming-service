@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import jakarta.annotation.PreDestroy;
 
 @Service
 @RequiredArgsConstructor
@@ -758,6 +759,14 @@ public class MakaoGameService {
                 turnTimeoutSeconds,
                 TimeUnit.SECONDS);
         turnTimeouts.put(game.getRoomId(), future);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        if (turnTimeoutScheduler != null && !turnTimeoutScheduler.isShutdown()) {
+            turnTimeoutScheduler.shutdown();
+            log.info("MakaoGameService: Shut down turnTimeoutScheduler");
+        }
     }
 
     private void cancelTurnTimeout(String roomId) {
