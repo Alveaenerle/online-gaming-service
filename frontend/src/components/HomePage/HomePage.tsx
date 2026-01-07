@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Users } from "lucide-react";
-import { FriendsSidebar } from "../Shared/FriendsSidebar";
+import { SocialCenter } from "../Shared/SocialCenter";
 import Navbar from "../Shared/Navbar";
 import { GameCarousel } from "./GamesCarousel";
 import { useAuth } from "../../context/AuthContext";
@@ -11,50 +10,65 @@ const Home: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
   return (
-    <div className="min-h-screen bg-bg text-white overflow-hidden">
+    <div className="min-h-screen bg-[#050508] text-white overflow-hidden relative font-sans">
       <Navbar />
 
-      <section className="relative py-32 px-6 max-w-7xl mx-auto">
-        <motion.div
-          className="text-center mb-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <h2 className="text-4xl font-bold mb-4">
-            Welcome Back{isAuthenticated && user ? `, ${user.username}` : ""}!
-          </h2>
-          <p className="text-gray-400">Choose your game below:</p>
-        </motion.div>
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,_rgba(108,42,255,0.15),_transparent_80%)]" />
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.5, 0.3],
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-purple-600/20 blur-[120px] rounded-full"
+        />
+      </div>
+
+      <main className="relative z-10 pt-32 pb-20 px-6 max-w-[1600px] mx-auto min-h-screen flex flex-col justify-center">
+        <header className="text-center mb-4 space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <h2 className="text-5xl md:text-4xl font-black tracking-tighter mb-4 leading-none">
+              Welcome Back,{" "}
+              <span className="bg-gradient-to-r from-purple-400 via-fuchsia-500 to-purple-600 bg-clip-text text-transparent">
+                {isAuthenticated && user ? user.username : "Player"}
+              </span>
+            </h2>
+            <p className="text-gray-500 text-m font-medium max-w-2xl mx-auto tracking-wide">
+              Your arena is ready. Select a game and start competing with
+              players from around the world.
+            </p>
+          </motion.div>
+        </header>
+
+        <motion.section
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="relative"
         >
           <GameCarousel />
+        </motion.section>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="mt-12 flex justify-center items-center gap-8 text-white/20 font-black text-[10px] uppercase tracking-[0.4em]"
+        >
+          <span>Global Ranking</span>
+          <div className="w-1 h-1 rounded-full bg-white/20" />
+          <span>Tournaments</span>
+          <div className="w-1 h-1 rounded-full bg-white/20" />
+          <span>Community</span>
         </motion.div>
-      </section>
-
-      <motion.button
-        onClick={() => setFriendsOpen(true)}
-        className="fixed bottom-6 right-6 z-30
-                   flex items-center gap-3
-                   rounded-2xl bg-purple-600 px-5 py-3
-                   font-semibold shadow-lg shadow-purple-600/40
-                   hover:bg-purple-500 transition"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        <Users />
-        Friends
-      </motion.button>
-
-      <FriendsSidebar
-        isOpen={friendsOpen}
-        onClose={() => setFriendsOpen(false)}
-      />
+      </main>
+      <SocialCenter />
     </div>
   );
 };
