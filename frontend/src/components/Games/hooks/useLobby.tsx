@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { socketService } from "../../../services/socketService";
 
 export function useLobby(
@@ -6,6 +6,12 @@ export function useLobby(
   onUpdate: (data: any) => void
 ) {
   const [isConnected, setIsConnected] = useState(false);
+  const onUpdateRef = useRef(onUpdate);
+
+  // Keep the ref up to date with the latest callback
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -14,7 +20,9 @@ export function useLobby(
       try {
         await socketService.connect();
         setIsConnected(true);
-        socketService.subscribe(`/topic/room/${roomId}`, onUpdate);
+        socketService.subscribe(`/topic/room/${roomId}`, (data) => {
+          onUpdateRef.current(data);
+        });
       } catch (err) {
         console.error("Socket connection failed", err);
       }
@@ -25,7 +33,7 @@ export function useLobby(
     return () => {
       socketService.unsubscribe(`/topic/room/${roomId}`);
     };
-  }, [roomId, onUpdate]);
+  }, [roomId]);
 
   return { isConnected };
 }

@@ -27,7 +27,7 @@ export function BigPlayerCard({ player, onAvatarClick, onToggleReady }: Props) {
         player.isReady ? "border-purple-500/50" : "border-purple-500/20"
       }`}
     >
-      {/* 1. TŁO: Animowany Gradient Glow wewnątrz karty */}
+      {/* 1. BACKGROUND: Animated gradient glow inside the card */}
       <div
         className={`absolute inset-0 transition-opacity duration-1000 -z-10 ${
           player.isReady ? "opacity-100" : "opacity-0"

@@ -21,12 +21,9 @@ export function MakaoLobby() {
 
   const [lobby, setLobby] = useState<LobbyInfo | null>(null);
   const [avatarSelectFor, setAvatarSelectFor] = useState<string | null>(null);
-  const [friendsOpen, setFriendsOpen] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
 
   const handleLobbyUpdate = useCallback(
     (data: any) => {
-      console.log("isleaving: ", isLeavingRef);
       if (!data || isLeavingRef.current) return;
 
       if (data.players && !data.players[user?.id || ""]) {
@@ -56,14 +53,12 @@ export function MakaoLobby() {
     const initSocket = async () => {
       try {
         await socketService.connect();
-        setIsConnected(true);
         socketService.subscribe(
           `/topic/room/${lobby.roomId}`,
           handleLobbyUpdate
         );
       } catch (err) {
         console.error("Socket connection failed:", err);
-        setIsConnected(false);
       }
     };
 

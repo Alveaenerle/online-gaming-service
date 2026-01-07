@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Users } from "lucide-react";
-import { FriendsSidebar } from "./FriendsSidebar"; // Upewnij się, że ścieżka jest poprawna
+import { FriendsSidebar } from "./FriendsSidebar";
 
 export function SocialCenter() {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,7 +18,7 @@ export function SocialCenter() {
         className="fixed bottom-10 right-10 z-30
                    flex items-center gap-4
                    rounded-[1.5rem] bg-[#121018] border border-purple-500/30 px-6 py-4
-                   font-black uppercase text-xs tracking-widest text-white shadow-2xl 
+                   font-black uppercase text-xs tracking-widest text-white shadow-2xl
                    shadow-purple-900/20 backdrop-blur-xl transition-all group"
       >
         <div className="relative">
@@ -26,14 +26,14 @@ export function SocialCenter() {
             size={20}
             className="group-hover:text-purple-400 transition-colors"
           />
-          {/* Status Online - kropka */}
+          {/* Online status indicator dot */}
           <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#121018] animate-pulse" />
         </div>
 
         <span className="hidden md:block">Social Center</span>
       </motion.button>
 
-      {/* Sidebar kontrolowany wewnętrznie */}
+      {/* Sidebar controlled internally */}
       <FriendsSidebar isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   );

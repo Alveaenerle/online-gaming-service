@@ -18,7 +18,9 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
       if (typeof error?.message === "string") {
         errorMessage = error.message;
       }
-    } catch {}
+    } catch (parseError) {
+      console.warn("Failed to parse error response as JSON:", parseError);
+    }
     throw new Error(errorMessage);
   }
 

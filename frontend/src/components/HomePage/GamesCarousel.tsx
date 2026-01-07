@@ -80,7 +80,7 @@ export const GameCarousel: React.FC = () => {
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-0 perspective-1000 h-500px]">
+        <div className="flex items-center justify-center gap-0 perspective-1000 h-[500px]">
           <AnimatePresence mode="popLayout">
             {indices.map((gameIndex, idx) => {
               const game = games[gameIndex];
@@ -154,7 +154,7 @@ export const GameCarousel: React.FC = () => {
 
                     <button
                       onClick={() => navigate(game.route)}
-                      className={`w-full py-4 rounded-2xl bg-gradient-to-r ${game.color} text-white font-black uppercase text-xs tracking-[0.2em] 
+                      className={`w-full py-4 rounded-2xl bg-gradient-to-r ${game.color} text-white font-black uppercase text-xs tracking-[0.2em]
                         shadow-xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all`}
                     >
                       <Play size={16} fill="currentColor" />
