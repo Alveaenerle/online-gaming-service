@@ -6,8 +6,8 @@ import com.online_games_service.menu.config.GameLimitsConfig;
 import com.online_games_service.menu.dto.CreateRoomRequest;
 import com.online_games_service.menu.dto.JoinGameRequest;
 import com.online_games_service.menu.dto.RoomInfoResponse;
+import com.online_games_service.menu.messaging.GameStartPublisher;
 import com.online_games_service.menu.model.GameRoom;
-import com.online_games_service.menu.repository.GameRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -27,10 +27,10 @@ import java.util.UUID;
 @Slf4j
 public class GameRoomService {
 
-    private final GameRoomRepository gameRoomRepository;
     private final GameLimitsConfig gameLimitsConfig;
     private final RedisTemplate<String, Object> redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
+    private final GameStartPublisher gameStartPublisher;
 
     // --- REDIS KEYS ---
     private static final String KEY_ROOM = "game:room:"; // Store object GameRoom
@@ -227,13 +227,10 @@ public class GameRoomService {
 
         saveRoomToRedis(room);
 
-        // TODO: GameRoom data in Redis will be extended with game-specific fields
-        // later.
-        // Not save in MongoDB. Game finish state will be only saved.
-        GameRoom savedInDb = gameRoomRepository.save(room);
-        log.info("Game started! Room {} persisted to MongoDB.", savedInDb.getId());
+        gameStartPublisher.publish(room);
+
         broadcastRoomUpdate(room);
-        return savedInDb;
+        return room;
     }
 
     public String leaveRoom(String userId, String username) {

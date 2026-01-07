@@ -83,8 +83,6 @@ public class SessionUserFilter extends OncePerRequestFilter {
                 return value != null ? value.toString() : null;
             }
 
-            // Konwersja obiektu na Mapę, żeby uniknąć problemów z brakiem klasy User w
-            // ClassPath
             Map<String, Object> map = objectMapper.convertValue(sessionData, Map.class);
             Object value = map.get(key);
             return value != null ? value.toString() : null;

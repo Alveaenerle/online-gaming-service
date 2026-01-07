@@ -35,6 +35,8 @@ services:
         MODULE_NAME: makao
     environment:
       - SERVER_PORT=8080
+    depends_on:
+      - rabbitmq
 
   ludo:
     build:
@@ -44,6 +46,26 @@ services:
         MODULE_NAME: ludo
     environment:
       - SERVER_PORT=8080
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: og-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   frontend:
     build:
@@ -57,3 +79,6 @@ services:
       - social
       - makao
       - ludo
+
+volumes:
+  rabbitmq_data:

@@ -7,7 +7,7 @@ import com.online_games_service.menu.dto.CreateRoomRequest;
 import com.online_games_service.menu.dto.JoinGameRequest;
 import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.model.GameRoom;
-import com.online_games_service.menu.repository.GameRoomRepository;
+import com.online_games_service.menu.messaging.GameStartPublisher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
 public class GameRoomServiceTest {
 
 	@Mock
-	private GameRoomRepository gameRoomRepository;
+	private GameStartPublisher gameStartPublisher;
 
 	@Mock
 	private GameLimitsConfig gameLimitsConfig;
@@ -71,7 +71,6 @@ public class GameRoomServiceTest {
 		lenient().when(setOperations.remove(anyString(), any())).thenReturn(1L);
 		lenient().when(redisTemplate.expire(anyString(), any(Duration.class))).thenReturn(true);
 		lenient().when(redisTemplate.delete(anyString())).thenReturn(true);
-		lenient().when(gameRoomRepository.save(any(GameRoom.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		lenient().when(valueOperations.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
 
 		defaultLimit = new GameLimitsConfig.Limit();
@@ -79,7 +78,7 @@ public class GameRoomServiceTest {
 		defaultLimit.setMax(6);
 		lenient().when(gameLimitsConfig.getLimitFor(any())).thenReturn(defaultLimit);
 
-		gameRoomService = new GameRoomService(gameRoomRepository, gameLimitsConfig, redisTemplate, messagingTemplate);
+		gameRoomService = new GameRoomService(gameLimitsConfig, redisTemplate, messagingTemplate, gameStartPublisher);
 	}
 
 	@AfterMethod
@@ -331,7 +330,7 @@ public class GameRoomServiceTest {
 	}
 
 	@Test
-	public void shouldStartGameAndPersistRoom() {
+	public void shouldStartGameAndPublishRoom() {
 		GameRoom room = buildRoom("room-start", GameType.LUDO, "host-id", "host", 4, false);
 		room.setAccessCode("START01");
 
@@ -344,7 +343,7 @@ public class GameRoomServiceTest {
 		verify(setOperations).remove(eq(waitingKey(room.getGameType())), eq(room.getId()));
 		verify(redisTemplate).delete(eq(codeKey("START01")));
 		verify(valueOperations).set(eq(keyForRoom(room.getId())), eq(room), any(Duration.class));
-		verify(gameRoomRepository).save(room);
+		verify(gameStartPublisher).publish(room);
 		verify(messagingTemplate).convertAndSend(eq("/topic/room/" + room.getId()), any(RoomInfoResponse.class));
 	}
 
