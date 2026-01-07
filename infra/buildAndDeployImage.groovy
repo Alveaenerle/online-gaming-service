@@ -1,6 +1,7 @@
 void call(String imageName, String contextDir, String moduleName = null) {
     echo "Processing service: ${imageName} from ${contextDir}..."
     def fullImageName = "${NEXUS_URL}/${imageName}"
+    def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
 
     def buildArgs = ""
     if (moduleName) {
@@ -9,7 +10,7 @@ void call(String imageName, String contextDir, String moduleName = null) {
 
     sh """
         docker build \
-        -t ${fullImageName}:${env.BUILD_NUMBER} \
+        -t ${fullImageName}:${gitCommit} \
         -t ${fullImageName}:latest \
         --target production \
         ${buildArgs} \
@@ -17,11 +18,11 @@ void call(String imageName, String contextDir, String moduleName = null) {
     """
 
     echo "Pushing ${imageName} to Nexus..."
-    sh "docker push ${fullImageName}:${env.BUILD_NUMBER}"
+    sh "docker push ${fullImageName}:${gitCommit}"
     sh "docker push ${fullImageName}:latest"
 
     echo "Cleaning up local images..."
-    sh "docker rmi ${fullImageName}:${env.BUILD_NUMBER} ${fullImageName}:latest"
+    sh "docker rmi ${fullImageName}:${gitCommit} ${fullImageName}:latest"
 }
 
 return this

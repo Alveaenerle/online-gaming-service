@@ -4,13 +4,16 @@ def call(String serverIp, String serverUser, String sshCredentialId) {
         string(credentialsId: 'redis-password', variable: 'REDIS_PASS'),
         usernamePassword(credentialsId: '86a5c18e-996c-42ea-bf9e-190b2cb978bd', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')
     ]) {
-        
-        def envFileContent = """
-TAG=${env.BUILD_NUMBER}
+                def envFileContent = """
 NEXUS_URL=${env.NEXUS_URL}
 MONGO_ROOT_USER=${MONGO_USER}
 MONGO_ROOT_PASSWORD=${MONGO_PASS}
 REDIS_PASSWORD=${REDIS_PASS}
+""".trim()
+        
+        def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+        envFileContent += """
+TAG=${gitCommit}
 """.trim()
         
         try {

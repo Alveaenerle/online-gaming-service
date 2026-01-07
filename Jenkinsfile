@@ -8,9 +8,13 @@ pipeline {
         NEXUS_URL = 'docker.yapyap.pl'
         NEXUS_CREDS = credentials('86a5c18e-996c-42ea-bf9e-190b2cb978bd')
 
-        PROD_IP = '10.10.0.171'
-        PROD_USER = 'pis'
-        PROD_SSH_ID = 'prod-ssh-key'
+        DEMO_IP = '10.10.0.171'
+        DEMO_USER = 'pis'
+        DEMO_SSH_ID = 'prod-ssh-key'
+        
+        PROD_IP = credentials('prod-server-ip')
+        PROD_USER = credentials('prod-server-user')
+        PROD_SSH_ID = 'prod-server-ssh-key'
     }
 
     stages {
@@ -74,11 +78,21 @@ pipeline {
             }
         }
 
-        stage('Deploy to Production') {
+        stage('Deploy to Demo') {
             when { branch 'main' }
             steps {
                 script {
-                    def deployToProd = load('infra/deployToProd.groovy')
+                    def deployToDemo = load('infra/deploy.groovy')
+                    deployToDemo(env.DEMO_IP, env.DEMO_USER, env.DEMO_SSH_ID)
+                }
+            }
+        }
+
+        stage('Deploy to Prod') {
+            when { expression { env.TAG_NAME != null && env.TAG_NAME.startsWith('v') } }
+            steps {
+                script {
+                    def deployToProd = load('infra/deploy.groovy')
                     deployToProd(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
                 }
             }
