@@ -83,7 +83,7 @@ pipeline {
             steps {
                 script {
                     def deployToDemo = load('infra/deploy.groovy')
-                    deployToDemo(env.DEMO_IP, env.DEMO_USER, env.DEMO_SSH_ID)
+                    deployToDemo.call(env.DEMO_IP, env.DEMO_USER, env.DEMO_SSH_ID)
                 }
             }
         }
@@ -93,7 +93,7 @@ pipeline {
             steps {
                 script {
                     def deployToProd = load('infra/deploy.groovy')
-                    deployToProd(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
+                    deployToProd.call(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
                 }
             }
         }
