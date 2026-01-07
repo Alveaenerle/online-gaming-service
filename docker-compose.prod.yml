@@ -150,6 +150,9 @@ services:
     image: rabbitmq:3-management
     container_name: og-rabbitmq
     restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
