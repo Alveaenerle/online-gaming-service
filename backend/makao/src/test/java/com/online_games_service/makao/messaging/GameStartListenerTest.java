@@ -4,6 +4,7 @@ import com.online_games_service.common.enums.GameType;
 import com.online_games_service.common.messaging.GameStartMessage;
 import com.online_games_service.makao.model.MakaoGame;
 import com.online_games_service.makao.repository.redis.MakaoGameRedisRepository;
+import com.online_games_service.makao.service.MakaoGameService;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.Assert;
@@ -22,13 +23,16 @@ public class GameStartListenerTest {
     @Mock
     private MakaoGameRedisRepository repository;
 
+    @Mock
+    private MakaoGameService makaoGameService;
+
     private AutoCloseable mocks;
     private GameStartListener listener;
 
     @BeforeMethod
     public void setup() {
         mocks = MockitoAnnotations.openMocks(this);
-        listener = new GameStartListener(repository);
+        listener = new GameStartListener(repository, makaoGameService);
     }
 
     @AfterMethod
@@ -50,10 +54,12 @@ public class GameStartListenerTest {
 
         when(repository.existsById("room-1")).thenReturn(false);
         when(repository.save(any(MakaoGame.class))).thenAnswer(inv -> inv.getArgument(0));
+        doNothing().when(makaoGameService).initializeGameAfterStart("room-1");
 
         listener.handleGameStart(msg);
 
         verify(repository).save(any(MakaoGame.class));
+        verify(makaoGameService).initializeGameAfterStart("room-1");
     }
 
     @Test
@@ -73,6 +79,7 @@ public class GameStartListenerTest {
         listener.handleGameStart(msg);
 
         verify(repository, never()).save(any());
+        verify(makaoGameService, never()).initializeGameAfterStart(any());
     }
 
     @Test
@@ -90,5 +97,6 @@ public class GameStartListenerTest {
         listener.handleGameStart(msg);
 
         verify(repository, never()).save(any());
+        verify(makaoGameService, never()).initializeGameAfterStart(any());
     }
 }

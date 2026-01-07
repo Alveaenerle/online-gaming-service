@@ -3,15 +3,11 @@ package com.online_games_service.makao.messaging;
 import com.online_games_service.common.messaging.GameStartMessage;
 import com.online_games_service.makao.model.MakaoGame;
 import com.online_games_service.makao.repository.redis.MakaoGameRedisRepository;
+import com.online_games_service.makao.service.MakaoGameService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -19,6 +15,7 @@ import java.util.Objects;
 public class GameStartListener {
 
     private final MakaoGameRedisRepository gameRedisRepository;
+    private final MakaoGameService makaoGameService;
 
     @RabbitListener(queues = "${makao.amqp.queue.start:makao.start.queue}")
     public void handleGameStart(GameStartMessage message) {
@@ -27,40 +24,31 @@ public class GameStartListener {
             return;
         }
 
-        String gameId = message.roomId();
-        if (gameId == null || gameId.isBlank()) {
+        String roomId = message.roomId();
+        if (roomId == null || roomId.isBlank()) {
             log.warn("Received GameStartMessage without roomId; skipping");
             return;
         }
 
-        if (gameRedisRepository.existsById(gameId)) {
-            log.info("Makao game {} already exists in Redis; skipping creation", gameId);
+        if (gameRedisRepository.existsById(roomId)) {
+            log.info("Makao game {} already exists in Redis; skipping creation", roomId);
             return;
         }
 
-        List<String> playerOrder = buildPlayerOrder(message.hostUserId(), message.players());
-        if (playerOrder.isEmpty()) {
-            log.warn("Cannot create Makao game {} because no players were provided in GameStartMessage", gameId);
+        if (message.players() == null || message.players().isEmpty()) {
+            log.warn("Cannot create Makao game {} because no players were provided in GameStartMessage", roomId);
             return;
         }
-        MakaoGame game = new MakaoGame(gameId, playerOrder);
+
+        MakaoGame game = new MakaoGame(roomId, message.players(), message.hostUserId(), message.maxPlayers());
 
         gameRedisRepository.save(game);
-        log.info("Makao game {} created with {} players and persisted to Redis", gameId, playerOrder.size());
-    }
+        log.info("Makao game {} created with {} players and persisted to Redis", roomId, message.players().size());
 
-    private List<String> buildPlayerOrder(String hostUserId, Map<String, String> players) {
-        List<String> ordered = new ArrayList<>();
-        if (hostUserId != null && !hostUserId.isBlank()) {
-            ordered.add(hostUserId);
+        try {
+            makaoGameService.initializeGameAfterStart(roomId);
+        } catch (Exception e) {
+            log.error("Failed to initialize Makao game {} after creation", roomId, e);
         }
-        if (players != null && !players.isEmpty()) {
-            players.entrySet().stream()
-                    .map(Map.Entry::getKey)
-                    .filter(userId -> !Objects.equals(userId, hostUserId))
-                    .sorted()
-                    .forEach(ordered::add);
-        }
-        return ordered;
     }
 }

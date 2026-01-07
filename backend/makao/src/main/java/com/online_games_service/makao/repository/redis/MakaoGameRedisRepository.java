@@ -30,13 +30,13 @@ public class MakaoGameRedisRepository {
     }
 
     public MakaoGame save(MakaoGame game) {
-        String key = keyPrefix + game.getId();
+        String key = keyPrefix + game.getRoomId();
         redisTemplate.opsForValue().set(key, game, TTL_SECONDS, TimeUnit.SECONDS);
         return game;
     }
 
-    public Optional<MakaoGame> findById(String id) {
-        String key = keyPrefix + id;
+    public Optional<MakaoGame> findById(String roomId) {
+        String key = keyPrefix + roomId;
         Object value = redisTemplate.opsForValue().get(key);
         if (value instanceof MakaoGame) {
             return Optional.of((MakaoGame) value);
@@ -44,13 +44,13 @@ public class MakaoGameRedisRepository {
         return Optional.empty();
     }
 
-    public boolean existsById(String id) {
-        String key = keyPrefix + id;
+    public boolean existsById(String roomId) {
+        String key = keyPrefix + roomId;
         return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
 
-    public void deleteById(String id) {
-        String key = keyPrefix + id;
+    public void deleteById(String roomId) {
+        String key = keyPrefix + roomId;
         redisTemplate.delete(key);
     }
 
@@ -65,4 +65,5 @@ public class MakaoGameRedisRepository {
         }
         return count;
     }
+
 }

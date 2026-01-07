@@ -83,6 +83,8 @@ public class SessionUserFilter extends OncePerRequestFilter {
                 return value != null ? value.toString() : null;
             }
 
+            // Convert the sessionData object to a Map to safely access fields
+            // without requiring the concrete User class to be present on the classpath.
             Map<String, Object> map = objectMapper.convertValue(sessionData, Map.class);
             Object value = map.get(key);
             return value != null ? value.toString() : null;

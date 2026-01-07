@@ -233,6 +233,28 @@ public class GameRoomService {
         return room;
     }
 
+    public void markFinished(String roomId, RoomStatus status) {
+        if (roomId == null || roomId.isBlank()) {
+            log.warn("Cannot finish room: roomId is blank");
+            return;
+        }
+
+        GameRoom room = getRoomFromRedis(roomId);
+        if (room == null) {
+            log.warn("Cannot finish room {}: not found in Redis", roomId);
+            return;
+        }
+
+        RoomStatus finalStatus = status != null ? status : RoomStatus.FINISHED;
+        room.setStatus(finalStatus);
+
+        room.getPlayers().forEach(this::clearUserRoomMapping);
+        broadcastRoomUpdate(room);
+
+        deleteRoom(room);
+        log.info("Marked room {} as {} via gameType.finish and removed from Redis", roomId, finalStatus);
+    }
+
     public String leaveRoom(String userId, String username) {
         log.info("User {} is attempting to leave room...", username);
 
