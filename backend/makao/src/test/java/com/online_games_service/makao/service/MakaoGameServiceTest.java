@@ -73,6 +73,7 @@ public class MakaoGameServiceTest {
 				topicExchange,
 				messagingTemplate);
 		ReflectionTestUtils.setField(service, "finishRoutingKey", "finish.key");
+		ReflectionTestUtils.setField(service, "turnTimeoutSeconds", 60L);
 	}
 
 	@AfterMethod
