@@ -24,6 +24,9 @@ public class GameStartPublisher {
     @Value("${menu.amqp.routing.start.makao:makao.start}")
     private String makaoRoutingKey;
 
+    @Value("${menu.amqp.routing.start.ludo:ludo.start}")
+    private String ludoRoutingKey;
+
     public void publish(GameRoom room) {
         String routingKey = routingKeyFor(room.getGameType());
         if (routingKey == null) {
@@ -56,6 +59,7 @@ public class GameStartPublisher {
         }
         return switch (gameType) {
             case MAKAO -> makaoRoutingKey;
+            case LUDO -> ludoRoutingKey;
             default -> null;
         };
     }

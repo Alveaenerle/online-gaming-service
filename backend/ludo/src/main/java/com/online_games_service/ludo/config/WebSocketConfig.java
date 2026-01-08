@@ -11,7 +11,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Value("${websocket.allowed-origins:http://localhost}") 
+    @Value("${websocket.allowed-origins:*}") 
     private String allowedOrigins;
 
     @Override
@@ -22,7 +22,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws-ludo") 
+        registry.addEndpoint("/ws") 
                 .setAllowedOriginPatterns(allowedOrigins.split(","))
                 .withSockJS();
     }

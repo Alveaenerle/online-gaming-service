@@ -1,5 +1,6 @@
 package com.online_games_service.ludo.controller;
 
+import com.online_games_service.ludo.dto.LudoGameStateMessage;
 import com.online_games_service.ludo.service.LudoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -9,17 +10,15 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ludo")
 @RequiredArgsConstructor
-// @CrossOrigin(origins = "*") // Możesz zostawić na czas dev, na prod zdejmij
+@CrossOrigin(origins = "*")
 public class LudoController {
 
     private final LudoService ludoService;
 
     @GetMapping("/{gameId}")
-    public ResponseEntity<Object> getGame(@PathVariable String gameId) {
-        // W idealnym świecie zmapowałbyś to na DTO tutaj lub w serwisie
-        return ResponseEntity.ok(ludoService.getGame(gameId));
+    public ResponseEntity<LudoGameStateMessage> getGame(@PathVariable String gameId) {
+        return ResponseEntity.ok(ludoService.getGameState(gameId));
     }
 
     @PostMapping("/{gameId}/roll")
