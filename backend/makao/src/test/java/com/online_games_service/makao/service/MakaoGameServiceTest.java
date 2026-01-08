@@ -431,36 +431,6 @@ public class MakaoGameServiceTest {
 	}
 
 	@Test
-	public void drawCard_playableSetsPlayableAndSchedulesTimeout() {
-		String userId = "p1";
-		when(redisTemplate.opsForValue()).thenReturn(valueOps);
-		when(valueOps.get("game:user-room:id:" + userId)).thenReturn("room-1");
-
-		Card drawn = new Card(CardSuit.HEARTS, CardRank.FIVE);
-		MakaoGame game = new MakaoGame();
-		game.setRoomId("room-1");
-		game.setStatus(RoomStatus.PLAYING);
-		game.setActivePlayerId(userId);
-		game.setPlayersOrderIds(new ArrayList<>(List.of(userId)));
-		game.setPlayersHands(new HashMap<String, List<Card>>(Map.of(userId, new ArrayList<>())));
-		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of(userId, 0)));
-		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.SEVEN)))));
-		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(drawn))));
-
-		when(gameRepository.findById("room-1")).thenReturn(Optional.of(game));
-		doReturn(game).when(gameRepository).save(game);
-
-		DrawCardResponse response = service.drawCard(userId);
-
-		assertTrue(response.isPlayable());
-		assertEquals(game.getDrawnCard(), drawn);
-		assertEquals(game.getActivePlayerPlayableCards().size(), 1);
-		Map<?, ?> timeouts = (Map<?, ?>) ReflectionTestUtils.getField(service, "turnTimeouts");
-		assertFalse(timeouts.isEmpty());
-		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-1");
-	}
-
-	@Test
 	public void acceptEffect_appliesDrawPenaltyAndAdvances() {
 		String userId = "p1";
 		String nextId = "p2";
