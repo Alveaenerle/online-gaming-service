@@ -8,6 +8,7 @@ import Home from "./components/HomePage/HomePage";
 import MakaoGame from "./components/Games/Makao/MakaoGame";
 import { MakaoLobby } from "./components/Games/Makao/MakaoLobby";
 import { MakaoTitle } from "./components/Games/Makao/MakaoTitle";
+import { LudoTitle } from "./components/Games/Ludo/LudoTitle";
 
 const App: React.FC = () => {
   return (
@@ -21,6 +22,7 @@ const App: React.FC = () => {
           <Route path="/makao/game" element={<MakaoGame />} />
           <Route path="/makao" element={<MakaoTitle />} />
           <Route path="/lobby/makao" element={<MakaoLobby />} />
+          <Route path="/ludo" element={<LudoTitle />} />
         </Routes>
       </Router>
     </AuthProvider>
