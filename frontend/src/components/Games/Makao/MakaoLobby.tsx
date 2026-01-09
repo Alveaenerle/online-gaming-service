@@ -55,7 +55,6 @@ export function MakaoLobby() {
 
   useEffect(() => {
     if (!lobby?.roomId) return;
-    console.log(lobby);
 
     const initSocket = async () => {
       try {
