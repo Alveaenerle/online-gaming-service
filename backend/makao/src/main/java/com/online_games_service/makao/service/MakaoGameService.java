@@ -473,6 +473,61 @@ public class MakaoGameService {
         }
     }
 
+    /**
+     * Sends current game state to a specific player via WebSocket.
+     * Used when a player connects/reconnects and needs the current state.
+     */
+    public void requestGameState(String roomId, String playerId) {
+        MakaoGame game = gameRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Game not found for roomId: " + roomId));
+
+        if (game.getPlayersHands() == null || !game.getPlayersHands().containsKey(playerId)) {
+            throw new IllegalArgumentException("Player not in game: " + playerId);
+        }
+
+        sendStateToPlayer(game, playerId);
+    }
+
+    private void sendStateToPlayer(MakaoGame game, String playerId) {
+        Map<String, List<Card>> hands = game.getPlayersHands();
+        Map<String, Integer> cardsAmount = new HashMap<>();
+        hands.forEach((pid, cards) -> cardsAmount.put(pid, cards != null ? cards.size() : 0));
+
+        List<Card> activePlayable = game.getActivePlayerPlayableCards() != null
+                ? game.getActivePlayerPlayableCards()
+                : new ArrayList<>();
+
+        List<Card> hand = hands.get(playerId) != null ? hands.get(playerId) : new ArrayList<>();
+        List<PlayerCardView> myCards = new ArrayList<>();
+        boolean isActive = playerId.equals(game.getActivePlayerId());
+
+        for (Card card : hand) {
+            boolean playable = isActive && containsCard(activePlayable, card);
+            myCards.add(new PlayerCardView(card, playable));
+        }
+
+        GameStateMessage message = new GameStateMessage(
+                game.getRoomId(),
+                game.getActivePlayerId(),
+                game.getCurrentCard(),
+                myCards,
+                new HashMap<>(cardsAmount),
+                game.getPlayersSkipTurns() != null ? new HashMap<>(game.getPlayersSkipTurns()) : new HashMap<>(),
+                game.isSpecialEffectActive(),
+                game.getDemandedRank(),
+                game.getDemandedSuit(),
+                game.getRanking() != null ? new HashMap<>(game.getRanking()) : new HashMap<>(),
+                game.getPlacement() != null ? new HashMap<>(game.getPlacement()) : new HashMap<>(),
+                game.getLosers() != null ? new ArrayList<>(game.getLosers()) : new ArrayList<>(),
+                game.getStatus(),
+                game.getDrawDeck() != null ? game.getDrawDeck().size() : 0,
+                game.getDiscardDeck() != null ? game.getDiscardDeck().size() : 0
+        );
+
+        messagingTemplate.convertAndSend("/topic/makao/" + playerId, message);
+        log.info("Sent game state to player {} for room {}", playerId, game.getRoomId());
+    }
+
     private void endGame(MakaoGame game) {
         cancelTurnTimeout(game.getRoomId());
         game.setStatus(RoomStatus.FINISHED);

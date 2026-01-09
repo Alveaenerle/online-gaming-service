@@ -10,10 +10,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -26,6 +28,18 @@ import java.util.Map;
 public class MakaoGameController {
 
     private final MakaoGameService makaoGameService;
+
+    @GetMapping("/state")
+    public ResponseEntity<Map<String, String>> requestState(
+            @RequestParam String roomId,
+            @RequestAttribute(value = "userId", required = false) String userId) {
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        makaoGameService.requestGameState(roomId, userId);
+        return ResponseEntity.ok(successBody());
+    }
 
     @PostMapping("/play-card")
     public ResponseEntity<Map<String, String>> playCard(

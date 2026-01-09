@@ -33,6 +33,15 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 }
 
 export const makaoGameService = {
+  /**
+   * Request current game state - triggers WebSocket broadcast to the player
+   */
+  requestState(roomId: string): Promise<{ message: string }> {
+    return request<{ message: string }>(`/state?roomId=${encodeURIComponent(roomId)}`, {
+      method: "GET",
+    });
+  },
+
   playCard(cardRequest: PlayCardRequest): Promise<{ message: string }> {
     return request<{ message: string }>("/play-card", {
       method: "POST",
@@ -40,8 +49,8 @@ export const makaoGameService = {
     });
   },
 
-  drawCard(): Promise<{ card: { suit: string; rank: string } | null }> {
-    return request<{ card: { suit: string; rank: string } | null }>("/draw-card", {
+  drawCard(): Promise<{ card: { suit: string; rank: string } | null; isPlayable: boolean }> {
+    return request<{ card: { suit: string; rank: string } | null; isPlayable: boolean }>("/draw-card", {
       method: "POST",
     });
   },
