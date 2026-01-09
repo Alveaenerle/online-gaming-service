@@ -41,6 +41,7 @@ public class LudoGameRedisRepositoryTest {
 
     @Test
     public void testGetKeyPrefix() {
+        // Given & When & Then
         Assert.assertEquals(repository.getKeyPrefix(), KEY_PREFIX);
     }
 
@@ -86,6 +87,58 @@ public class LudoGameRedisRepositoryTest {
 
         // Then
         Assert.assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void testFindById_WrongType() {
+        // Given 
+        String gameId = "game1";
+        when(valueOperations.get(KEY_PREFIX + gameId)).thenReturn("Some String Object");
+
+        // When
+        Optional<LudoGame> result = repository.findById(gameId);
+
+        // Then
+        Assert.assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void testExistsById_True() {
+        // Given
+        String gameId = "game1";
+        when(redisTemplate.hasKey(KEY_PREFIX + gameId)).thenReturn(true);
+
+        // When
+        boolean exists = repository.existsById(gameId);
+
+        // Then
+        Assert.assertTrue(exists);
+    }
+
+    @Test
+    public void testExistsById_False() {
+        // Given
+        String gameId = "game1";
+        when(redisTemplate.hasKey(KEY_PREFIX + gameId)).thenReturn(false);
+
+        // When
+        boolean exists = repository.existsById(gameId);
+
+        // Then
+        Assert.assertFalse(exists);
+    }
+
+    @Test
+    public void testExistsById_Null() {
+        // Given 
+        String gameId = "game1";
+        when(redisTemplate.hasKey(KEY_PREFIX + gameId)).thenReturn(null);
+
+        // When
+        boolean exists = repository.existsById(gameId);
+
+        // Then
+        Assert.assertFalse(exists);
     }
 
     @Test

@@ -1,6 +1,10 @@
 package com.online_games_service.ludo.config;
 
 import com.online_games_service.common.filter.SessionUserFilter;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -24,7 +28,7 @@ public class LudoConfigTest {
     }
 
     @Test
-    public void rabbitConfigShouldBeAnnotated() {
+    public void rabbitConfigShouldCreateAllBeans() {
         // Given
         Class<RabbitMQConfig> configClass = RabbitMQConfig.class;
         RabbitMQConfig config = new RabbitMQConfig();
@@ -37,9 +41,16 @@ public class LudoConfigTest {
         Assert.assertTrue(configClass.isAnnotationPresent(Configuration.class));
         Assert.assertTrue(configClass.isAnnotationPresent(org.springframework.amqp.rabbit.annotation.EnableRabbit.class));
         
-        Assert.assertNotNull(config.gameEventsExchange());
-        Assert.assertNotNull(config.ludoStartQueue());
-        Assert.assertNotNull(config.messageConverter());
+        TopicExchange exchange = config.gameEventsExchange();
+        Queue queue = config.ludoStartQueue();
+        MessageConverter converter = config.messageConverter();
+
+        Assert.assertNotNull(exchange);
+        Assert.assertNotNull(queue);
+        Assert.assertNotNull(converter);
+
+        Assert.assertNotNull(config.ludoStartBinding(queue, exchange));
+        Assert.assertNotNull(config.rabbitTemplate(mock(ConnectionFactory.class), converter));
     }
     
     @Test
