@@ -25,7 +25,6 @@ export function MakaoLobby() {
   const handleLobbyUpdate = useCallback(
     (data: any) => {
       if (!data || isLeavingRef.current) return;
-      console.log("Received lobby update:", data);
 
       if (data.players && !data.players[user?.id || ""]) {
         alert("You have been kicked from the lobby.");
@@ -55,7 +54,6 @@ export function MakaoLobby() {
 
   useEffect(() => {
     if (!lobby?.roomId) return;
-    console.log(lobby);
 
     const initSocket = async () => {
       try {

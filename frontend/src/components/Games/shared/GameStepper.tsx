@@ -10,8 +10,8 @@ interface StepperProps {
 
 export function GameStepper({
   value,
-  min = 1,
-  max = 8,
+  min,
+  max,
   onChange,
   label,
 }: StepperProps) {
@@ -22,7 +22,7 @@ export function GameStepper({
       </label>
       <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-[1.5rem] p-2 h-20">
         <button
-          onClick={() => onChange(Math.max(min, value - 1))}
+          onClick={() => onChange(Math.max(min || 1, value - 1))}
           className="w-20 h-full flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-3xl font-light transition-all active:scale-90"
         >
           −
@@ -44,7 +44,7 @@ export function GameStepper({
           </span>
         </div>
         <button
-          onClick={() => onChange(Math.min(max, value + 1))}
+          onClick={() => onChange(Math.min(max || 8, value + 1))}
           className="w-20 h-full flex items-center justify-center rounded-xl bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 text-3xl font-light transition-all active:scale-90"
         >
           +

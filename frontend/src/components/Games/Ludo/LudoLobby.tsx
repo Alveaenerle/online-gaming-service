@@ -120,7 +120,7 @@ export function LudoLobby() {
 
       <LobbyPlayersSection
         players={lobby.players}
-        maxPlayers={4} // Ludo is strictly 4 players max
+        maxPlayers={4}
         onAvatarSelect={setAvatarSelectFor}
         onToggleReady={() => lobbyService.toggleReady()}
         isHost={isHost}
