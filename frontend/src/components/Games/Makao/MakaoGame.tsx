@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Loader2, X } from "lucide-react";
@@ -170,7 +170,7 @@ const MakaoGame: React.FC = () => {
   const navigate = useNavigate();
 
   // Game state with flattened myCards
-  interface LocalGameState extends Omit<GameStateMessage, 'myCards'> {
+  interface LocalGameState extends Omit<GameStateMessage, "myCards"> {
     myCards: MyCard[];
   }
 
@@ -182,15 +182,27 @@ const MakaoGame: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(true);
 
   // Drawn card state
-  const [drawnCard, setDrawnCard] = useState<{ suit: string; rank: string } | null>(null);
+  const [drawnCard, setDrawnCard] = useState<{
+    suit: string;
+    rank: string;
+  } | null>(null);
   const [drawnCardPlayable, setDrawnCardPlayable] = useState(false);
 
   // Demand modal state (for Jack/Ace)
-  const [demandModal, setDemandModal] = useState<{ type: "suit" | "rank"; card: MyCard } | null>(null);
+  const [demandModal, setDemandModal] = useState<{
+    type: "suit" | "rank";
+    card: MyCard;
+  } | null>(null);
 
-  // Handle game state update from WebSocket
+  // Stable reference to navigate
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
+  // Handle game state update from WebSocket (stable function - no deps to avoid re-renders)
   const handleGameUpdate = useCallback((data: BackendGameState) => {
     console.log("Game state update:", data);
+    console.log("currentCard:", data.currentCard);
+    console.log("myCards:", data.myCards);
 
     // Transform backend PlayerCardView[] to flat MyCard[]
     const flattenedCards: MyCard[] = data.myCards.map((pcv) => ({
@@ -210,9 +222,9 @@ const MakaoGame: React.FC = () => {
     if (data.status === "FINISHED") {
       setMessage("Game finished!");
     } else if (data.status === "WAITING") {
-      navigate("/lobby/makao");
+      navigateRef.current("/lobby/makao");
     }
-  }, [navigate]);
+  }, []);
 
   // Load player names and room ID from lobby info
   useEffect(() => {
@@ -283,7 +295,8 @@ const MakaoGame: React.FC = () => {
       const topic = `/topic/makao/${user.id}`;
       socketService.unsubscribe(topic);
     };
-  }, [user?.id, roomId, handleGameUpdate, gameState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, roomId]);
 
   // Play a card
   const handlePlayCard = async (card: MyCard) => {
@@ -577,7 +590,7 @@ const MakaoGame: React.FC = () => {
 
                 {/* Discard Pile */}
                 <div className="text-center">
-                  {gameState.currentCard && (
+                  {gameState.currentCard && gameState.currentCard.suit && gameState.currentCard.rank && (
                     <Card
                       card={{
                         suit: convertSuit(gameState.currentCard.suit) as Suit,
