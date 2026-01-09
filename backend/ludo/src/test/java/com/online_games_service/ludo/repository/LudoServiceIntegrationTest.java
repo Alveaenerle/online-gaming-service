@@ -55,7 +55,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
 
         // Then
         Optional<LudoGame> gameOpt = redisRepository.findById(ROOM_ID);
-        Assert.assertTrue(gameOpt.isPresent(), "Gra powinna być zapisana w Redis");
+        Assert.assertTrue(gameOpt.isPresent());
         
         LudoGame game = gameOpt.get();
         Assert.assertEquals(game.getStatus(), RoomStatus.PLAYING);
@@ -83,8 +83,8 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         LudoGame updatedGame = redisRepository.findById(ROOM_ID).get();
         LudoPawn pawn = updatedGame.getPlayers().get(0).getPawns().get(0);
         
-        Assert.assertFalse(pawn.isInBase(), "Pionek powinien wyjść z bazy i stan zapisać się w Redis");
-        Assert.assertEquals(updatedGame.getRollsLeft(), 1, "Stan tury powinien się zaktualizować");
+        Assert.assertFalse(pawn.isInBase());
+        Assert.assertEquals(updatedGame.getRollsLeft(), 1);
     }
 
     @Test
@@ -111,8 +111,8 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         ludoService.movePawn(ROOM_ID, P1_ID, 3);
 
         // Then
-        Assert.assertFalse(redisRepository.existsById(ROOM_ID), "Gra powinna zniknąć z Redis");
-        Assert.assertEquals(mongoRepository.count(), 1, "Powinien pojawić się wpis w Mongo");
+        Assert.assertFalse(redisRepository.existsById(ROOM_ID));
+        Assert.assertEquals(mongoRepository.count(), 1);
         
         var result = mongoRepository.findAll().get(0);
         Assert.assertEquals(result.getWinnerId(), P1_ID);

@@ -2,6 +2,8 @@ package com.online_games_service.ludo.service;
 
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.ludo.enums.PlayerColor;
+import com.online_games_service.ludo.exception.GameLogicException;
+import com.online_games_service.ludo.exception.InvalidMoveException;
 import com.online_games_service.ludo.model.LudoGame;
 import com.online_games_service.ludo.model.LudoPawn;
 import com.online_games_service.ludo.model.LudoPlayer;
@@ -17,6 +19,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,32 +58,46 @@ public class LudoServiceTest {
     }
 
     @Test
-    public void createGame_shouldInitializeAndSave() {
+    public void createGame_shouldInitializeAndSaveAtomically() {
         // Given
         String roomId = "r1";
-        when(gameRepository.existsById(roomId)).thenReturn(false);
+        when(gameRepository.createGameIfAbsent(any(LudoGame.class))).thenReturn(true);
 
         // When
         ludoService.createGame(roomId, List.of("p1", "p2"), "p1", Map.of("p1", "A", "p2", "B"));
 
         // Then
-        verify(gameRepository).save(argThat(g -> 
+        verify(gameRepository).createGameIfAbsent(argThat(g -> 
             g.getRoomId().equals(roomId) && 
             g.getPlayers().size() == 2 &&
             g.getCurrentPlayerColor() == PlayerColor.RED
         ));
+        
+        verify(messagingTemplate).convertAndSend(eq("/topic/game/r1"), any(Object.class));
     }
     
     @Test
     public void createGame_shouldSkipIfGameExists() {
         // Given
-        when(gameRepository.existsById("r1")).thenReturn(true);
+        when(gameRepository.createGameIfAbsent(any(LudoGame.class))).thenReturn(false);
         
         // When
         ludoService.createGame("r1", List.of("p1"), "p1", null);
         
         // Then
-        verify(gameRepository, never()).save(any());
+        verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
+        verify(scheduler, never()).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+    }
+
+    @Test
+    public void createGame_shouldNotFailIfPlayerListIsEmpty() {
+        // Given 
+        // When
+        ludoService.createGame("r1", Collections.emptyList(), "host", null);
+        ludoService.createGame("r1", null, "host", null);
+
+        // Then
+        verify(gameRepository, never()).createGameIfAbsent(any());
     }
 
     @Test
@@ -107,7 +124,7 @@ public class LudoServiceTest {
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalStateException.class, () -> ludoService.rollDice("r1", "p1"));
+        Assert.assertThrows(GameLogicException.class, () -> ludoService.rollDice("r1", "p1"));
     }
     
     @Test
@@ -119,7 +136,7 @@ public class LudoServiceTest {
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalStateException.class, () -> ludoService.rollDice("r1", "p1"));
+        Assert.assertThrows(GameLogicException.class, () -> ludoService.rollDice("r1", "p1"));
     }
 
     @Test
@@ -143,7 +160,7 @@ public class LudoServiceTest {
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn("r1", "p1", 0));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 0));
     }
 
     @Test
@@ -212,7 +229,7 @@ public class LudoServiceTest {
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn("r1", "p1", 99));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 99));
     }
 
     @Test
@@ -265,7 +282,7 @@ public class LudoServiceTest {
     }
 
     @Test
-    public void handleTurnTimeout_shouldLogExceptionOfDatabaseError() {
+    public void handleTurnTimeout_shouldLogExceptionOnDatabaseError() {
         // Given
         LudoGame game = createGame("r1", "p1", "p2");
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
@@ -298,7 +315,7 @@ public class LudoServiceTest {
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn("r1", "p1", 0));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 0));
     }
 
     @Test
@@ -321,7 +338,7 @@ public class LudoServiceTest {
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn("r1", "p1", 0));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 0));
     }
 
     @Test

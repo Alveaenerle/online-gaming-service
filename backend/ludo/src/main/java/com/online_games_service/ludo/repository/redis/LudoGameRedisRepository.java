@@ -34,6 +34,12 @@ public class LudoGameRedisRepository {
         return game;
     }
 
+    public boolean createGameIfAbsent(LudoGame game) {
+        String key = keyPrefix + game.getRoomId();
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(key, game, TTL_SECONDS, TimeUnit.SECONDS);
+        return Boolean.TRUE.equals(success);
+    }
+
     public Optional<LudoGame> findById(String id) {
         String key = keyPrefix + id;
         Object value = redisTemplate.opsForValue().get(key);

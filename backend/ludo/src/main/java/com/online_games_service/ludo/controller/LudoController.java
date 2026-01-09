@@ -1,6 +1,8 @@
 package com.online_games_service.ludo.controller;
 
 import com.online_games_service.ludo.dto.LudoGameStateMessage;
+import com.online_games_service.ludo.exception.GameLogicException;
+import com.online_games_service.ludo.exception.InvalidMoveException;
 import com.online_games_service.ludo.service.LudoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -11,7 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+@CrossOrigin(originPatterns = "${ludo.http.cors.allowed-origins:http://localhost}")
 public class LudoController {
 
     private final LudoService ludoService;
@@ -24,12 +26,8 @@ public class LudoController {
     @PostMapping("/{gameId}/roll")
     public ResponseEntity<Map<String, String>> rollDice(@PathVariable String gameId,
                                                         @RequestAttribute("userId") String userId) {
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
 
         ludoService.rollDice(gameId, userId);
-        
         return ResponseEntity.ok(Map.of("message", "Dice rolled"));
     }
 
@@ -37,12 +35,8 @@ public class LudoController {
     public ResponseEntity<Map<String, String>> movePawn(@PathVariable String gameId,
                                                         @RequestParam int pawnIndex,
                                                         @RequestAttribute("userId") String userId) {
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
 
         ludoService.movePawn(gameId, userId, pawnIndex);
-        
         return ResponseEntity.ok(Map.of("message", "Move accepted"));
     }
 
@@ -56,5 +50,17 @@ public class LudoController {
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest()
                 .body(Map.of("error", "Validation Error", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(GameLogicException.class)
+    public ResponseEntity<Map<String, String>> handleGameLogicException(GameLogicException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", "Game Logic Error", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidMoveException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidMoveException(InvalidMoveException ex) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", "Invalid Move", "message", ex.getMessage()));
     }
 }

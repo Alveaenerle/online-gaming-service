@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Ludo WS Test</title>
@@ -25,19 +25,19 @@
     <div>Status: <b id="status" style="color:red">DISCONNECTED</b></div>
     
     <label>Game ID (Room ID)</label>
-    <input type="text" id="gameId" placeholder="np. 550e8400-e29b-41d4-a716-446655440000">
+    <input type="text" id="gameId" placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000">
     
     <label>WS endpoint URL (SockJS)</label>
     <input type="text" id="wsUrl" value="http://localhost/api/ludo/ws">
     
     <div class="row" style="margin-top:15px;">
-      <button onclick="connect()">Połącz (Connect)</button>
-      <button class="secondary" onclick="disconnect()">Rozłącz (Disconnect)</button>
-      <button class="secondary" onclick="clearLogs()">Wyczyść logi</button>
+      <button onclick="connect()">Connect</button>
+      <button class="secondary" onclick="disconnect()">Disconnect</button>
+      <button class="secondary" onclick="clearLogs()">Clear logs</button>
     </div>
   </div>
 
-  <h3>Logi / Stan Gry:</h3>
+  <h3>Logs / Game State:</h3>
   <div id="logs"></div>
 
 <script>
@@ -52,7 +52,7 @@
     if (isJson) {
         try {
             const parsed = JSON.parse(msg);
-            entry.innerText = `${time}: OTRZYMANO STAN GRY:\n` + JSON.stringify(parsed, null, 2);
+            entry.innerText = `${time}: RECEIVED GAME STATE:\n` + JSON.stringify(parsed, null, 2);
             entry.style.color = "#a5f3fc";
         } catch (e) {
             entry.innerText = `${time}: ${msg}`;
@@ -76,11 +76,11 @@
     const url = document.getElementById('wsUrl').value.trim();
     
     if (!gameId) {
-      alert('Podaj Game ID (Room ID)!');
+      alert('Please enter Game ID (Room ID)!');
       return;
     }
 
-    log(`Łączenie z ${url} ...`);
+    log(`Connecting to ${url} ...`);
     const socket = new SockJS(url);
     stomp = Stomp.over(socket);
     stomp.debug = null; 
@@ -90,7 +90,7 @@
       
       const topic = `/topic/game/${gameId}`;
       
-      log('Połączono! Subskrypcja kanału: ' + topic);
+      log('Connected! Subscribing to topic: ' + topic);
       
       stomp.subscribe(topic, (msg) => {
         log(msg.body, true);
@@ -98,14 +98,14 @@
       
     }, (err) => {
       setStatus(false);
-      log('Błąd połączenia: ' + err);
+      log('Connection error: ' + err);
     });
   }
 
   function disconnect() {
     if (stomp) {
       stomp.disconnect(() => {
-        log('Rozłączono.');
+        log('Disconnected.');
         setStatus(false);
       });
     } else {

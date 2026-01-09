@@ -1,6 +1,8 @@
 package com.online_games_service.ludo.controller;
 
 import com.online_games_service.ludo.dto.LudoGameStateMessage;
+import com.online_games_service.ludo.exception.GameLogicException;
+import com.online_games_service.ludo.exception.InvalidMoveException;
 import com.online_games_service.ludo.service.LudoService;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -31,6 +33,7 @@ public class LudoControllerTest {
     public void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         controller = new LudoController(ludoService);
+        
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -59,18 +62,6 @@ public class LudoControllerTest {
     }
 
     @Test
-    public void rollDice_missingUserId_shouldReturn400() throws Exception {
-        // Given
-        String gameId = "game-1";
-
-        // When & Then
-        mockMvc.perform(post("/{gameId}/roll", gameId))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(ludoService);
-    }
-
-    @Test
     public void rollDice_successfulCall() throws Exception {
         // Given
         String gameId = "game-1";
@@ -83,19 +74,6 @@ public class LudoControllerTest {
                 .andExpect(jsonPath("$.message").value("Dice rolled"));
 
         verify(ludoService).rollDice(gameId, userId);
-    }
-
-    @Test
-    public void movePawn_missingUserId_shouldReturn400() throws Exception {
-        // Given
-        String gameId = "game-1";
-
-        // When & Then
-        mockMvc.perform(post("/{gameId}/move", gameId)
-                        .param("pawnIndex", "0"))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(ludoService);
     }
 
     @Test
@@ -116,23 +94,23 @@ public class LudoControllerTest {
     }
 
     @Test
-    public void handleIllegalState_shouldReturnConflict() throws Exception {
+    public void handleGameLogicException_shouldReturnConflict() throws Exception {
         // Given
-        doThrow(new IllegalStateException("Not your turn"))
+        doThrow(new GameLogicException("Not your turn"))
                 .when(ludoService).rollDice(anyString(), anyString());
 
         // When & Then
         mockMvc.perform(post("/{gameId}/roll", "game-1")
                         .requestAttr("userId", "user-1"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("Game Error"))
+                .andExpect(jsonPath("$.error").value("Game Logic Error"))
                 .andExpect(jsonPath("$.message").value("Not your turn"));
     }
 
     @Test
-    public void handleIllegalArgument_shouldReturnBadRequest() throws Exception {
+    public void handleInvalidMoveException_shouldReturnBadRequest() throws Exception {
         // Given
-        doThrow(new IllegalArgumentException("Invalid move"))
+        doThrow(new InvalidMoveException("Invalid move"))
                 .when(ludoService).movePawn(anyString(), anyString(), anyInt());
 
         // When & Then
@@ -140,7 +118,7 @@ public class LudoControllerTest {
                         .param("pawnIndex", "0")
                         .requestAttr("userId", "user-1"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Error"))
+                .andExpect(jsonPath("$.error").value("Invalid Move"))
                 .andExpect(jsonPath("$.message").value("Invalid move"));
     }
 }

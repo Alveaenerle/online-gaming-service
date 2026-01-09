@@ -3,8 +3,11 @@ package com.online_games_service.ludo.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.ludo.enums.PlayerColor;
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 
 import java.io.Serializable;
@@ -26,6 +29,9 @@ public class LudoGame implements Serializable {
     private int maxPlayers;
 
     private List<LudoPlayer> players = new ArrayList<>();
+    
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
     private Map<String, String> playersUsernames = new HashMap<>(); 
     
     private PlayerColor currentPlayerColor;
@@ -60,6 +66,14 @@ public class LudoGame implements Serializable {
             this.currentPlayerColor = players.get(0).getColor();
             this.activePlayerId = players.get(0).getUserId();
         }
+    }
+    
+    public Map<String, String> getPlayersUsernames() {
+        return new HashMap<>(this.playersUsernames);
+    }
+
+    public void setPlayersUsernames(Map<String, String> playersUsernames) {
+        this.playersUsernames = playersUsernames != null ? new HashMap<>(playersUsernames) : new HashMap<>();
     }
     
     public LudoPlayer getPlayerById(String userId) {
