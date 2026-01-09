@@ -1,5 +1,5 @@
-export type Suit = "hearts" | "diamonds" | "clubs" | "spades";
-export type Rank = "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A";
+export type Suit = "hearts" | "diamonds" | "clubs" | "spades" | "HEARTS" | "DIAMONDS" | "CLUBS" | "SPADES";
+export type Rank = "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A" | "TWO" | "THREE" | "FOUR" | "FIVE" | "SIX" | "SEVEN" | "EIGHT" | "NINE" | "TEN" | "JACK" | "QUEEN" | "KING" | "ACE";
 
 export interface Card {
   suit: Suit;
@@ -25,4 +25,40 @@ export interface GameState {
   requestedSuit?: Suit; // when Ace is played
   gameStarted: boolean;
   winner: number | null;
+}
+
+// Backend types
+export interface BackendCard {
+  suit: string;
+  rank: string;
+}
+
+export interface PlayerCardView {
+  suit: string;
+  rank: string;
+}
+
+export interface GameStateMessage {
+  roomId: string;
+  activePlayerId: string;
+  currentCard: BackendCard;
+  myCards: PlayerCardView[];
+  playersCardsAmount: Record<string, number>;
+  playersSkipTurns: Record<string, number>;
+  specialEffectActive: boolean;
+  demandedRank: string | null;
+  demandedSuit: string | null;
+  ranking: Record<string, number>;
+  placement: Record<string, number>;
+  losers: string[];
+  status: "WAITING" | "PLAYING" | "FINISHED";
+  drawDeckCardsAmount: number;
+  discardDeckCardsAmount: number;
+}
+
+export interface PlayCardRequest {
+  cardSuit: string;
+  cardRank: string;
+  demandedRank?: string;
+  demandedSuit?: string;
 }
