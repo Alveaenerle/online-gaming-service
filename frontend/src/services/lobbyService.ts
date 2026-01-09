@@ -1,6 +1,6 @@
 import { LobbyInfoRaw } from "../components/Games/utils/types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "/api/menu";
+const API_URL = import.meta.env.VITE_MENU_API_URL ?? "/api/menu";
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${endpoint}`, {

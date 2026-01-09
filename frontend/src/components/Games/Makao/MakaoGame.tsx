@@ -1,16 +1,362 @@
-import { useState} from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../Shared/Navbar";
 import Footer from "../../Shared/Footer";
 import Player from "./Player";
 import Card from "./Card";
-import { Card as CardType, Player as PlayerType, GameState, Suit, Rank } from "./types";
+import { Card as CardType, Player as PlayerType, GameState, Suit, Rank, GameStateMessage, PlayCardRequest } from "./types";
+import { useAuth } from "../../../context/AuthContext";
+import { socketService } from "../../../services/socketService";
+import { makaoGameService } from "../../../services/makaoGameService";
 
 const MakaoGame: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Online game state from backend
+  const [onlineGameState, setOnlineGameState] = useState<GameStateMessage | null>(null);
+  const [isOnlineMode, setIsOnlineMode] = useState(true);
+  const [drawnCard, setDrawnCard] = useState<{ suit: string; rank: string } | null>(null);
+
+  // Local game state (fallback)
   const [playerCount, setPlayerCount] = useState<number>(4);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [message, setMessage] = useState<string>("");
+
+  // Handle game state update from WebSocket
+  const handleGameUpdate = useCallback((data: GameStateMessage) => {
+    console.log("Game state update:", data);
+    setOnlineGameState(data);
+
+    if (data.status === "FINISHED") {
+      setMessage("Game finished!");
+    }
+  }, []);
+
+  // Connect to WebSocket for game updates
+  useEffect(() => {
+    if (!user?.id || !isOnlineMode) return;
+
+    const initSocket = async () => {
+      try {
+        await socketService.connect();
+        socketService.subscribe(`/topic/makao/${user.id}`, handleGameUpdate);
+        console.log(`Subscribed to /topic/makao/${user.id}`);
+      } catch (err) {
+        console.error("Socket connection failed:", err);
+        setIsOnlineMode(false);
+      }
+    };
+
+    initSocket();
+
+    return () => {
+      socketService.unsubscribe(`/topic/makao/${user.id}`);
+    };
+  }, [user?.id, isOnlineMode, handleGameUpdate]);
+
+  // Online game actions
+  const handlePlayCard = async (suit: string, rank: string, demandedRank?: string, demandedSuit?: string) => {
+    try {
+      const request: PlayCardRequest = {
+        cardSuit: suit,
+        cardRank: rank,
+        demandedRank,
+        demandedSuit,
+      };
+      await makaoGameService.playCard(request);
+      setMessage("Card played!");
+    } catch (err: any) {
+      setMessage(err.message || "Failed to play card");
+    }
+  };
+
+  const handleDrawCard = async () => {
+    try {
+      const response = await makaoGameService.drawCard();
+      if (response.card) {
+        setDrawnCard(response.card);
+        setMessage(`Drew ${response.card.rank} of ${response.card.suit}`);
+      } else {
+        setMessage("No cards to draw");
+      }
+    } catch (err: any) {
+      setMessage(err.message || "Failed to draw card");
+    }
+  };
+
+  const handlePlayDrawnCard = async () => {
+    if (!drawnCard) return;
+    try {
+      await makaoGameService.playDrawnCard({
+        cardSuit: drawnCard.suit,
+        cardRank: drawnCard.rank,
+      });
+      setDrawnCard(null);
+      setMessage("Played drawn card!");
+    } catch (err: any) {
+      setMessage(err.message || "Failed to play drawn card");
+    }
+  };
+
+  const handleSkipDrawnCard = async () => {
+    try {
+      await makaoGameService.skipDrawnCard();
+      setDrawnCard(null);
+      setMessage("Skipped turn");
+    } catch (err: any) {
+      setMessage(err.message || "Failed to skip");
+    }
+  };
+
+  const handleAcceptEffect = async () => {
+    try {
+      await makaoGameService.acceptEffect();
+      setMessage("Effect accepted");
+    } catch (err: any) {
+      setMessage(err.message || "Failed to accept effect");
+    }
+  };
+
+  const handleLeaveGame = () => {
+    socketService.disconnect();
+    navigate("/home");
+  };
+
+  // Helper to convert backend card format to display format
+  const convertRank = (rank: string): string => {
+    const rankMap: Record<string, string> = {
+      TWO: "2", THREE: "3", FOUR: "4", FIVE: "5", SIX: "6",
+      SEVEN: "7", EIGHT: "8", NINE: "9", TEN: "10",
+      JACK: "J", QUEEN: "Q", KING: "K", ACE: "A"
+    };
+    return rankMap[rank] || rank;
+  };
+
+  const convertSuit = (suit: string): string => {
+    return suit.toLowerCase();
+  };
+
+  // Render online game
+  if (isOnlineMode && onlineGameState) {
+    const isMyTurn = onlineGameState.activePlayerId === user?.id;
+    const otherPlayers = Object.entries(onlineGameState.playersCardsAmount)
+      .filter(([id]) => id !== user?.id)
+      .map(([id, cardCount], index) => ({
+        id: index + 1,
+        odlId: id,
+        name: `Player ${index + 1}`,
+        cardCount,
+        isActive: id === onlineGameState.activePlayerId,
+      }));
+
+    return (
+      <div className="min-h-screen bg-bg text-white antialiased overflow-hidden">
+        <Navbar />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)]" />
+
+        <main className="pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
+          <div className="h-full max-w-[2000px] mx-auto flex gap-2 justify-center">
+            {/* Game Table Area */}
+            <div className="flex-1 flex items-center justify-center">
+              <div className="relative w-full max-w-5xl aspect-[16/10] bg-gradient-to-br from-[#18171f] to-[#0d0c12] rounded-[3rem] border border-purpleEnd/20 shadow-2xl shadow-black/50 p-8">
+                {/* Table glow */}
+                <div className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(ellipse_at_center,_rgba(108,42,255,0.1),_transparent_60%)]" />
+
+                {/* Other Players */}
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-3">
+                  {otherPlayers.map((player) => (
+                    <div
+                      key={player.id}
+                      className={`bg-[#1a1a27] p-3 rounded-xl border ${
+                        player.isActive ? "border-purpleEnd" : "border-white/10"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{player.name}</p>
+                      <p className="text-xs text-gray-400">{player.cardCount} cards</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Center - Deck & Discard */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12">
+                  {/* Draw Pile */}
+                  <div
+                    className={`text-center ${isMyTurn && !drawnCard ? "cursor-pointer group" : ""}`}
+                    onClick={isMyTurn && !drawnCard ? handleDrawCard : undefined}
+                  >
+                    <div className="relative group-hover:scale-105 transition-transform">
+                      <div className="absolute -top-0.5 -left-0.5 w-[58px] h-[82px] rounded-lg bg-purpleStart/30" />
+                      <div className="absolute -top-1 -left-1 w-[58px] h-[82px] rounded-lg bg-purpleStart/20" />
+                      <div className="w-[56px] h-[80px] rounded-lg bg-gradient-to-br from-purple-600 to-purple-900 border border-white/20" />
+                    </div>
+                    <p className="text-xs text-white/60 mt-2">Draw ({onlineGameState.drawDeckCardsAmount})</p>
+                  </div>
+
+                  {/* Discard Pile */}
+                  <div className="text-center">
+                    {onlineGameState.currentCard && (
+                      <Card
+                        card={{
+                          suit: convertSuit(onlineGameState.currentCard.suit) as Suit,
+                          rank: convertRank(onlineGameState.currentCard.rank) as Rank,
+                          id: "discard",
+                        }}
+                        size="md"
+                      />
+                    )}
+                    <p className="text-xs text-white/60 mt-2">Discard</p>
+                  </div>
+                </div>
+
+                {/* Drawn Card Modal */}
+                {drawnCard && (
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 p-6 rounded-xl z-10">
+                    <p className="text-center mb-3">You drew:</p>
+                    <Card
+                      card={{
+                        suit: convertSuit(drawnCard.suit) as Suit,
+                        rank: convertRank(drawnCard.rank) as Rank,
+                        id: "drawn",
+                      }}
+                      size="lg"
+                    />
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handlePlayDrawnCard}
+                        className="px-4 py-2 bg-purple-600 rounded-lg text-sm"
+                      >
+                        Play
+                      </button>
+                      <button
+                        onClick={handleSkipDrawnCard}
+                        className="px-4 py-2 bg-gray-600 rounded-lg text-sm"
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* My Cards */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[90%]">
+                  <div className={`p-3 rounded-xl ${isMyTurn ? "bg-purpleEnd/20 border border-purpleEnd" : "bg-[#1a1a27]"}`}>
+                    <p className="text-xs text-gray-400 mb-2">
+                      {isMyTurn ? "Your turn!" : "Waiting..."}
+                    </p>
+                    <div className="flex gap-1 flex-wrap justify-center">
+                      {onlineGameState.myCards.map((card, index) => (
+                        <div
+                          key={index}
+                          className={isMyTurn ? "cursor-pointer hover:scale-110 transition-transform" : ""}
+                          onClick={() => isMyTurn && handlePlayCard(card.suit, card.rank)}
+                        >
+                          <Card
+                            card={{
+                              suit: convertSuit(card.suit) as Suit,
+                              rank: convertRank(card.rank) as Rank,
+                              id: `my-${index}`,
+                            }}
+                            size="sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Side Panel */}
+            <div className="w-64 flex flex-col gap-3 flex-shrink-0">
+              {/* Navigation */}
+              <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleLeaveGame}
+                  className="w-full py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-red-500/30"
+                >
+                  Leave Game
+                </motion.button>
+              </div>
+
+              {/* Activity */}
+              <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
+                <h3 className="text-xs font-medium text-gray-500 mb-2">Activity</h3>
+                <p className="text-white text-sm">{message || "Game in progress..."}</p>
+              </div>
+
+              {/* Game Status */}
+              <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10 flex-1">
+                <h3 className="text-xs font-medium text-gray-500 mb-3">Game Status</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Room</span>
+                    <span className="text-white font-mono">{onlineGameState.roomId?.slice(0, 8)}</span>
+                  </div>
+                  {onlineGameState.specialEffectActive && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Special Effect</span>
+                      <span className="text-red-400">Active</span>
+                    </div>
+                  )}
+                  {onlineGameState.demandedSuit && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Demanded Suit</span>
+                      <span className="text-purpleEnd capitalize">{onlineGameState.demandedSuit}</span>
+                    </div>
+                  )}
+                  {onlineGameState.demandedRank && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Demanded Rank</span>
+                      <span className="text-purpleEnd">{convertRank(onlineGameState.demandedRank)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Accept Effect Button */}
+              {onlineGameState.specialEffectActive && isMyTurn && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleAcceptEffect}
+                  className="w-full py-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 font-medium border border-orange-500/30"
+                >
+                  Accept Effect
+                </motion.button>
+              )}
+            </div>
+          </div>
+        </main>
+
+        {/* Game Finished Modal */}
+        {onlineGameState.status === "FINISHED" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+            onClick={handleLeaveGame}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-[#121018] p-10 rounded-2xl border border-purpleEnd/50 shadow-2xl text-center"
+            >
+              <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-purpleStart to-purpleEnd bg-clip-text text-transparent">
+                Game Finished!
+              </h2>
+              <p className="text-gray-400 text-sm">Click anywhere to return to home</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </div>
+    );
+  }
+
+  // ========== LOCAL GAME MODE (original code) ==========
 
   // Initialize deck
   const createDeck = (): CardType[] => {
