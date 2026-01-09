@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { PlayCircle, Trophy, Dices, Swords } from "lucide-react";
+import { Trophy, Dices, Swords } from "lucide-react";
 
 import Navbar from "../../Shared/Navbar";
 import { GameHeader } from "../shared/GameHeader";

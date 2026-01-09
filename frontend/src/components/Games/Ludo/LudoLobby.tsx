@@ -33,7 +33,7 @@ export function LudoLobby() {
       }
 
       if (data.status === "PLAYING") {
-        navigate("/game/ludo");
+        navigate("/home");
         return;
       }
 
