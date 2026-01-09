@@ -222,6 +222,20 @@ public class LudoServiceTest {
         verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.finish"), any(Object.class));
     }
 
+    @Test
+    public void handleTurnTimeout_shouldLogExceptionOfDatabaseError() {
+        // Given
+        LudoGame game = createGame("r1", "p1", "p2");
+        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        doThrow(new RuntimeException("DB Error")).when(gameRepository).save(any());
+
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "handleTurnTimeout", "r1", "p1");
+
+        // Then
+        verify(gameRepository).save(any());
+    }
+
     private LudoGame createGame(String roomId, String p1, String p2) {
         return new LudoGame(roomId, List.of(p1, p2), p1, Map.of(p1, "User1", p2, "User2"));
     }

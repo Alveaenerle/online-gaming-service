@@ -10,6 +10,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -126,5 +127,20 @@ public class LudoControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("Game Error"))
                 .andExpect(jsonPath("$.message").value("Not your turn"));
+    }
+
+    @Test
+    public void handleIllegalArgument_shouldReturnBadRequest() throws Exception {
+        // Given
+        doThrow(new IllegalArgumentException("Invalid move"))
+                .when(ludoService).movePawn(anyString(), anyString(), anyInt());
+
+        // When & Then
+        mockMvc.perform(post("/{gameId}/move", "game-1")
+                        .param("pawnIndex", "0")
+                        .requestAttr("userId", "user-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Error"))
+                .andExpect(jsonPath("$.message").value("Invalid move"));
     }
 }
