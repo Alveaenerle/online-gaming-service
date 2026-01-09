@@ -2,17 +2,17 @@ void call(String serverIp, String serverUser, String sshCredentialId) {
     withCredentials([
         usernamePassword(credentialsId: 'mongo-root-creds', passwordVariable: 'MONGO_PASS', usernameVariable: 'MONGO_USER'),
         string(credentialsId: 'redis-password', variable: 'REDIS_PASS'),
+        usernamePassword(credentialsId: 'rabbitmq-creds', usernameVariable: 'RABBITMQ_USER', passwordVariable: 'RABBITMQ_PASSWORD'),
         usernamePassword(credentialsId: '86a5c18e-996c-42ea-bf9e-190b2cb978bd', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')
     ]) {
-                def envFileContent = """
+        def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+        def envFileContent = """
 NEXUS_URL=${env.NEXUS_URL}
 MONGO_ROOT_USER=${MONGO_USER}
 MONGO_ROOT_PASSWORD=${MONGO_PASS}
 REDIS_PASSWORD=${REDIS_PASS}
-""".trim()
-        
-        def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-        envFileContent += """
+RABBITMQ_USER=${RABBITMQ_USER}
+RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
 TAG=${gitCommit}
 """.trim()
         

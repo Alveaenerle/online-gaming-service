@@ -97,6 +97,8 @@ export function LudoTitle() {
               playerCount={playerCount}
               setPlayerCount={setPlayerCount}
               onCreate={handleCreateLobby}
+              minPlayers={2}
+              maxPlayers={4}
             />
 
             <JoinLobbyPanel

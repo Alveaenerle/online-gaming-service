@@ -7,6 +7,8 @@ interface CreateProps {
   playerCount: number;
   setPlayerCount: (val: number) => void;
   onCreate: () => void;
+  minPlayers?: number;
+  maxPlayers?: number;
 }
 
 export function CreateLobbyPanel({
@@ -15,6 +17,8 @@ export function CreateLobbyPanel({
   playerCount,
   setPlayerCount,
   onCreate,
+  minPlayers,
+  maxPlayers,
 }: CreateProps) {
   return (
     <div className="flex-1 bg-[#121018] rounded-[2.5rem] border border-white/5 p-8 flex flex-col shadow-2xl relative overflow-hidden">
@@ -41,6 +45,8 @@ export function CreateLobbyPanel({
           value={playerCount}
           onChange={setPlayerCount}
           label="Player Capacity"
+          min={minPlayers || 1}
+          max={maxPlayers || 8}
         />
       </div>
 

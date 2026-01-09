@@ -14,7 +14,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { mapLobbyRawToLobby } from "../utils/lobbyMapper";
 import { LobbyInfo } from "../utils/types";
 
-export function MakaoLobby() {
+export function LudoLobby() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isLeavingRef = useRef(false);
@@ -27,13 +27,13 @@ export function MakaoLobby() {
       if (!data || isLeavingRef.current) return;
 
       if (data.players && !data.players[user?.id || ""]) {
-        alert("You have been kicked from the lobby.");
+        alert("You have been removed from the lobby.");
         navigate("/home");
         return;
       }
 
       if (data.status === "PLAYING") {
-        navigate("/makao/game");
+        navigate("/home");
         return;
       }
 
@@ -45,9 +45,11 @@ export function MakaoLobby() {
   useEffect(() => {
     lobbyService
       .getRoomInfo()
-      .then((raw) => setLobby(mapLobbyRawToLobby(raw, user?.id)))
+      .then((raw) => {
+        setLobby(mapLobbyRawToLobby(raw, user?.id));
+      })
       .catch((err) => {
-        console.error("Failed to load lobby info:", err);
+        console.error("Failed to load Ludo lobby info:", err);
         navigate("/home");
       });
   }, [user?.id, navigate]);
@@ -75,16 +77,26 @@ export function MakaoLobby() {
   }, [lobby?.roomId, handleLobbyUpdate]);
 
   if (!lobby)
-    return <div className="text-white p-10">Initializing lobby...</div>;
+    return (
+      <div className="min-h-screen bg-[#07060b] flex items-center justify-center text-white font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xl font-medium">Entering Ludo Arena...</p>
+        </div>
+      </div>
+    );
 
   const you = lobby.players.find((p) => p.isYou);
   const isHost = !!you?.isHost;
+
   const canStart =
-    lobby.players.length >= 2 && lobby.players.every((p) => p.isReady);
+    lobby.players.length >= 2 &&
+    lobby.players.length <= 4 &&
+    lobby.players.every((p) => p.isReady);
 
   const handleAvatarChange = async (avatar: string) => {
     try {
-      console.log("New avatar selected:", avatar);
+      console.log("New Ludo avatar selected:", avatar);
       setAvatarSelectFor(null);
     } catch (err) {
       console.error("Failed to change avatar:", err);
@@ -98,17 +110,17 @@ export function MakaoLobby() {
       socketService.disconnect();
       navigate("/home");
     } catch (err) {
-      console.error("Failed to leave room:", err);
+      console.error("Failed to leave Ludo lobby:", err);
     }
   };
 
   return (
     <GameLobbyLayout>
-      <LobbyHeader title={"Makao Lobby"} accessCode={lobby.accessCode} />
+      <LobbyHeader title={"Ludo Lobby"} accessCode={lobby.accessCode} />
 
       <LobbyPlayersSection
         players={lobby.players}
-        maxPlayers={lobby.maxPlayers}
+        maxPlayers={4}
         onAvatarSelect={setAvatarSelectFor}
         onToggleReady={() => lobbyService.toggleReady()}
         isHost={isHost}
