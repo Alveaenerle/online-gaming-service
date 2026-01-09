@@ -61,4 +61,84 @@ public class LudoModelTest {
         Assert.assertNotNull(msg.getUsernames());
         Assert.assertNull(msg.getWinnerId());
     }
+
+    @Test
+    public void testLudoPawnModel() {
+        // Given
+        LudoPawn pawn = new LudoPawn(1, 10, PlayerColor.BLUE, 10, false, false);
+        
+        // When & Then 
+        pawn.setPosition(15);
+        pawn.setStepsMoved(15);
+        pawn.setInHome(true);
+        pawn.setInBase(false);
+
+        Assert.assertEquals(pawn.getId(), 1);
+        Assert.assertEquals(pawn.getPosition(), 15);
+        Assert.assertEquals(pawn.getColor(), PlayerColor.BLUE);
+        Assert.assertTrue(pawn.isInHome());
+        Assert.assertFalse(pawn.isInBase());
+        
+        LudoPawn pawn2 = new LudoPawn(1, 15, PlayerColor.BLUE, 15, false, true);
+        Assert.assertEquals(pawn, pawn2);
+        Assert.assertEquals(pawn.hashCode(), pawn2.hashCode());
+        Assert.assertNotNull(pawn.toString());
+    }
+
+    @Test
+    public void testLudoPlayerModel() {
+        // Given
+        LudoPlayer player = new LudoPlayer("u1", PlayerColor.GREEN);
+        
+        // When
+        player.setBot(true);
+        
+        // Then
+        Assert.assertEquals(player.getUserId(), "u1");
+        Assert.assertEquals(player.getColor(), PlayerColor.GREEN);
+        Assert.assertTrue(player.isBot());
+        Assert.assertEquals(player.getPawns().size(), 4);
+        Assert.assertFalse(player.hasAllPawnsInHome());
+        
+        LudoPlayer player2 = new LudoPlayer("u1", PlayerColor.GREEN);
+        player2.setBot(true);
+        Assert.assertNotNull(player.toString());
+    }
+
+    @Test
+    public void testLudoGameResultModel() {
+        // Given
+        LudoGameResult result = new LudoGameResult();
+        result.setGameId("g1");
+        result.setMaxPlayers(4);
+        result.setWinnerId("w1");
+        result.setPlayers(Map.of("p1", "P1"));
+        result.setPlacement(Map.of("p1", 1));
+
+        // Then
+        Assert.assertEquals(result.getGameId(), "g1");
+        Assert.assertEquals(result.getMaxPlayers(), 4);
+        Assert.assertNotNull(result.toString());
+    }
+
+    @Test
+    public void testLudoGameStateMessageDTO() {
+        // Given
+        LudoGameStateMessage msg = new LudoGameStateMessage(
+                "r1", RoomStatus.PLAYING, PlayerColor.RED, "p1", 
+                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null
+        );
+
+        // When
+        msg.setRollsLeft(3);
+
+        // Then
+        Assert.assertEquals(msg.getGameId(), "r1");
+        Assert.assertEquals(msg.getRollsLeft(), 3);
+        Assert.assertNotNull(msg.toString());
+        
+        LudoGameStateMessage msg2 = new LudoGameStateMessage();
+        msg2.setGameId("r1");
+        Assert.assertNotEquals(msg, new Object()); 
+    }
 }

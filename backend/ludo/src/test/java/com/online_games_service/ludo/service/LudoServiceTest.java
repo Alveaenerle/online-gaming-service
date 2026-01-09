@@ -236,6 +236,72 @@ public class LudoServiceTest {
         verify(gameRepository).save(any());
     }
 
+    @Test
+    public void movePawn_shouldThrowIfTargetFieldOccupiedBySelf() {
+        LudoGame game = createGame("r1", "p1", "p2");
+        LudoPlayer player = game.getPlayers().get(0); // RED
+        
+        player.getPawns().get(0).setInBase(false);
+        player.getPawns().get(0).setPosition(10);
+        player.getPawns().get(0).setStepsMoved(10);
+
+        player.getPawns().get(1).setInBase(false);
+        player.getPawns().get(1).setPosition(12);
+        
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(2);
+        game.setWaitingForMove(true);
+        
+        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+
+        // When & Then
+        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn("r1", "p1", 0));
+    }
+
+    @Test
+    public void movePawn_shouldThrowIfTargetIsSafePointWithOpponent() {
+        // Given
+        LudoGame game = createGame("r1", "p1", "p2");
+        LudoPlayer red = game.getPlayers().get(0); 
+        LudoPlayer blue = game.getPlayers().get(1); 
+
+        red.getPawns().get(0).setInBase(false);
+        red.getPawns().get(0).setPosition(8); 
+        
+        blue.getPawns().get(0).setInBase(false);
+        blue.getPawns().get(0).setPosition(10);
+
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(2);
+        game.setWaitingForMove(true);
+        
+        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+
+        // When & Then
+        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn("r1", "p1", 0));
+    }
+
+    @Test
+    public void rollDice_shouldPassTurnIfNoMovesPossible() {        
+        LudoGame game = createGame("r1", "p1", "p2");
+        game.setRollsLeft(1); 
+        
+        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        game.getPlayers().get(0).getPawns().get(0).setInBase(false);
+        game.getPlayers().get(0).getPawns().get(0).setPosition(1);
+        
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(2);
+        game.setWaitingForMove(true);
+        
+        // When
+        ludoService.movePawn("r1", "p1", 0);
+        
+        // Then
+        Assert.assertEquals(game.getActivePlayerId(), "p2");
+    }
+
     private LudoGame createGame(String roomId, String p1, String p2) {
         return new LudoGame(roomId, List.of(p1, p2), p1, Map.of(p1, "User1", p2, "User2"));
     }
