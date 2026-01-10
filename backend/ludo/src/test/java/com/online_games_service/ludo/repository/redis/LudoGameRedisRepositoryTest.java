@@ -60,6 +60,55 @@ public class LudoGameRedisRepositoryTest {
     }
 
     @Test
+    public void testCreateGameIfAbsent_Success() {
+        // Given
+        LudoGame game = new LudoGame();
+        game.setRoomId("room1");
+        
+        when(valueOperations.setIfAbsent(eq(KEY_PREFIX + "room1"), eq(game), anyLong(), eq(TimeUnit.SECONDS)))
+                .thenReturn(true);
+
+        // When
+        boolean result = repository.createGameIfAbsent(game);
+
+        // Then
+        Assert.assertTrue(result);
+        verify(valueOperations).setIfAbsent(anyString(), any(), anyLong(), any());
+    }
+
+    @Test
+    public void testCreateGameIfAbsent_AlreadyExists() {
+        // Given
+        LudoGame game = new LudoGame();
+        game.setRoomId("room1");
+
+        when(valueOperations.setIfAbsent(eq(KEY_PREFIX + "room1"), eq(game), anyLong(), eq(TimeUnit.SECONDS)))
+                .thenReturn(false);
+
+        // When
+        boolean result = repository.createGameIfAbsent(game);
+
+        // Then
+        Assert.assertFalse(result);
+    }
+
+    @Test
+    public void testCreateGameIfAbsent_NullReturn() {
+        // Given
+        LudoGame game = new LudoGame();
+        game.setRoomId("room1");
+
+        when(valueOperations.setIfAbsent(anyString(), any(), anyLong(), any()))
+                .thenReturn(null);
+
+        // When
+        boolean result = repository.createGameIfAbsent(game);
+
+        // Then
+        Assert.assertFalse(result);
+    }
+
+    @Test
     public void testFindById_Found() {
         // Given
         String gameId = "game1";
@@ -91,7 +140,7 @@ public class LudoGameRedisRepositoryTest {
 
     @Test
     public void testFindById_WrongType() {
-        // Given 
+        // Given
         String gameId = "game1";
         when(valueOperations.get(KEY_PREFIX + gameId)).thenReturn("Some String Object");
 
@@ -130,7 +179,7 @@ public class LudoGameRedisRepositoryTest {
 
     @Test
     public void testExistsById_Null() {
-        // Given 
+        // Given
         String gameId = "game1";
         when(redisTemplate.hasKey(KEY_PREFIX + gameId)).thenReturn(null);
 

@@ -94,6 +94,33 @@ public class LudoControllerTest {
     }
 
     @Test
+    public void handleIllegalStateException_shouldReturnConflict() throws Exception {
+        // Given
+        doThrow(new IllegalStateException("Game is full"))
+                .when(ludoService).rollDice(anyString(), anyString());
+
+        // When & Then
+        mockMvc.perform(post("/{gameId}/roll", "game-1")
+                        .requestAttr("userId", "user-1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Game Error"))
+                .andExpect(jsonPath("$.message").value("Game is full"));
+    }
+
+    @Test
+    public void handleIllegalArgumentException_shouldReturnBadRequest() throws Exception {
+        // Given
+        doThrow(new IllegalArgumentException("Bad input"))
+                .when(ludoService).getGameState(anyString());
+
+        // When & Then
+        mockMvc.perform(get("/{gameId}", "game-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Error"))
+                .andExpect(jsonPath("$.message").value("Bad input"));
+    }
+
+    @Test
     public void handleGameLogicException_shouldReturnConflict() throws Exception {
         // Given
         doThrow(new GameLogicException("Not your turn"))
