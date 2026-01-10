@@ -24,13 +24,14 @@ const Player: React.FC<PlayerProps> = ({
 
   return (
     <div
-      className={`flex ${isHorizontal ? "flex-col" : "flex-row"} items-center gap-3 p-3 rounded-xl backdrop-blur-sm ${
+      className={`flex ${
+        isHorizontal ? "flex-col" : "flex-row"
+      } items-center gap-3 p-3 rounded-xl backdrop-blur-sm ${
         isCurrentPlayer
           ? "bg-purpleEnd/20 border border-purpleEnd/50 shadow-lg shadow-purpleEnd/20"
           : "bg-white/5 border border-white/10"
       }`}
     >
-      {/* Player Info */}
       <div className="flex items-center gap-2">
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
@@ -42,7 +43,9 @@ const Player: React.FC<PlayerProps> = ({
           {player.name.charAt(0).toUpperCase()}
         </div>
         <div className="text-left">
-          <p className="text-white text-sm font-medium leading-tight">{player.name}</p>
+          <p className="text-white text-sm font-medium leading-tight">
+            {player.name}
+          </p>
           <p className="text-gray-400 text-xs">{player.cards.length} cards</p>
         </div>
         {isCurrentPlayer && (
@@ -54,8 +57,11 @@ const Player: React.FC<PlayerProps> = ({
         )}
       </div>
 
-      {/* Cards */}
-      <div className={`flex ${isHorizontal ? "flex-row" : "flex-col"} gap-1.5 flex-wrap justify-center`}>
+      <div
+        className={`flex ${
+          isHorizontal ? "flex-row" : "flex-col"
+        } gap-1.5 flex-wrap justify-center`}
+      >
         {player.isHuman ? (
           player.cards.map((card) => {
             const playable = canPlayCard ? canPlayCard(card) : false;
@@ -64,7 +70,9 @@ const Player: React.FC<PlayerProps> = ({
                 key={card.id}
                 card={card}
                 isPlayable={isCurrentPlayer && playable}
-                onClick={() => isCurrentPlayer && playable && onCardClick?.(card)}
+                onClick={() =>
+                  isCurrentPlayer && playable && onCardClick?.(card)
+                }
                 size="md"
               />
             );
@@ -74,7 +82,9 @@ const Player: React.FC<PlayerProps> = ({
             {player.cards.length > 0 && (
               <Card card={player.cards[0]} isFaceDown size="sm" />
             )}
-            <span className="text-white/80 font-semibold text-base">×{player.cards.length}</span>
+            <span className="text-white/80 font-semibold text-base">
+              ×{player.cards.length}
+            </span>
           </div>
         ) : (
           player.cards.map((card) => (

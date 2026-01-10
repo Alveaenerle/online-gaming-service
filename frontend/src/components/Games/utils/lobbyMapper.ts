@@ -22,7 +22,7 @@ export function mapLobbyRawToLobby(
     gameType: raw.gameType,
     maxPlayers: raw.maxPlayers,
     players: players,
-    gameStarted: raw.status === "STARTED",
+    gameStarted: raw.status === "PLAYING",
     name: raw.name,
     accessCode: raw.accessCode,
   };

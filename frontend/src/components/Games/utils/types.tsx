@@ -13,7 +13,7 @@ export type LobbyInfoRaw = {
   maxPlayers: number;
   hostUserId: string;
   players: Record<string, string>;
-  status: "WAITING" | "STARTED";
+  status: "WAITING" | "PLAYING";
   name: string;
   accessCode: string;
 };
