@@ -465,4 +465,25 @@ public class LudoServiceTest {
     private LudoGame createGame(String roomId, String p1, String p2) {
         return new LudoGame(roomId, List.of(p1, p2), p1, Map.of(p1, "User1", p2, "User2"));
     }
+
+    @Test
+    public void shouldAbortGame_WhenLastHumanTimesOut() {
+        // Given
+        String roomId = "abandoned-room";
+        LudoGame game = createGame(roomId, "p1", "p2");
+        
+        game.getPlayers().get(1).setBot(true);
+        game.getPlayers().get(1).setUserId("bot-1");
+        
+        game.setActivePlayerId("p1");
+        
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "handleTurnTimeout", roomId, "p1");
+
+        // Then
+        verify(gameRepository).deleteById(roomId);
+        verify(scheduler, never()).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+    }
 }

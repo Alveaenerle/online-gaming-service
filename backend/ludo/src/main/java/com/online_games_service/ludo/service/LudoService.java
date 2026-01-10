@@ -268,6 +268,10 @@ public class LudoService {
         try {
             LudoGame game = gameRepository.findById(roomId).orElse(null);
             if (game == null || game.getStatus() != RoomStatus.PLAYING) return;
+
+            if (checkAndAbortIfNoHumans(game)) {
+                return;
+            }
             
             if (!botId.equals(game.getActivePlayerId())) return;
 
@@ -441,6 +445,10 @@ public class LudoService {
                 game.setPlayersUsernames(usernames);
                 
                 game.setActivePlayerId(botId);
+
+                if (checkAndAbortIfNoHumans(game)) {
+                    return; 
+                }
                 
                 game.setDiceRolled(false);
                 game.setWaitingForMove(false);
@@ -559,6 +567,19 @@ public class LudoService {
         if (game.getRoomId() != null) {
             gameRepository.deleteById(game.getRoomId());
         }
+    }
+
+    private boolean checkAndAbortIfNoHumans(LudoGame game) {
+        boolean hasHumans = game.getPlayers().stream()
+                .anyMatch(p -> !p.isBot());
+
+        if (!hasHumans) {
+            log.info("No humans left in game {}. Aborting to save resources.", game.getRoomId());
+            gameRepository.deleteById(game.getRoomId());
+            cancelTurnTimeout(game.getRoomId());
+            return true;
+        }
+        return false; 
     }
     
     private Map<String, Integer> calculatePlacement(LudoGame game, LudoPlayer winner) {
