@@ -33,8 +33,10 @@ public class LudoControllerTest {
     public void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         controller = new LudoController(ludoService);
-        
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .addPlaceholderValue("ludo.http.cors.allowed-origins", "http://localhost:3000")
+                .build();
     }
 
     @AfterMethod
