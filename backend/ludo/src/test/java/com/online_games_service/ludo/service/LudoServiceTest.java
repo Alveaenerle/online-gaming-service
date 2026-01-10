@@ -48,11 +48,8 @@ public class LudoServiceTest {
         
         ReflectionTestUtils.setField(ludoService, "turnTimeoutScheduler", scheduler);
         
-        doAnswer(invocation -> {
-            Runnable task = invocation.getArgument(0);
-            task.run();
-            return mock(ScheduledFuture.class);
-        }).when(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+        doAnswer(invocation -> mock(ScheduledFuture.class))
+            .when(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
 
         ReflectionTestUtils.setField(ludoService, "exchangeName", "game.events");
         ReflectionTestUtils.setField(ludoService, "finishRoutingKey", "ludo.finish");
@@ -382,7 +379,6 @@ public class LudoServiceTest {
         game.setLastDiceRoll(2);
         game.setWaitingForMove(true); 
         
-        // When & Then
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
     }
     
