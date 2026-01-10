@@ -10,7 +10,7 @@ public class RedisContainerInitializer implements ApplicationContextInitializer<
 
     private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
             .withExposedPorts(6379)
-            .withCommand("redis-server --requirepass testredispass");
+            .withCommand("redis-server", "--requirepass", "testredispass", "--notify-keyspace-events", "Ex");
 
     @Override
     public void initialize(ConfigurableApplicationContext context) {
