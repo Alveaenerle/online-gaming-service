@@ -51,6 +51,8 @@ services:
       - SPRING_DATA_MONGODB_AUTHENTICATION_DATABASE=admin
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_HOST=redis
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     networks:
       - gaming-net
     depends_on:
@@ -113,6 +115,8 @@ services:
       - SPRING_DATA_MONGODB_AUTHENTICATION_DATABASE=admin
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_HOST=redis
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     networks:
       - gaming-net
     depends_on:
@@ -144,6 +148,8 @@ services:
       - SPRING_DATA_MONGODB_AUTHENTICATION_DATABASE=admin
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_HOST=redis
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     networks:
       - gaming-net
     depends_on:
@@ -251,6 +257,14 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
