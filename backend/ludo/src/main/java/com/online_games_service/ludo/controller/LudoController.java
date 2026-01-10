@@ -13,7 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@CrossOrigin(originPatterns = "${ludo.http.cors.allowed-origins:http://localhost}")
+@CrossOrigin(origins = "${ludo.http.cors.allowed-origins:http://localhost}", allowCredentials = "true")
 public class LudoController {
 
     private final LudoService ludoService;
