@@ -388,11 +388,16 @@ public class LudoServiceTest {
         // Given
         String roomId = "bot-room";
         String botId = "bot-1";
+        String humanId = "human-1";
         LudoGame game = createGame(roomId, "p1", "p2");
         
         LudoPlayer bot = new LudoPlayer(botId, PlayerColor.RED);
         bot.setBot(true);
-        game.setPlayers(List.of(bot));
+        
+        LudoPlayer human = new LudoPlayer(humanId, PlayerColor.BLUE);
+        human.setBot(false);
+        
+        game.setPlayers(List.of(bot, human));
         game.setActivePlayerId(botId);
         
         when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
@@ -437,10 +442,16 @@ public class LudoServiceTest {
         // Given
         String roomId = "bot-room-pass";
         String botId = "bot-1";
+        String humanId = "human-1";
         LudoGame game = createGame(roomId, "p1", "p2");
+        
         LudoPlayer bot = new LudoPlayer(botId, PlayerColor.RED);
         bot.setBot(true);
-        game.setPlayers(List.of(bot));
+        
+        LudoPlayer human = new LudoPlayer(humanId, PlayerColor.BLUE);
+        human.setBot(false);
+        
+        game.setPlayers(List.of(bot, human));
         game.setActivePlayerId(botId);
         
         when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
