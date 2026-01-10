@@ -47,7 +47,13 @@ public class LudoServiceTest {
         ludoService = new LudoService(gameRepository, gameResultRepository, rabbitTemplate, messagingTemplate);
         
         ReflectionTestUtils.setField(ludoService, "turnTimeoutScheduler", scheduler);
-        doReturn(mock(ScheduledFuture.class)).when(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+        
+        doAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run();
+            return mock(ScheduledFuture.class);
+        }).when(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+
         ReflectionTestUtils.setField(ludoService, "exchangeName", "game.events");
         ReflectionTestUtils.setField(ludoService, "finishRoutingKey", "ludo.finish");
     }
