@@ -8,6 +8,7 @@ import com.online_games_service.menu.dto.JoinGameRequest;
 import com.online_games_service.menu.dto.KickPlayerRequest;
 import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.model.GameRoom;
+import com.online_games_service.menu.model.PlayerState;
 import com.online_games_service.menu.service.GameRoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -233,7 +234,7 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
                 "room-info",
                 "Room",
                 GameType.LUDO,
-                Map.of("host-id", "host"),
+                Map.of("host-id", PlayerState.createDefault("host")),
                 4,
                 false,
                 "CODE1",

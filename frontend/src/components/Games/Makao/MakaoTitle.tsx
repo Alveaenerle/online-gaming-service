@@ -17,12 +17,13 @@ export function MakaoTitle() {
   const [playerCount, setPlayerCount] = useState(4);
   const [roomName, setRoomName] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
 
   const handleCreateLobby = async () => {
     if (!roomName.trim()) return alert("Please enter a room name");
     try {
-      await lobbyService.createRoom("MAKAO", playerCount, roomName.trim());
+      await lobbyService.createRoom("MAKAO", playerCount, roomName.trim(), isPrivate);
       navigate("/lobby/makao");
     } catch (err: any) {
       alert(err.message || "Failed to create room");
@@ -96,6 +97,8 @@ export function MakaoTitle() {
               setRoomName={setRoomName}
               playerCount={playerCount}
               setPlayerCount={setPlayerCount}
+              isPrivate={isPrivate}
+              setIsPrivate={setIsPrivate}
               onCreate={handleCreateLobby}
             />
 

@@ -3,6 +3,7 @@ package com.online_games_service.menu.messaging;
 import com.online_games_service.common.enums.GameType;
 import com.online_games_service.common.messaging.GameStartMessage;
 import com.online_games_service.menu.model.GameRoom;
+import com.online_games_service.menu.model.PlayerState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
@@ -11,6 +12,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -31,11 +33,17 @@ public class GameStartPublisher {
             return;
         }
 
+        // Convert players map from Map<String, PlayerState> to Map<String, String>
+        Map<String, String> playerUsernames = new HashMap<>();
+        for (Map.Entry<String, PlayerState> entry : room.getPlayers().entrySet()) {
+            playerUsernames.put(entry.getKey(), entry.getValue().getUsername());
+        }
+
         GameStartMessage payload = new GameStartMessage(
                 room.getId(),
                 room.getName(),
                 room.getGameType(),
-                Map.copyOf(room.getPlayers()),
+                playerUsernames,
                 room.getMaxPlayers(),
                 room.getHostUserId(),
                 room.getHostUsername()

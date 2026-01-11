@@ -2,9 +2,16 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { FriendsSidebar } from "./FriendsSidebar";
+import { useAuth } from "../../context/AuthContext";
 
 export function SocialCenter() {
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuth();
+
+  // Don't render for guest users
+  if (user?.isGuest) {
+    return null;
+  }
 
   return (
     <>

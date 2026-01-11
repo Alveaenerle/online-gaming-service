@@ -248,7 +248,7 @@ public class GameRoomService {
         RoomStatus finalStatus = status != null ? status : RoomStatus.FINISHED;
         room.setStatus(finalStatus);
 
-        room.getPlayers().forEach(this::clearUserRoomMapping);
+        room.getPlayers().forEach((userId, playerState) -> clearUserRoomMapping(userId, playerState.getUsername()));
         broadcastRoomUpdate(room);
 
         deleteRoom(room);
@@ -435,7 +435,7 @@ public class GameRoomService {
             throw new IllegalArgumentException("Player is not in this room.");
         }
 
-        String kickedUsername = room.getPlayers().get(playerToKickUserId);
+        String kickedUsername = room.getPlayers().get(playerToKickUserId).getUsername();
 
         room.removePlayerById(playerToKickUserId);
         clearUserRoomMapping(playerToKickUserId, kickedUsername);
@@ -450,5 +450,74 @@ public class GameRoomService {
 
         broadcastRoomUpdate(room);
         return "Player " + kickedUsername + " has been kicked from the room.";
+    }
+
+    private static final Set<String> VALID_AVATARS = Set.of(
+            "avatar_1.png", "avatar_2.png", "avatar_3.png",
+            "avatar_4.png", "avatar_5.png", "avatar_6.png"
+    );
+
+    public RoomInfoResponse toggleReady(String userId, String username) {
+        String roomId = getUserCurrentRoomId(userId, username);
+        if (roomId == null) {
+            throw new IllegalStateException("You are not in any room.");
+        }
+
+        GameRoom room = getRoomFromRedis(roomId);
+        if (room == null) {
+            clearUserRoomMapping(userId, username);
+            throw new IllegalStateException("Room no longer exists.");
+        }
+
+        if (!room.getPlayers().containsKey(userId)) {
+            throw new IllegalStateException("You are not a player in this room.");
+        }
+
+        room.togglePlayerReady(userId);
+        saveRoomToRedis(room);
+        broadcastRoomUpdate(room);
+
+        return buildRoomInfoResponse(room);
+    }
+
+    public RoomInfoResponse updateAvatar(String userId, String username, String avatarId) {
+        if (avatarId == null || !VALID_AVATARS.contains(avatarId)) {
+            throw new IllegalArgumentException("Invalid avatar ID. Valid options: " + VALID_AVATARS);
+        }
+
+        String roomId = getUserCurrentRoomId(userId, username);
+        if (roomId == null) {
+            throw new IllegalStateException("You are not in any room.");
+        }
+
+        GameRoom room = getRoomFromRedis(roomId);
+        if (room == null) {
+            clearUserRoomMapping(userId, username);
+            throw new IllegalStateException("Room no longer exists.");
+        }
+
+        if (!room.getPlayers().containsKey(userId)) {
+            throw new IllegalStateException("You are not a player in this room.");
+        }
+
+        room.updatePlayerAvatar(userId, avatarId);
+        saveRoomToRedis(room);
+        broadcastRoomUpdate(room);
+
+        return buildRoomInfoResponse(room);
+    }
+
+    public RoomInfoResponse buildRoomInfoResponse(GameRoom room) {
+        return new RoomInfoResponse(
+                room.getId(),
+                room.getName(),
+                room.getGameType(),
+                room.getPlayers(),
+                room.getMaxPlayers(),
+                room.isPrivate(),
+                room.getAccessCode(),
+                room.getHostUserId(),
+                room.getHostUsername(),
+                room.getStatus());
     }
 }

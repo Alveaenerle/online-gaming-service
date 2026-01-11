@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { GameLobbyLayout } from "../shared/GameLobbyLayout";
@@ -9,73 +9,38 @@ import { AvatarPicker } from "../shared/AvatarPicker";
 import { SocialCenter } from "../../Shared/SocialCenter";
 
 import { lobbyService } from "../../../services/lobbyService";
-import { socketService } from "../../../services/socketService";
 import { useAuth } from "../../../context/AuthContext";
+import { useLobby } from "../../../context/LobbyContext";
 import { mapLobbyRawToLobby } from "../utils/lobbyMapper";
-import { LobbyInfo } from "../utils/types";
 
 export function MakaoLobby() {
   const { user } = useAuth();
+  const { currentLobby, clearLobby, refreshLobbyStatus, setCurrentLobby } = useLobby();
   const navigate = useNavigate();
-  const isLeavingRef = useRef(false);
 
-  const [lobby, setLobby] = useState<LobbyInfo | null>(null);
   const [avatarSelectFor, setAvatarSelectFor] = useState<string | null>(null);
 
-  const handleLobbyUpdate = useCallback(
-    (data: any) => {
-      if (!data || isLeavingRef.current) return;
+  // Map the raw lobby from context
+  const lobby = useMemo(() => {
+    if (!currentLobby) return null;
+    return mapLobbyRawToLobby(currentLobby, user?.id);
+  }, [currentLobby, user?.id]);
 
-      if (data.players && !data.players[user?.id || ""]) {
-        alert("You have been kicked from the lobby.");
-        navigate("/home");
-        return;
-      }
-
-      if (data.status === "PLAYING") {
-        navigate("/makao/game");
-        return;
-      }
-
-      setLobby(mapLobbyRawToLobby(data, user?.id));
-    },
-    [user?.id, navigate]
-  );
-
+  // Initial check
   useEffect(() => {
-    lobbyService
-      .getRoomInfo()
-      .then((raw) => setLobby(mapLobbyRawToLobby(raw, user?.id)))
-      .catch((err) => {
-        console.error("Failed to load lobby info:", err);
-        navigate("/home");
-      });
-  }, [user?.id, navigate]);
+    if (!currentLobby) {
+      refreshLobbyStatus().catch(() => navigate("/home"));
+    }
+  }, [currentLobby, refreshLobbyStatus, navigate]);
 
+  // Navigation effects based on lobby state
   useEffect(() => {
-    if (!lobby?.roomId) return;
+    if (currentLobby?.status === "PLAYING") {
+      navigate("/makao/game");
+    }
+  }, [currentLobby?.status, navigate]);
 
-    const initSocket = async () => {
-      try {
-        await socketService.connect();
-        socketService.subscribe(
-          `/topic/room/${lobby.roomId}`,
-          handleLobbyUpdate
-        );
-      } catch (err) {
-        console.error("Socket connection failed:", err);
-      }
-    };
-
-    initSocket();
-
-    return () => {
-      socketService.unsubscribe(`/topic/room/${lobby.roomId}`);
-    };
-  }, [lobby?.roomId, handleLobbyUpdate]);
-
-  if (!lobby)
-    return <div className="text-white p-10">Initializing lobby...</div>;
+  if (!lobby) return <div className="text-white p-10">Loading lobby...</div>;
 
   const you = lobby.players.find((p) => p.isYou);
   const isHost = !!you?.isHost;
@@ -84,33 +49,53 @@ export function MakaoLobby() {
 
   const handleAvatarChange = async (avatar: string) => {
     try {
-      console.log("New avatar selected:", avatar);
+      // Extract avatar filename from path (e.g., "/avatars/avatar_1.png" -> "avatar_1.png")
+      const avatarId = avatar.split("/").pop() || avatar;
+      const updated = await lobbyService.updateAvatar(avatarId);
+      setCurrentLobby(updated);
       setAvatarSelectFor(null);
     } catch (err) {
       console.error("Failed to change avatar:", err);
+      alert("Failed to change avatar. Please try again.");
+    }
+  };
+
+  const handleToggleReady = async () => {
+    try {
+      const updated = await lobbyService.toggleReady();
+      setCurrentLobby(updated);
+    } catch (err) {
+      console.error("Failed to toggle ready:", err);
     }
   };
 
   const handleLeave = async () => {
     try {
-      isLeavingRef.current = true;
       await lobbyService.leaveRoom();
-      socketService.disconnect();
+      // Context will handle socket unsubscribe via clearLobby
+      clearLobby();
       navigate("/home");
     } catch (err) {
       console.error("Failed to leave room:", err);
+      // Even if API fails (e.g. network), we should clear local state
+      clearLobby();
+      navigate("/home");
     }
   };
 
   return (
     <GameLobbyLayout>
-      <LobbyHeader title={"Makao Lobby"} accessCode={lobby.accessCode} />
+      <LobbyHeader
+        title={"Makao Lobby"}
+        accessCode={lobby.accessCode}
+        isPrivate={lobby.isPrivate}
+      />
 
       <LobbyPlayersSection
         players={lobby.players}
         maxPlayers={lobby.maxPlayers}
         onAvatarSelect={setAvatarSelectFor}
-        onToggleReady={() => lobbyService.toggleReady()}
+        onToggleReady={handleToggleReady}
         isHost={isHost}
       />
 
