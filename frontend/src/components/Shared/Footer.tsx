@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 const Footer: React.FC = () => (
   <footer className="border-t border-white/10 mt-20 py-8 bg-[#121018] text-gray-300">
@@ -8,15 +9,18 @@ const Footer: React.FC = () => (
       </div>
 
       <div className="flex gap-6 text-sm">
-        <a className="hover:text-purple-400 transition-colors" href="#">
+        <Link to="/about" className="hover:text-purple-400 transition-colors">
+          About Us
+        </Link>
+        <Link to="/privacy" className="hover:text-purple-400 transition-colors">
           Privacy
-        </a>
-        <a className="hover:text-purple-400 transition-colors" href="#">
+        </Link>
+        <Link to="/terms" className="hover:text-purple-400 transition-colors">
           Terms
-        </a>
-        <a className="hover:text-purple-400 transition-colors" href="#">
+        </Link>
+        <Link to="/support" className="hover:text-purple-400 transition-colors">
           Support
-        </a>
+        </Link>
       </div>
     </div>
   </footer>

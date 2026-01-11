@@ -13,6 +13,10 @@ import { MakaoLobby } from "./components/Games/Makao/MakaoLobby";
 import { MakaoTitle } from "./components/Games/Makao/MakaoTitle";
 import { LudoTitle } from "./components/Games/Ludo/LudoTitle";
 import { LudoLobby } from "./components/Games/Ludo/LudoLobby";
+import AboutPage from "./components/Pages/AboutPage";
+import PrivacyPage from "./components/Pages/PrivacyPage";
+import TermsPage from "./components/Pages/TermsPage";
+import SupportPage from "./components/Pages/SupportPage";
 
 import { SocialProvider } from "./context/SocialContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -30,6 +34,10 @@ const App: React.FC = () => {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/support" element={<SupportPage />} />
 
             {/* Protected routes */}
             <Route
