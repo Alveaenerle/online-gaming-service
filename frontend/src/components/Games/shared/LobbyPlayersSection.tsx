@@ -9,6 +9,11 @@ type Props = {
   onAvatarSelect: (id: string) => void;
   onToggleReady: () => void;
   isHost: boolean;
+  onAddFriend?: (userId: string) => void;
+  isFriend?: (userId: string) => boolean;
+  isInvited?: (userId: string) => boolean;
+  hasReceivedRequest?: (userId: string) => boolean; // If this user has sent US a request
+  canSendFriendRequest?: boolean; // If current user is allowed to send requests (e.g. not guest)
 };
 
 export function LobbyPlayersSection({
@@ -17,6 +22,11 @@ export function LobbyPlayersSection({
   onAvatarSelect,
   onToggleReady,
   isHost,
+  onAddFriend,
+  isFriend,
+  isInvited,
+  hasReceivedRequest,
+  canSendFriendRequest = false
 }: Props) {
   const you = players.find((p) => p.isYou);
   const others = players.filter((p) => !p.isYou);
@@ -30,6 +40,11 @@ export function LobbyPlayersSection({
         >
           {Array.from({ length: maxPlayers - 1 }).map((_, i) => {
             const player = others[i];
+            const alreadyFriend = player && isFriend ? isFriend(player.userId) : false;
+            const alreadyInvited = player && isInvited ? isInvited(player.userId) : false;
+            const receivedFromThem = player && hasReceivedRequest ? hasReceivedRequest(player.userId) : false;
+            const showAdd = canSendFriendRequest && !alreadyFriend && !alreadyInvited && !receivedFromThem;
+
             return (
               <PlayerCard
                 key={player?.userId ?? `empty-${i}`}
@@ -38,6 +53,10 @@ export function LobbyPlayersSection({
                   isHost ? (id) => lobbyService.kickPlayer(id) : undefined
                 }
                 showKickButton={isHost && !!player}
+                onAddFriend={onAddFriend}
+                canAddFriend={showAdd}
+                isInvited={alreadyInvited}
+                hasReceivedRequest={receivedFromThem}
               />
             );
           })}

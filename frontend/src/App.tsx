@@ -14,11 +14,16 @@ import { MakaoTitle } from "./components/Games/Makao/MakaoTitle";
 import { LudoTitle } from "./components/Games/Ludo/LudoTitle";
 import { LudoLobby } from "./components/Games/Ludo/LudoLobby";
 
+import { SocialProvider } from "./context/SocialContext";
+import { ToastProvider } from "./context/ToastContext";
+
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Router>
-        <LobbyProvider>
+      <ToastProvider>
+        <SocialProvider>
+          <Router>
+            <LobbyProvider>
           <LobbyIndicator />
           <Routes>
             {/* Public routes */}
@@ -77,7 +82,9 @@ const App: React.FC = () => {
             />
           </Routes>
         </LobbyProvider>
-      </Router>
+          </Router>
+        </SocialProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 };

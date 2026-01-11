@@ -54,11 +54,11 @@ public class FriendRequestIntegrationTest extends BaseIntegrationTest {
 
         // Then
         Assert.assertNotNull(response);
-        Assert.assertNotNull(response.getRequestId());
+        Assert.assertNotNull(response.getId());
         Assert.assertEquals(response.getStatus(), "PENDING");
 
         // Verify in database
-        Optional<FriendRequest> savedRequest = friendRequestRepository.findById(response.getRequestId());
+        Optional<FriendRequest> savedRequest = friendRequestRepository.findById(response.getId());
         Assert.assertTrue(savedRequest.isPresent());
         Assert.assertEquals(savedRequest.get().getRequesterId(), senderId);
         Assert.assertEquals(savedRequest.get().getAddresseeId(), targetId);
@@ -83,21 +83,27 @@ public class FriendRequestIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    public void sendFriendRequest_TargetNotExists_ThrowsException() {
+    public void sendFriendRequest_TargetNotExists_LazilyCreatesProfile() {
         // Given
         String senderId = "sender123";
         String nonExistentTarget = "nonexistent";
+        
+        // Ensure profile doesn't exist
+        socialProfileRepository.deleteById(nonExistentTarget);
 
-        // When & Then
-        try {
-            friendRequestService.sendFriendRequest(senderId, "Sender", nonExistentTarget);
-            Assert.fail("Expected FriendRequestException");
-        } catch (FriendRequestException e) {
-            Assert.assertEquals(e.getErrorCode(), ErrorCode.USER_NOT_FOUND);
-        }
+        // When
+        FriendRequestResponseDto response = friendRequestService.sendFriendRequest(
+                senderId, "Sender", nonExistentTarget);
 
-        // Verify nothing saved
-        Assert.assertEquals(friendRequestRepository.count(), 0);
+        // Then
+        Assert.assertNotNull(response);
+        Assert.assertEquals(response.getStatus(), "PENDING");
+        
+        // Verify profile created
+        Assert.assertTrue(socialProfileRepository.existsById(nonExistentTarget));
+        
+        // Verify request saved
+        Assert.assertEquals(friendRequestRepository.count(), 1);
     }
 
     @Test
@@ -260,7 +266,7 @@ public class FriendRequestIntegrationTest extends BaseIntegrationTest {
 
         // Then
         Assert.assertEquals(pendingRequests.size(), 2);
-        Assert.assertTrue(pendingRequests.stream().allMatch(r -> r.getStatus() == Status.PENDING));
+        Assert.assertTrue(pendingRequests.stream().allMatch(r -> r.getStatus().equals("PENDING")));
     }
 
     @Test
@@ -281,7 +287,7 @@ public class FriendRequestIntegrationTest extends BaseIntegrationTest {
 
         // When - Bob accepts
         FriendRequestResponseDto acceptResponse = friendRequestService.acceptFriendRequest(
-                bob, "Bob", sendResponse.getRequestId());
+                bob, "Bob", sendResponse.getId());
 
         // Then - request is accepted
         Assert.assertEquals(acceptResponse.getStatus(), "ACCEPTED");

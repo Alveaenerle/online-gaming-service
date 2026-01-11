@@ -1,5 +1,6 @@
 package com.online_games_service.authorization.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -15,6 +16,8 @@ public class User implements Serializable {
     private static final long serialVersionUID = 1L;
     private String id;
     private String username;
+    
+    @JsonProperty("isGuest")
     private boolean isGuest;
 
     /**

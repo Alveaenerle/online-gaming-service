@@ -1,5 +1,6 @@
 package com.online_games_service.social.service;
 
+import com.online_games_service.social.dto.FriendDto;
 import com.online_games_service.social.dto.FriendRequestResponseDto;
 import com.online_games_service.social.exception.FriendRequestException;
 import com.online_games_service.social.exception.FriendRequestException.ErrorCode;
@@ -26,16 +27,19 @@ public class FriendRequestService {
     private final FriendRequestRepository friendRequestRepository;
     private final SocialProfileRepository socialProfileRepository;
     private final RedisNotificationPublisher notificationPublisher;
+    private final FriendNotificationService friendNotificationService;
     private final PresenceService presenceService;
 
     public FriendRequestService(
             FriendRequestRepository friendRequestRepository,
             SocialProfileRepository socialProfileRepository,
             RedisNotificationPublisher notificationPublisher,
+            FriendNotificationService friendNotificationService,
             PresenceService presenceService) {
         this.friendRequestRepository = friendRequestRepository;
         this.socialProfileRepository = socialProfileRepository;
         this.notificationPublisher = notificationPublisher;
+        this.friendNotificationService = friendNotificationService;
         this.presenceService = presenceService;
     }
 
@@ -57,9 +61,11 @@ public class FriendRequestService {
             throw new FriendRequestException(ErrorCode.SELF_REFERENTIAL_REQUEST);
         }
 
-        // Validation 2: Target user must exist
+        // Validation 2: Target user profile should exist (lazy create if not)
         if (!socialProfileRepository.existsById(targetUserId)) {
-            throw new FriendRequestException(ErrorCode.USER_NOT_FOUND);
+            SocialProfile targetProfile = new SocialProfile(targetUserId);
+            socialProfileRepository.save(targetProfile);
+            logger.info("Lazily created social profile for target user: {}", targetUserId);
         }
 
         // Validation 3: Check if already friends
@@ -90,7 +96,7 @@ public class FriendRequestService {
         // Atomic DB Write: Create friend request
         FriendRequest request;
         try {
-            request = new FriendRequest(currentUserId, targetUserId);
+            request = new FriendRequest(currentUserId, currentUserName, targetUserId);
             request = friendRequestRepository.save(request);
             logger.info("Friend request created with ID: {}", request.getId());
         } catch (DataAccessException e) {
@@ -98,9 +104,11 @@ public class FriendRequestService {
             throw new FriendRequestException(ErrorCode.DATABASE_ERROR, e);
         }
 
-        // Side Effect: Publish to Redis ONLY after successful DB write
+        // Side Effect: Publish notifications ONLY after successful DB write
         try {
             notificationPublisher.publishFriendRequest(targetUserId, currentUserId, currentUserName);
+            // Also send via WebSocket for real-time updates
+            friendNotificationService.sendFriendRequestNotification(targetUserId, currentUserId, currentUserName);
         } catch (Exception e) {
             // Log but don't fail the request - notification is best-effort
             logger.warn("Failed to publish friend request notification: {}", e.getMessage());
@@ -109,8 +117,10 @@ public class FriendRequestService {
         return new FriendRequestResponseDto(
                 request.getId(),
                 request.getRequesterId(),
+                request.getRequesterUsername(),
                 request.getAddresseeId(),
                 request.getStatus().name(),
+                request.getCreatedAt(),
                 "Friend request sent successfully"
         );
     }
@@ -138,6 +148,7 @@ public class FriendRequestService {
         }
 
         String requesterId = request.getRequesterId();
+        String requesterUsername = request.getRequesterUsername();
 
         // Atomic DB Write: Update request status and add friends to both profiles
         try {
@@ -145,16 +156,16 @@ public class FriendRequestService {
             request.setStatus(Status.ACCEPTED);
             request = friendRequestRepository.save(request);
 
-            // Add friend to current user's profile
+            // Add friend to current user's profile (with requester's username)
             SocialProfile currentUserProfile = socialProfileRepository.findById(currentUserId)
                     .orElseGet(() -> new SocialProfile(currentUserId));
-            currentUserProfile.addFriend(requesterId);
+            currentUserProfile.addFriend(requesterId, requesterUsername);
             socialProfileRepository.save(currentUserProfile);
 
-            // Add friend to requester's profile
+            // Add friend to requester's profile (with current user's username)
             SocialProfile requesterProfile = socialProfileRepository.findById(requesterId)
                     .orElseGet(() -> new SocialProfile(requesterId));
-            requesterProfile.addFriend(currentUserId);
+            requesterProfile.addFriend(currentUserId, currentUserName);
             socialProfileRepository.save(requesterProfile);
 
             logger.info("Friend request {} accepted. {} and {} are now friends", 
@@ -164,10 +175,12 @@ public class FriendRequestService {
             throw new FriendRequestException(ErrorCode.DATABASE_ERROR, e);
         }
 
-        // Side Effect: Publish to Redis ONLY after successful DB write
+        // Side Effect: Publish notifications ONLY after successful DB write
         try {
             boolean isOnline = presenceService.isUserOnline(currentUserId);
             notificationPublisher.publishRequestAccepted(requesterId, currentUserId, currentUserName, isOnline);
+            // Also send via WebSocket for real-time updates
+            friendNotificationService.sendRequestAcceptedNotification(requesterId, currentUserId, currentUserName);
         } catch (Exception e) {
             // Log but don't fail the request - notification is best-effort
             logger.warn("Failed to publish request accepted notification: {}", e.getMessage());
@@ -176,8 +189,10 @@ public class FriendRequestService {
         return new FriendRequestResponseDto(
                 request.getId(),
                 request.getRequesterId(),
+                request.getRequesterUsername(),
                 request.getAddresseeId(),
                 request.getStatus().name(),
+                request.getCreatedAt(),
                 "Friend request accepted successfully"
         );
     }
@@ -188,7 +203,99 @@ public class FriendRequestService {
      * @param userId The user ID
      * @return List of pending friend requests
      */
-    public java.util.List<FriendRequest> getPendingRequests(String userId) {
-        return friendRequestRepository.findAllByAddresseeIdAndStatus(userId, Status.PENDING);
+    public java.util.List<FriendRequestResponseDto> getPendingRequests(String userId) {
+        return friendRequestRepository.findAllByAddresseeIdAndStatus(userId, Status.PENDING)
+                .stream()
+                .map(req -> new FriendRequestResponseDto(
+                        req.getId(),
+                        req.getRequesterId(),
+                        req.getRequesterUsername(),
+                        req.getAddresseeId(),
+                        req.getStatus().name(),
+                        req.getCreatedAt(),
+                        null
+                ))
+                .toList();
+    }
+
+    /**
+     * Gets all sent pending friend requests for a user.
+     * 
+     * @param userId The user ID
+     * @return List of sent pending friend requests
+     */
+    public java.util.List<FriendRequestResponseDto> getSentRequests(String userId) {
+        return friendRequestRepository.findAllByRequesterIdAndStatus(userId, Status.PENDING)
+                .stream()
+                .map(req -> new FriendRequestResponseDto(
+                        req.getId(),
+                        req.getRequesterId(),
+                        req.getRequesterUsername(),
+                        req.getAddresseeId(),
+                        req.getStatus().name(),
+                        req.getCreatedAt(),
+                        null
+                ))
+                .toList();
+    }
+
+    /**
+     * Gets all friends for a user.
+     * 
+     * @param userId The user ID
+     * @return List of friends with their status
+     */
+    public java.util.List<FriendDto> getFriends(String userId) {
+        return socialProfileRepository.findById(userId)
+                .map(profile -> profile.getFriendIds().stream()
+                        .map(friendId -> {
+                            String status = presenceService.isUserOnline(friendId) ? "ONLINE" : "OFFLINE";
+                            String username = profile.getFriendUsername(friendId);
+                            return new FriendDto(friendId, username, status, null);
+                        })
+                        .toList())
+                .orElse(java.util.Collections.emptyList());
+    }
+
+    /**
+     * Rejects a friend request.
+     * 
+     * @param currentUserId The ID of the user rejecting the request
+     * @param requestId The ID of the friend request to reject
+     * @return FriendRequestResponseDto with the updated request details
+     * @throws FriendRequestException if validation fails or DB operation fails
+     */
+    @Transactional
+    public FriendRequestResponseDto rejectFriendRequest(String currentUserId, String requestId) {
+        logger.info("User {} rejecting friend request {}", currentUserId, requestId);
+
+        // Validation: Request must exist and belong to current user
+        FriendRequest request = friendRequestRepository.findByIdAndAddresseeId(requestId, currentUserId)
+                .orElseThrow(() -> new FriendRequestException(ErrorCode.REQUEST_NOT_FOUND));
+
+        // Validation: Request must be in PENDING status
+        if (request.getStatus() != Status.PENDING) {
+            throw new FriendRequestException(ErrorCode.REQUEST_ALREADY_ACCEPTED, "Request is no longer pending");
+        }
+
+        try {
+            // Update request status to REJECTED
+            request.setStatus(Status.REJECTED);
+            request = friendRequestRepository.save(request);
+            logger.info("Friend request {} rejected", requestId);
+        } catch (DataAccessException e) {
+            logger.error("Database error while rejecting friend request: {}", e.getMessage(), e);
+            throw new FriendRequestException(ErrorCode.DATABASE_ERROR, e);
+        }
+
+        return new FriendRequestResponseDto(
+                request.getId(),
+                request.getRequesterId(),
+                request.getRequesterUsername(),
+                request.getAddresseeId(),
+                request.getStatus().name(),
+                request.getCreatedAt(),
+                "Friend request rejected"
+        );
     }
 }

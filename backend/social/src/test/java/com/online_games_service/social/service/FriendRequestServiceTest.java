@@ -16,6 +16,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.List;
+import java.util.Arrays;
 
 import static org.mockito.Mockito.*;
 
@@ -29,6 +31,7 @@ public class FriendRequestServiceTest {
     private FriendRequestRepository friendRequestRepository;
     private SocialProfileRepository socialProfileRepository;
     private RedisNotificationPublisher notificationPublisher;
+    private FriendNotificationService friendNotificationService;
     private PresenceService presenceService;
 
     @BeforeMethod
@@ -36,12 +39,14 @@ public class FriendRequestServiceTest {
         friendRequestRepository = mock(FriendRequestRepository.class);
         socialProfileRepository = mock(SocialProfileRepository.class);
         notificationPublisher = mock(RedisNotificationPublisher.class);
+        friendNotificationService = mock(FriendNotificationService.class);
         presenceService = mock(PresenceService.class);
 
         friendRequestService = new FriendRequestService(
                 friendRequestRepository,
                 socialProfileRepository,
                 notificationPublisher,
+                friendNotificationService,
                 presenceService
         );
     }
@@ -67,7 +72,7 @@ public class FriendRequestServiceTest {
         when(friendRequestRepository.existsByRequesterIdAndAddresseeIdAndStatus(
                 targetUserId, currentUserId, Status.PENDING)).thenReturn(false);
 
-        FriendRequest savedRequest = new FriendRequest(currentUserId, targetUserId);
+        FriendRequest savedRequest = new FriendRequest(currentUserId, currentUserName, targetUserId);
         savedRequest.setId("request123");
         when(friendRequestRepository.save(any(FriendRequest.class))).thenReturn(savedRequest);
 
@@ -77,7 +82,7 @@ public class FriendRequestServiceTest {
 
         // Then
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getRequestId(), "request123");
+        Assert.assertEquals(response.getId(), "request123");
         Assert.assertEquals(response.getRequesterId(), currentUserId);
         Assert.assertEquals(response.getAddresseeId(), targetUserId);
         Assert.assertEquals(response.getStatus(), Status.PENDING.name());
@@ -87,10 +92,30 @@ public class FriendRequestServiceTest {
         verify(friendRequestRepository).save(requestCaptor.capture());
         FriendRequest capturedRequest = requestCaptor.getValue();
         Assert.assertEquals(capturedRequest.getRequesterId(), currentUserId);
+        Assert.assertEquals(capturedRequest.getRequesterUsername(), currentUserName);
         Assert.assertEquals(capturedRequest.getAddresseeId(), targetUserId);
 
         // Verify Redis publish was called with correct parameters
         verify(notificationPublisher).publishFriendRequest(targetUserId, currentUserId, currentUserName);
+    }
+    
+    @Test
+    public void getSentRequests_ReturnsPendingRequests() {
+        // Given
+        String userId = "user1";
+        List<FriendRequest> requests = Arrays.asList(
+            new FriendRequest(userId, "Alice", "user2"),
+            new FriendRequest(userId, "Alice", "user3")
+        );
+        when(friendRequestRepository.findAllByRequesterIdAndStatus(userId, Status.PENDING))
+            .thenReturn(requests);
+
+        // When
+        List<FriendRequestResponseDto> result = friendRequestService.getSentRequests(userId);
+
+        // Then
+        Assert.assertEquals(result.size(), 2);
+        verify(friendRequestRepository).findAllByRequesterIdAndStatus(userId, Status.PENDING);
     }
 
     @Test
@@ -109,7 +134,7 @@ public class FriendRequestServiceTest {
         when(friendRequestRepository.existsByRequesterIdAndAddresseeIdAndStatus(anyString(), anyString(), any()))
                 .thenReturn(false);
 
-        FriendRequest savedRequest = new FriendRequest(currentUserId, targetUserId);
+        FriendRequest savedRequest = new FriendRequest(currentUserId, currentUserName, targetUserId);
         savedRequest.setId("request456");
         when(friendRequestRepository.save(any(FriendRequest.class))).thenReturn(savedRequest);
 
@@ -140,26 +165,6 @@ public class FriendRequestServiceTest {
         }
 
         // Verify no DB or Redis operations
-        verify(friendRequestRepository, never()).save(any());
-        verify(notificationPublisher, never()).publishFriendRequest(anyString(), anyString(), anyString());
-    }
-
-    @Test
-    public void sendFriendRequest_TargetUserNotFound_ThrowsException() {
-        // Given
-        String currentUserId = "user1";
-        String targetUserId = "nonexistent";
-
-        when(socialProfileRepository.existsById(targetUserId)).thenReturn(false);
-
-        // When & Then
-        try {
-            friendRequestService.sendFriendRequest(currentUserId, "User1", targetUserId);
-            Assert.fail("Expected FriendRequestException");
-        } catch (FriendRequestException e) {
-            Assert.assertEquals(e.getErrorCode(), ErrorCode.USER_NOT_FOUND);
-        }
-
         verify(friendRequestRepository, never()).save(any());
         verify(notificationPublisher, never()).publishFriendRequest(anyString(), anyString(), anyString());
     }
@@ -286,7 +291,7 @@ public class FriendRequestServiceTest {
         when(friendRequestRepository.existsByRequesterIdAndAddresseeIdAndStatus(anyString(), anyString(), any()))
                 .thenReturn(false);
 
-        FriendRequest savedRequest = new FriendRequest(currentUserId, targetUserId);
+        FriendRequest savedRequest = new FriendRequest(currentUserId, "User1", targetUserId);
         savedRequest.setId("request789");
         when(friendRequestRepository.save(any(FriendRequest.class))).thenReturn(savedRequest);
 
@@ -300,7 +305,7 @@ public class FriendRequestServiceTest {
 
         // Then - request should still succeed
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getRequestId(), "request789");
+        Assert.assertEquals(response.getId(), "request789");
 
         // Verify DB save was called
         verify(friendRequestRepository).save(any(FriendRequest.class));
@@ -339,7 +344,7 @@ public class FriendRequestServiceTest {
 
         // Then
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getRequestId(), requestId);
+        Assert.assertEquals(response.getId(), requestId);
         Assert.assertEquals(response.getStatus(), Status.ACCEPTED.name());
 
         // Verify DB operations

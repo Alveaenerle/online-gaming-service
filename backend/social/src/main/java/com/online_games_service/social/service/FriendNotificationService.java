@@ -89,4 +89,56 @@ public class FriendNotificationService {
         return profileOpt.map(SocialProfile::getFriendIds)
                 .orElse(Set.of());
     }
+
+    /**
+     * Sends a friend request notification to the target user via WebSocket.
+     *
+     * @param targetUserId The user to notify
+     * @param fromUserId The user who sent the request
+     * @param fromUserName The name of the user who sent the request
+     */
+    public void sendFriendRequestNotification(String targetUserId, String fromUserId, String fromUserName) {
+        try {
+            java.util.Map<String, Object> notification = java.util.Map.of(
+                    "type", "NOTIFICATION_RECEIVED",
+                    "subType", "FRIEND_REQUEST",
+                    "senderId", fromUserId,
+                    "senderName", fromUserName
+            );
+            messagingTemplate.convertAndSendToUser(
+                    targetUserId,
+                    "/queue/notifications",
+                    notification
+            );
+            logger.info("Sent friend request notification to user {} from {}", targetUserId, fromUserName);
+        } catch (Exception e) {
+            logger.warn("Failed to send friend request notification to user {}: {}", targetUserId, e.getMessage());
+        }
+    }
+
+    /**
+     * Sends a request accepted notification to the original requester via WebSocket.
+     *
+     * @param targetUserId The user to notify (original requester)
+     * @param accepterId The user who accepted the request
+     * @param accepterName The name of the user who accepted
+     */
+    public void sendRequestAcceptedNotification(String targetUserId, String accepterId, String accepterName) {
+        try {
+            java.util.Map<String, Object> notification = java.util.Map.of(
+                    "type", "NOTIFICATION_RECEIVED",
+                    "subType", "REQUEST_ACCEPTED",
+                    "accepterId", accepterId,
+                    "accepterName", accepterName
+            );
+            messagingTemplate.convertAndSendToUser(
+                    targetUserId,
+                    "/queue/notifications",
+                    notification
+            );
+            logger.info("Sent request accepted notification to user {} from {}", targetUserId, accepterName);
+        } catch (Exception e) {
+            logger.warn("Failed to send request accepted notification to user {}: {}", targetUserId, e.getMessage());
+        }
+    }
 }

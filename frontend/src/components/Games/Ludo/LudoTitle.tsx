@@ -11,9 +11,12 @@ import { JoinLobbyPanel } from "../shared/JoinLobbyPanel";
 import { lobbyService } from "../../../services/lobbyService";
 import { BackgroundGradient } from "../../Shared/BackgroundGradient";
 import { FriendsSidebar } from "../../Shared/FriendsSidebar";
+import { useAuth } from "../../../context/AuthContext";
 
 export function LudoTitle() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isGuest = user?.isGuest ?? false;
   const [playerCount, setPlayerCount] = useState(4);
   const [roomName, setRoomName] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -110,10 +113,12 @@ export function LudoTitle() {
               onJoin={handleJoinLobby}
             />
           </motion.div>
-          <FriendsSidebar
-            isOpen={friendsOpen}
-            onClose={() => setFriendsOpen(false)}
-          />
+          {!isGuest && (
+            <FriendsSidebar
+              isOpen={friendsOpen}
+              onClose={() => setFriendsOpen(false)}
+            />
+          )}
         </div>
       </main>
     </div>

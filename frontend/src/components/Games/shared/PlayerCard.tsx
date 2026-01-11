@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Crown, UserMinus } from "lucide-react";
+import { Crown, UserMinus, UserPlus, UserCheck, Mail } from "lucide-react";
 
 type Props = {
   player?: {
@@ -8,12 +8,17 @@ type Props = {
     avatar: string;
     isHost?: boolean;
     isReady?: boolean;
+    isYou?: boolean;
   };
   onKick?: (userId: string) => void;
+  onAddFriend?: (userId: string) => void;
   showKickButton?: boolean;
+  canAddFriend?: boolean;
+  isInvited?: boolean;
+  hasReceivedRequest?: boolean; // This user sent us a friend request
 };
 
-export function PlayerCard({ player, onKick, showKickButton }: Props) {
+export function PlayerCard({ player, onKick, onAddFriend, showKickButton, canAddFriend, isInvited, hasReceivedRequest }: Props) {
   return (
     <motion.div
       layout
@@ -80,10 +85,39 @@ export function PlayerCard({ player, onKick, showKickButton }: Props) {
           {showKickButton && onKick && (
             <button
               onClick={() => onKick(player.userId)}
+              title="Kick Player"
               className="absolute top-3 right-3 p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all duration-300 border border-red-500/20"
             >
               <UserMinus size={14} />
             </button>
+          )}
+
+          {canAddFriend && onAddFriend && !player.isYou && (
+             <button
+                onClick={() => onAddFriend(player.userId)}
+                title="Add Friend"
+                className="absolute top-3 left-3 p-2 bg-purple-500/10 hover:bg-purple-500 text-purple-500 hover:text-white rounded-xl transition-all duration-300 border border-purple-500/20"
+             >
+                <UserPlus size={14} />
+             </button>
+          )}
+          
+          {isInvited && !player.isYou && (
+            <div
+                title="Request Sent"
+                className="absolute top-3 left-3 p-2 bg-white/10 text-white/50 rounded-xl transition-all duration-300 border border-white/20 cursor-default"
+            >
+                <UserCheck size={14} />
+            </div>
+          )}
+          
+          {hasReceivedRequest && !player.isYou && (
+            <div
+                title="Has Pending Request - Check Social Center"
+                className="absolute top-3 left-3 p-2 bg-orange-500/20 text-orange-400 rounded-xl transition-all duration-300 border border-orange-500/30 cursor-default"
+            >
+                <Mail size={14} />
+            </div>
           )}
         </>
       ) : (

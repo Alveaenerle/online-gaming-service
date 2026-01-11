@@ -7,6 +7,7 @@ import com.online_games_service.social.service.PresenceService;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Arrays;
@@ -25,9 +26,14 @@ public class PresenceRestControllerTest {
         restController = new PresenceRestController(presenceService);
     }
 
+    // ============================================================
+    // GET FRIENDS STATUS TESTS
+    // ============================================================
+
     @Test
-    public void shouldGetFriendsStatus() {
+    public void getFriendsStatus_Success_ReturnsStatuses() {
         // Given
+        String userId = "authenticated_user";
         List<String> friendIds = Arrays.asList("friend1", "friend2");
         FriendsStatusRequest request = new FriendsStatusRequest(friendIds);
         
@@ -38,9 +44,10 @@ public class PresenceRestControllerTest {
         when(presenceService.getUsersOnlineStatus(friendIds)).thenReturn(mockStatuses);
 
         // When
-        ResponseEntity<FriendsStatusResponse> response = restController.getFriendsStatus(request);
+        ResponseEntity<FriendsStatusResponse> response = restController.getFriendsStatus(request, userId);
 
         // Then
+        Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
         Assert.assertNotNull(response.getBody());
         Assert.assertEquals(response.getBody().getFriends().size(), 2);
         Assert.assertTrue(response.getBody().getFriends().get(0).isOnline());
@@ -48,46 +55,79 @@ public class PresenceRestControllerTest {
     }
 
     @Test
-    public void shouldGetSingleUserPresence() {
+    public void getFriendsStatus_NoUserId_Returns401() {
         // Given
-        String userId = "single_user";
-        when(presenceService.isUserOnline(userId)).thenReturn(true);
+        FriendsStatusRequest request = new FriendsStatusRequest(List.of("friend1"));
 
         // When
-        ResponseEntity<UserPresenceStatus> response = restController.getUserPresence(userId);
+        ResponseEntity<FriendsStatusResponse> response = restController.getFriendsStatus(request, null);
 
         // Then
-        Assert.assertNotNull(response.getBody());
-        Assert.assertEquals(response.getBody().getUserId(), userId);
-        Assert.assertTrue(response.getBody().isOnline());
+        Assert.assertEquals(response.getStatusCode(), HttpStatus.UNAUTHORIZED);
+        verify(presenceService, never()).getUsersOnlineStatus(anyList());
     }
 
     @Test
-    public void shouldReturnOfflineForNonExistentUser() {
+    public void getFriendsStatus_EmptyList_ReturnsEmptyResponse() {
         // Given
-        String userId = "offline_user";
-        when(presenceService.isUserOnline(userId)).thenReturn(false);
-
-        // When
-        ResponseEntity<UserPresenceStatus> response = restController.getUserPresence(userId);
-
-        // Then
-        Assert.assertNotNull(response.getBody());
-        Assert.assertEquals(response.getBody().getUserId(), userId);
-        Assert.assertFalse(response.getBody().isOnline());
-    }
-
-    @Test
-    public void shouldHandleEmptyFriendsList() {
-        // Given
+        String userId = "authenticated_user";
         FriendsStatusRequest request = new FriendsStatusRequest(List.of());
         when(presenceService.getUsersOnlineStatus(List.of())).thenReturn(List.of());
 
         // When
-        ResponseEntity<FriendsStatusResponse> response = restController.getFriendsStatus(request);
+        ResponseEntity<FriendsStatusResponse> response = restController.getFriendsStatus(request, userId);
 
         // Then
+        Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
         Assert.assertNotNull(response.getBody());
         Assert.assertTrue(response.getBody().getFriends().isEmpty());
+    }
+
+    // ============================================================
+    // GET USER PRESENCE TESTS
+    // ============================================================
+
+    @Test
+    public void getUserPresence_UserOnline_ReturnsOnlineStatus() {
+        // Given
+        String userId = "authenticated_user";
+        String targetUserId = "single_user";
+        when(presenceService.isUserOnline(targetUserId)).thenReturn(true);
+
+        // When
+        ResponseEntity<UserPresenceStatus> response = restController.getUserPresence(targetUserId, userId);
+
+        // Then
+        Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
+        Assert.assertNotNull(response.getBody());
+        Assert.assertEquals(response.getBody().getUserId(), targetUserId);
+        Assert.assertTrue(response.getBody().isOnline());
+    }
+
+    @Test
+    public void getUserPresence_UserOffline_ReturnsOfflineStatus() {
+        // Given
+        String userId = "authenticated_user";
+        String targetUserId = "offline_user";
+        when(presenceService.isUserOnline(targetUserId)).thenReturn(false);
+
+        // When
+        ResponseEntity<UserPresenceStatus> response = restController.getUserPresence(targetUserId, userId);
+
+        // Then
+        Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
+        Assert.assertNotNull(response.getBody());
+        Assert.assertEquals(response.getBody().getUserId(), targetUserId);
+        Assert.assertFalse(response.getBody().isOnline());
+    }
+
+    @Test
+    public void getUserPresence_NoUserId_Returns401() {
+        // When
+        ResponseEntity<UserPresenceStatus> response = restController.getUserPresence("target", null);
+
+        // Then
+        Assert.assertEquals(response.getStatusCode(), HttpStatus.UNAUTHORIZED);
+        verify(presenceService, never()).isUserOnline(anyString());
     }
 }
