@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Card as CardType } from "./types";
+import { getCardImagePath, RANK_DISPLAY, isSpecialCard } from "./utils/cardHelpers";
 
 interface CardProps {
   card: CardType;
@@ -7,6 +8,7 @@ interface CardProps {
   isPlayable?: boolean;
   isFaceDown?: boolean;
   size?: "sm" | "md" | "lg";
+  showEffect?: boolean;
 }
 
 const SIZES = {
@@ -15,24 +17,16 @@ const SIZES = {
   lg: { width: 72, height: 101 },
 };
 
-const getRankName = (rank: string): string => {
-  switch (rank) {
-    case "A": return "ace";
-    case "K": return "king";
-    case "Q": return "queen";
-    case "J": return "jack";
-    default: return rank;
-  }
-};
-
 const Card: React.FC<CardProps> = ({
   card,
   onClick,
   isPlayable = false,
   isFaceDown = false,
   size = "md",
+  showEffect = false,
 }) => {
   const s = SIZES[size];
+  const special = isSpecialCard(card);
 
   if (isFaceDown) {
     return (
@@ -47,26 +41,28 @@ const Card: React.FC<CardProps> = ({
     );
   }
 
-  const rankName = getRankName(card.rank);
-  const cardImage = `/SVG-cards-1.3/${rankName}_of_${card.suit}.svg`;
+  const cardImage = getCardImagePath(card);
 
   return (
     <motion.div
       whileHover={isPlayable ? { scale: 1.08, y: -8 } : {}}
       onClick={isPlayable ? onClick : undefined}
       style={{ width: s.width, height: s.height }}
-      className={`rounded-lg overflow-hidden shadow-md ${
+      className={`rounded-lg overflow-hidden shadow-md relative ${
         isPlayable
           ? "ring-2 ring-purpleEnd cursor-pointer shadow-neon"
           : "opacity-80"
-      }`}
+      } ${special && showEffect ? "ring-1 ring-yellow-400" : ""}`}
     >
       <img
         src={cardImage}
-        alt={`${card.rank} of ${card.suit}`}
+        alt={`${RANK_DISPLAY[card.rank]} of ${card.suit}`}
         className="w-full h-full object-contain bg-white"
         draggable={false}
       />
+      {special && showEffect && (
+        <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400 rounded-full m-0.5" />
+      )}
     </motion.div>
   );
 };
