@@ -122,19 +122,19 @@ public class LudoGameTest {
     @Test
     public void testLudoPawnModelCoverage() {
         // Given
-        LudoPawn pawn = new LudoPawn(1, 10, PlayerColor.BLUE, 10, false, false);
+        LudoPawn pawn = new LudoPawn(1, 13, PlayerColor.BLUE, 0, false, false);
         
         // When
-        pawn.setPosition(15);
-        pawn.setStepsMoved(15);
-        pawn.setInHome(true);
+        pawn.setPosition(18);
+        pawn.setStepsMoved(5);
+        pawn.setInHome(false);
         pawn.setInBase(false);
 
         // Then
         Assert.assertEquals(pawn.getId(), 1);
-        Assert.assertEquals(pawn.getPosition(), 15);
+        Assert.assertEquals(pawn.getPosition(), 18);
         Assert.assertEquals(pawn.getColor(), PlayerColor.BLUE);
-        Assert.assertTrue(pawn.isInHome());
+        Assert.assertFalse(pawn.isInHome());
         Assert.assertFalse(pawn.isInBase());
         Assert.assertNotNull(pawn.toString()); 
     }
@@ -180,7 +180,7 @@ public class LudoGameTest {
         // Given
         LudoGameStateMessage msg = new LudoGameStateMessage(
                 "r1", RoomStatus.PLAYING, PlayerColor.RED, "p1", 
-                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null
+                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null, null
         );
 
         // When
