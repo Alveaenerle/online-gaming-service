@@ -10,6 +10,7 @@ import { MakaoLobby } from "./components/Games/Makao/MakaoLobby";
 import { MakaoTitle } from "./components/Games/Makao/MakaoTitle";
 import { LudoTitle } from "./components/Games/Ludo/LudoTitle";
 import { LudoLobby } from "./components/Games/Ludo/LudoLobby";
+import { LudoArenaPage } from "./components/Games/Ludo/LudoGame";
 
 const App: React.FC = () => {
   return (
@@ -25,6 +26,7 @@ const App: React.FC = () => {
           <Route path="/lobby/makao" element={<MakaoLobby />} />
           <Route path="/ludo" element={<LudoTitle />} />
           <Route path="/lobby/ludo" element={<LudoLobby />} />
+          <Route path="/ludo/game" element={<LudoArenaPage />} />
         </Routes>
       </Router>
     </AuthProvider>
