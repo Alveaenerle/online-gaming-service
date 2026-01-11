@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ludo WS Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #0b132b; color: #f5f7fb; }
+    .box { border: 1px solid #3a506b; padding: 12px; margin-bottom: 12px; border-radius: 6px; background: #1c2541; }
+    #logs { height: 400px; overflow-y: auto; background: #0f172a; border: 1px solid #3a506b; padding: 8px; font-family: monospace; font-size: 13px;}
+    .log-entry { margin: 3px 0; border-bottom: 1px solid #243b55; padding-bottom: 3px; white-space: pre-wrap; }
+    label { display: block; margin-top: 8px; font-size: 0.9em; color: #8bd3dd; }
+    input, button { margin-top: 6px; padding: 8px; border-radius: 4px; border: 1px solid #3a506b; background: #3a506b; color: #f5f7fb; width: 100%; box-sizing: border-box; }
+    button { cursor: pointer; font-weight: bold; background: #ff006e; border: none; }
+    button:hover { background: #c90055; }
+    button.secondary { background: #3a506b; }
+    .row { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+  <h2>WebSocket Test – Ludo (/topic/game/{gameId})</h2>
+
+  <div class="box">
+    <div>Status: <b id="status" style="color:red">DISCONNECTED</b></div>
+    
+    <label>Game ID (Room ID)</label>
+    <input type="text" id="gameId" placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000">
+    
+    <label>WS endpoint URL (SockJS)</label>
+    <input type="text" id="wsUrl" value="http://localhost/api/ludo/ws">
+    
+    <div class="row" style="margin-top:15px;">
+      <button onclick="connect()">Connect</button>
+      <button class="secondary" onclick="disconnect()">Disconnect</button>
+      <button class="secondary" onclick="clearLogs()">Clear logs</button>
+    </div>
+  </div>
+
+  <h3>Logs / Game State:</h3>
+  <div id="logs"></div>
+
+<script>
+  let stomp = null;
+
+  function log(msg, isJson = false) {
+    const logs = document.getElementById('logs');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    
+    const time = new Date().toLocaleTimeString();
+    if (isJson) {
+        try {
+            const parsed = JSON.parse(msg);
+            entry.innerText = `${time}: RECEIVED GAME STATE:\n` + JSON.stringify(parsed, null, 2);
+            entry.style.color = "#a5f3fc";
+        } catch (e) {
+            entry.innerText = `${time}: ${msg}`;
+        }
+    } else {
+        entry.innerText = `${time}: ${msg}`;
+    }
+    
+    logs.appendChild(entry);
+    logs.scrollTop = logs.scrollHeight;
+  }
+
+  function setStatus(connected) {
+    const el = document.getElementById('status');
+    el.innerText = connected ? 'CONNECTED' : 'DISCONNECTED';
+    el.style.color = connected ? 'lime' : 'red';
+  }
+
+  function connect() {
+    const gameId = document.getElementById('gameId').value.trim();
+    const url = document.getElementById('wsUrl').value.trim();
+    
+    if (!gameId) {
+      alert('Please enter Game ID (Room ID)!');
+      return;
+    }
+
+    log(`Connecting to ${url} ...`);
+    const socket = new SockJS(url);
+    stomp = Stomp.over(socket);
+    stomp.debug = null; 
+
+    stomp.connect({}, () => {
+      setStatus(true);
+      
+      const topic = `/topic/game/${gameId}`;
+      
+      log('Connected! Subscribing to topic: ' + topic);
+      
+      stomp.subscribe(topic, (msg) => {
+        log(msg.body, true);
+      });
+      
+    }, (err) => {
+      setStatus(false);
+      log('Connection error: ' + err);
+    });
+  }
+
+  function disconnect() {
+    if (stomp) {
+      stomp.disconnect(() => {
+        log('Disconnected.');
+        setStatus(false);
+      });
+    } else {
+      setStatus(false);
+    }
+  }
+
+  function clearLogs() {
+    document.getElementById('logs').innerHTML = '';
+  }
+</script>
+</body>
+</html>
