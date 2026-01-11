@@ -211,10 +211,10 @@ public class LudoServiceTest {
         LudoPlayer blue = game.getPlayers().get(1);
 
         red.getPawns().get(0).setInBase(false);
-        red.getPawns().get(0).setPosition(10);
+        red.getPawns().get(0).setPosition(14); 
         
         blue.getPawns().get(0).setInBase(false);
-        blue.getPawns().get(0).setPosition(13);
+        blue.getPawns().get(0).setPosition(17);
 
         game.setDiceRolled(true);
         game.setLastDiceRoll(3);
@@ -226,7 +226,7 @@ public class LudoServiceTest {
         ludoService.movePawn("r1", "p1", 0);
 
         // Then
-        Assert.assertEquals(red.getPawns().get(0).getPosition(), 13);
+        Assert.assertEquals(red.getPawns().get(0).getPosition(), 17);
         Assert.assertTrue(blue.getPawns().get(0).isInBase());
     }
     
@@ -283,8 +283,8 @@ public class LudoServiceTest {
         }
         
         winner.getPawns().get(3).setInHome(false); 
-        winner.getPawns().get(3).setStepsMoved(39); 
-        winner.getPawns().get(3).setPosition(39); 
+        winner.getPawns().get(3).setStepsMoved(51); 
+        winner.getPawns().get(3).setPosition(51); 
         
         game.setDiceRolled(true);
         game.setLastDiceRoll(1);
@@ -348,10 +348,10 @@ public class LudoServiceTest {
         LudoPlayer blue = game.getPlayers().get(1); 
 
         red.getPawns().get(0).setInBase(false);
-        red.getPawns().get(0).setPosition(8); 
+        red.getPawns().get(0).setPosition(11); 
         
         blue.getPawns().get(0).setInBase(false);
-        blue.getPawns().get(0).setPosition(10); 
+        blue.getPawns().get(0).setPosition(13); 
 
         game.setDiceRolled(true);
         game.setLastDiceRoll(2);
@@ -380,6 +380,8 @@ public class LudoServiceTest {
         game.setWaitingForMove(true); 
         
         when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        // When & Then
     }
     
 
@@ -415,6 +417,7 @@ public class LudoServiceTest {
         // Given
         String roomId = "bot-room-move";
         String botId = "bot-1";
+        String humanId = "human-1";
         LudoGame game = createGame(roomId, "p1", "p2");
         
         LudoPlayer bot = new LudoPlayer(botId, PlayerColor.RED);
@@ -422,7 +425,10 @@ public class LudoServiceTest {
         bot.getPawns().get(0).setInBase(false); 
         bot.getPawns().get(0).setPosition(5); 
         
-        game.setPlayers(List.of(bot));
+        LudoPlayer human = new LudoPlayer(humanId, PlayerColor.BLUE);
+        human.setBot(false);
+        
+        game.setPlayers(List.of(bot, human));
         game.setActivePlayerId(botId);
         game.setLastDiceRoll(3);
         game.setDiceRolled(true);

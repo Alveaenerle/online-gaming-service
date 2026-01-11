@@ -95,15 +95,15 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         LudoGame game = redisRepository.findById(ROOM_ID).get();
         LudoPlayer winner = game.getPlayers().get(0);
         
-        // Setup a near-win condition
         winner.getPawns().forEach(p -> { p.setInBase(false); p.setInHome(true); });
+        
         LudoPawn lastPawn = winner.getPawns().get(3);
         lastPawn.setInHome(false);
-        lastPawn.setStepsMoved(39); 
-        lastPawn.setPosition(39);
+        lastPawn.setStepsMoved(51); 
+        lastPawn.setPosition(51);  
         
         game.setDiceRolled(true);
-        game.setLastDiceRoll(1);
+        game.setLastDiceRoll(1); 
         game.setWaitingForMove(true);
         redisRepository.save(game);
 
