@@ -47,7 +47,7 @@ public class LudoService {
     @Value("${ludo.turn-timeout-seconds:60}")
     private long turnTimeoutSeconds;
 
-    private static final int BOARD_SIZE = 40;
+    private static final int BOARD_SIZE = 52;
 
     // --- API FUNCTIONS ---
 
