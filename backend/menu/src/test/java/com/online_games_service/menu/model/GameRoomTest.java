@@ -19,7 +19,13 @@ public class GameRoomTest {
         // Then
         Assert.assertEquals(room.getStatus(), RoomStatus.WAITING);
         Assert.assertEquals(room.getPlayers().size(), 1, "Host should be added automatically");
-        Assert.assertEquals(room.getPlayers().get(hostUserId), hostUsername);
+        Assert.assertEquals(room.getPlayers().get(hostUserId).getUsername(), hostUsername);
+    }
+
+    @Test
+    public void shouldInitializePrivateRoom() {
+        GameRoom room = new GameRoom("Private Room", GameType.LUDO, "host", "host", 4, true);
+        Assert.assertTrue(room.isPrivate());
     }
 
     @Test

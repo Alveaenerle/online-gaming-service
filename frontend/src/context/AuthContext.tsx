@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService, User, LoginRequest, RegisterRequest } from '../services/authService';
+import { lobbyService } from '../services/lobbyService';
 
 interface AuthContextType {
   user: User | null;
@@ -49,6 +50,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
+      // Attempt to leave any active lobby before destroying the session
+      try {
+        await lobbyService.leaveRoom();
+      } catch (err) {
+        // Ignore errors (e.g., user wasn't in a room) and proceed with logout
+        console.warn('Lobby leave failed during logout (not critical):', err);
+      }
+      
       await authService.logout();
     } finally {
       setUser(null);

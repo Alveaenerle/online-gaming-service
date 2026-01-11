@@ -17,7 +17,7 @@ public class FilterConfig {
 
         registrationBean.setFilter(filter);
 
-        registrationBean.addUrlPatterns("/create", "/join", "/start", "/leave", "/room-info", "/kick-player");
+        registrationBean.addUrlPatterns("/create", "/join", "/start", "/leave", "/room-info", "/kick-player", "/ready", "/update-avatar");
 
         registrationBean.setOrder(1);
 

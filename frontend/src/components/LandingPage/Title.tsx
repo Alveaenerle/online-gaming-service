@@ -1,7 +1,22 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const Title: React.FC = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  const handlePlayNow = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    console.log("Play Now button clicked", isAuthenticated);
+    if (isAuthenticated) {
+      navigate("/home");
+    } else {
+      navigate("/login");
+    }
+  };
+
   return (
     <section className="relative h-screen flex items-center justify-center text-center overflow-hidden bg-bg">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)] animate-gradient-bg" />
@@ -13,7 +28,7 @@ const Title: React.FC = () => {
           hidden: {},
           visible: { transition: { staggerChildren: 0.2 } },
         }}
-        className="max-w-4xl px-6"
+        className="max-w-4xl px-6 relative z-10"
       >
         <motion.h1
           variants={{
@@ -72,20 +87,20 @@ const Title: React.FC = () => {
           }}
           className="mt-8 flex flex-col sm:flex-row gap-4 justify-center"
         >
-          <motion.a
+          <motion.button
             whileHover={{
               scale: 1.05,
               boxShadow: "0 0 20px rgba(168,85,247,0.6)",
             }}
-            href="#"
-            className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl border border-purple-600 shadow-neon transition-transform"
+            onClick={handlePlayNow}
+            className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl border border-purple-600 shadow-neon transition-transform cursor-pointer"
           >
             <span className="font-semibold">Play now</span>
             <span className="inline-block w-3 h-3 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 animate-pulse" />
-          </motion.a>
+          </motion.button>
           <motion.a
             whileHover={{ scale: 1.05 }}
-            href="#"
+            href="#features"
             className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 transition"
           >
             View games
