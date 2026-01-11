@@ -15,7 +15,7 @@ public class FilterConfig {
     public FilterRegistrationBean<SessionUserFilter> sessionUserFilterRegistration(SessionUserFilter filter) {
         FilterRegistrationBean<SessionUserFilter> registrationBean = new FilterRegistrationBean<>();
         registrationBean.setFilter(filter);
-        registrationBean.addUrlPatterns("/play-card", "/draw-card", "/skip-drawn-card", "/play-drawn-card", "/accept-effect");
+        registrationBean.addUrlPatterns("/play-card", "/draw-card", "/skip-drawn-card", "/play-drawn-card", "/accept-effect", "/state");
         registrationBean.setOrder(1);
         return registrationBean;
     }

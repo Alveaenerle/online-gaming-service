@@ -1,10 +1,23 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Player as PlayerType, Card as CardType } from "./types";
+import { Card as CardType } from "./types";
 import Card from "./Card";
 
+/**
+ * @deprecated This component is not currently used in the online Makao game.
+ * Consider using PlayerCard from GameTable.tsx instead.
+ * Kept for potential future use in local/offline mode.
+ */
+
+interface PlayerInfo {
+  id: string;
+  name: string;
+  cards: CardType[];
+  isHuman: boolean;
+}
+
 interface PlayerProps {
-  player: PlayerType;
+  player: PlayerInfo;
   isCurrentPlayer: boolean;
   onCardClick?: (card: CardType) => void;
   canPlayCard?: (card: CardType) => boolean;
