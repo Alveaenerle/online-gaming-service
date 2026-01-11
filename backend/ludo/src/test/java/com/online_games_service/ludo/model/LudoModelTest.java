@@ -47,8 +47,9 @@ public class LudoModelTest {
         msg.setPlayers(new ArrayList<>());
         msg.setUsernames(new HashMap<>());
         msg.setWinnerId(null);
+        msg.setCapturedUserId("p2"); 
 
-        // Then (Verification of Getters/Lombok Data)
+        // Then 
         Assert.assertEquals(msg.getGameId(), "g1");
         Assert.assertEquals(msg.getStatus(), RoomStatus.PLAYING);
         Assert.assertEquals(msg.getCurrentPlayerColor(), PlayerColor.RED);
@@ -60,26 +61,27 @@ public class LudoModelTest {
         Assert.assertNotNull(msg.getPlayers());
         Assert.assertNotNull(msg.getUsernames());
         Assert.assertNull(msg.getWinnerId());
+        Assert.assertEquals(msg.getCapturedUserId(), "p2");
     }
 
     @Test
     public void testLudoPawnModel() {
         // Given
-        LudoPawn pawn = new LudoPawn(1, 10, PlayerColor.BLUE, 10, false, false);
+        LudoPawn pawn = new LudoPawn(1, 13, PlayerColor.BLUE, 0, false, false);
         
         // When & Then 
-        pawn.setPosition(15);
-        pawn.setStepsMoved(15);
+        pawn.setPosition(18);
+        pawn.setStepsMoved(5);
         pawn.setInHome(true);
         pawn.setInBase(false);
 
         Assert.assertEquals(pawn.getId(), 1);
-        Assert.assertEquals(pawn.getPosition(), 15);
+        Assert.assertEquals(pawn.getPosition(), 18);
         Assert.assertEquals(pawn.getColor(), PlayerColor.BLUE);
         Assert.assertTrue(pawn.isInHome());
         Assert.assertFalse(pawn.isInBase());
         
-        LudoPawn pawn2 = new LudoPawn(1, 15, PlayerColor.BLUE, 15, false, true);
+        LudoPawn pawn2 = new LudoPawn(1, 18, PlayerColor.BLUE, 5, false, true);
         Assert.assertEquals(pawn, pawn2);
         Assert.assertEquals(pawn.hashCode(), pawn2.hashCode());
         Assert.assertNotNull(pawn.toString());
@@ -126,7 +128,7 @@ public class LudoModelTest {
         // Given
         LudoGameStateMessage msg = new LudoGameStateMessage(
                 "r1", RoomStatus.PLAYING, PlayerColor.RED, "p1", 
-                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null
+                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null, null
         );
 
         // When

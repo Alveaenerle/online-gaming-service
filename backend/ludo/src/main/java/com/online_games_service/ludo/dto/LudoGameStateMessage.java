@@ -27,4 +27,6 @@ public class LudoGameStateMessage {
     private List<LudoPlayer> players; 
     private Map<String, String> usernames;
     private String winnerId;
+
+    private String capturedUserId;
 }

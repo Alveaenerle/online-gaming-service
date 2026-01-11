@@ -47,7 +47,7 @@ public class LudoService {
     @Value("${ludo.turn-timeout-seconds:60}")
     private long turnTimeoutSeconds;
 
-    private static final int BOARD_SIZE = 40;
+    private static final int BOARD_SIZE = 52;
 
     // --- API FUNCTIONS ---
 
@@ -71,8 +71,7 @@ public class LudoService {
             return;
         }
 
-        LudoGameStateMessage msg = mapToDTO(game);
-        messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
+        saveAndBroadcastState(game);
 
         scheduleTurnTimeout(game);
 
@@ -85,7 +84,7 @@ public class LudoService {
     }
 
     public LudoGameStateMessage getGameState(String roomId) {
-        return mapToDTO(getGame(roomId));
+        return mapToDTO(getGame(roomId), null);
     }
 
     public void rollDice(String roomId, String playerId) {
@@ -119,9 +118,9 @@ public class LudoService {
         LudoPawn pawn = player.getPawns().get(pawnIndex);
         int roll = game.getLastDiceRoll();
 
-        performMoveLogic(game, player, pawn, roll);
+        String capturedId = performMoveLogic(game, player, pawn, roll);
 
-        handlePostMove(game, player, roll);
+        handlePostMove(game, player, roll, capturedId);
     }
 
     // --- ROLL AND MOVE LOGIC ---
@@ -150,14 +149,16 @@ public class LudoService {
             }
         }
 
-        saveAndBroadcast(game);
+        saveAndBroadcastState(game);
         
         if (game.getStatus() == RoomStatus.PLAYING && !isBot(game.getActivePlayerId())) {
             scheduleTurnTimeout(game);
         }
     }
 
-    private void performMoveLogic(LudoGame game, LudoPlayer currentPlayer, LudoPawn pawn, int roll) {
+    private String performMoveLogic(LudoGame game, LudoPlayer currentPlayer, LudoPawn pawn, int roll) {
+        String capturedId = null;
+
         if (pawn.isInHome()) {
             throw new InvalidMoveException("Pawn already in home");
         }
@@ -170,7 +171,7 @@ public class LudoService {
                 throw new InvalidMoveException("Start position blocked by self");
             }
 
-            handleCollision(game, startPos, currentPlayer);
+            capturedId = handleCollision(game, startPos, currentPlayer);
 
             pawn.setInBase(false);
             pawn.setPosition(startPos);
@@ -195,14 +196,15 @@ public class LudoService {
                     throw new InvalidMoveException("Cannot capture opponent on safe spot");
                 }
 
-                handleCollision(game, nextPos, currentPlayer);
+                capturedId = handleCollision(game, nextPos, currentPlayer);
                 pawn.setPosition(nextPos);
                 pawn.setStepsMoved(potentialSteps);
             }
         }
+        return capturedId;
     }
 
-    private void handlePostMove(LudoGame game, LudoPlayer player, int roll) {
+    private void handlePostMove(LudoGame game, LudoPlayer player, int roll, String capturedId) {
         if (checkWinCondition(player)) {
             handleGameFinish(game, player);
         } else {
@@ -210,7 +212,8 @@ public class LudoService {
                 game.setDiceRolled(false);
                 game.setWaitingForMove(false);
                 game.setRollsLeft(1);
-                saveAndBroadcast(game);
+                
+                saveAndBroadcastMoveResult(game, capturedId);
 
                 if (!isBot(player.getUserId())) {
                     scheduleTurnTimeout(game);
@@ -218,6 +221,10 @@ public class LudoService {
                     handleBotTurn(game, player.getUserId());
                 }
             } else {
+                if (capturedId != null) {
+                    saveAndBroadcastMoveResult(game, capturedId);
+                }
+                
                 passTurnToNextPlayer(game);
             }
         }
@@ -244,7 +251,7 @@ public class LudoService {
             game.setActivePlayerId(nextPlayer.getUserId());
             updateRollsCountForPlayer(game, nextPlayer);
 
-            saveAndBroadcast(game);
+            saveAndBroadcastState(game);
 
             if (isBot(nextPlayer.getUserId())) {
                 handleBotTurn(game, nextPlayer.getUserId());
@@ -293,7 +300,7 @@ public class LudoService {
                 if (game.getRollsLeft() > 0) {
                     game.setDiceRolled(false);
                     game.setWaitingForMove(false);
-                    saveAndBroadcast(game);
+                    saveAndBroadcastState(game);
                     
                     turnTimeoutScheduler.schedule(() -> processBotStep(roomId, botId), 1000, TimeUnit.MILLISECONDS);
                     return;
@@ -303,7 +310,7 @@ public class LudoService {
                 }
             }
 
-            saveAndBroadcast(game);
+            saveAndBroadcastState(game);
 
             if (canMove) {
                 turnTimeoutScheduler.schedule(() -> executeBotMove(roomId, botId, roll), 1000, TimeUnit.MILLISECONDS);
@@ -326,7 +333,7 @@ public class LudoService {
 
             if (pawnToMoveIndex != -1) {
                 LudoPawn pawn = bot.getPawns().get(pawnToMoveIndex);
-                performMoveLogic(game, bot, pawn, roll);
+                String capturedId = performMoveLogic(game, bot, pawn, roll);
                 
                 if (checkWinCondition(bot)) {
                     handleGameFinish(game, bot);
@@ -337,10 +344,13 @@ public class LudoService {
                     game.setDiceRolled(false);
                     game.setWaitingForMove(false);
                     game.setRollsLeft(1);
-                    saveAndBroadcast(game);
+                    saveAndBroadcastMoveResult(game, capturedId);
                     
                     turnTimeoutScheduler.schedule(() -> processBotStep(roomId, botId), 1000, TimeUnit.MILLISECONDS);
                 } else {
+                    if (capturedId != null) {
+                        saveAndBroadcastMoveResult(game, capturedId);
+                    }
                     passTurnToNextPlayer(game);
                 }
             } else {
@@ -455,7 +465,7 @@ public class LudoService {
                 game.setLastDiceRoll(0);
                 updateRollsCountForPlayer(game, player); 
 
-                saveAndBroadcast(game);
+                saveAndBroadcastState(game);
                 
                 handleBotTurn(game, botId);
             } else {
@@ -494,15 +504,23 @@ public class LudoService {
                 .orElse(false);
     }
 
-    private void handleCollision(LudoGame game, int pos, LudoPlayer movingPlayer) {
+    private String handleCollision(LudoGame game, int pos, LudoPlayer movingPlayer) {
+        final String[] capturedId = {null};
         getPawnOnPosition(game, pos).ifPresent(enemy -> {
             if (enemy.getColor() != movingPlayer.getColor()) {
                 enemy.setInBase(true);
                 enemy.setPosition(-1);
                 enemy.setStepsMoved(0);
                 enemy.setInHome(false);
+
+                capturedId[0] = game.getPlayers().stream()
+                    .filter(p -> p.getColor() == enemy.getColor())
+                    .findFirst()
+                    .map(LudoPlayer::getUserId)
+                    .orElse(null);
             }
         });
+        return capturedId[0];
     }
 
     private Optional<LudoPawn> getPawnOnPosition(LudoGame game, int pos) {
@@ -523,13 +541,21 @@ public class LudoService {
         }
     }
 
-    private void saveAndBroadcast(LudoGame game) {
+    // --- BROADCAST METHODS ---
+
+    private void saveAndBroadcastState(LudoGame game) {
         gameRepository.save(game);
-        LudoGameStateMessage msg = mapToDTO(game); 
+        LudoGameStateMessage msg = mapToDTO(game, null); 
         messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
     }
 
-    private LudoGameStateMessage mapToDTO(LudoGame game) {
+    private void saveAndBroadcastMoveResult(LudoGame game, String capturedUserId) {
+        gameRepository.save(game);
+        LudoGameStateMessage msg = mapToDTO(game, capturedUserId);
+        messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
+    }
+
+    private LudoGameStateMessage mapToDTO(LudoGame game, String capturedUserId) {
         return new LudoGameStateMessage(
                 game.getRoomId(),
                 game.getStatus(),
@@ -541,7 +567,8 @@ public class LudoService {
                 game.getRollsLeft(),
                 game.getPlayers(),
                 game.getPlayersUsernames(),
-                game.getWinnerId()
+                game.getWinnerId(),
+                capturedUserId 
         );
     }
 
@@ -562,7 +589,7 @@ public class LudoService {
         GameFinishMessage finishMsg = new GameFinishMessage(game.getRoomId(), RoomStatus.FINISHED);
         rabbitTemplate.convertAndSend(exchangeName, finishRoutingKey, finishMsg);
         
-        saveAndBroadcast(game);
+        saveAndBroadcastState(game);
         
         if (game.getRoomId() != null) {
             gameRepository.deleteById(game.getRoomId());
