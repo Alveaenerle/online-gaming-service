@@ -110,6 +110,17 @@ public class GameRoomService {
         log.info("Broadcasted room update for room {}", room.getId());
     }
 
+    private void sendKickNotification(String roomId, String kickedUserId, String hostUsername) {
+        java.util.Map<String, Object> notification = java.util.Map.of(
+                "type", "KICKED",
+                "roomId", roomId,
+                "kickedBy", hostUsername,
+                "message", "You have been kicked from the room by " + hostUsername
+        );
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/kicked/" + kickedUserId, notification);
+        log.info("Sent kick notification to user {} for room {}", kickedUserId, roomId);
+    }
+
     public GameRoom joinRoom(JoinGameRequest request, String userId, String username) {
         // Handle re-join or lock
         String existingRoomId = getUserCurrentRoomId(userId, username);
@@ -436,6 +447,9 @@ public class GameRoomService {
         }
 
         String kickedUsername = room.getPlayers().get(playerToKickUserId).getUsername();
+
+        // Send kick notification BEFORE removing the player (so they can receive it)
+        sendKickNotification(room.getId(), playerToKickUserId, hostUsername);
 
         room.removePlayerById(playerToKickUserId);
         clearUserRoomMapping(playerToKickUserId, kickedUsername);

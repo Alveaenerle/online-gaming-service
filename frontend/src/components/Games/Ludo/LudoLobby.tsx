@@ -12,12 +12,23 @@ import { lobbyService } from "../../../services/lobbyService";
 import { useAuth } from "../../../context/AuthContext";
 import { useLobby } from "../../../context/LobbyContext";
 import { mapLobbyRawToLobby } from "../utils/lobbyMapper";
+import { useSocial } from "../../../context/SocialContext";
+import { useToast } from "../../../context/ToastContext";
 
 export function LudoLobby() {
   const { user } = useAuth();
   const { currentLobby, clearLobby, refreshLobbyStatus, setCurrentLobby } =
     useLobby();
+  const { friends, sentRequests, pendingRequests, sendFriendRequest } = useSocial();
+  const { showToast } = useToast();
   const navigate = useNavigate();
+
+  // Helper to check friend status
+  const isFriend = (userId: string) => friends.some(f => f.id === userId); 
+  const isInvited = (userId: string) => sentRequests.some(r => r.addresseeId === userId);
+  // Also check if there's a pending request FROM this user TO me
+  const hasReceivedRequest = (userId: string) => pendingRequests.some(r => r.requesterId === userId);
+  const canSendRequests = !user?.isGuest;
 
   const [avatarSelectFor, setAvatarSelectFor] = useState<string | null>(null);
 
@@ -69,7 +80,7 @@ export function LudoLobby() {
       setAvatarSelectFor(null);
     } catch (err) {
       console.error("Failed to change avatar:", err);
-      alert("Failed to change avatar. Please try again.");
+      showToast("Failed to change avatar. Please try again.", "error");
     }
   };
 
@@ -110,6 +121,11 @@ export function LudoLobby() {
         onAvatarSelect={setAvatarSelectFor}
         onToggleReady={handleToggleReady}
         isHost={isHost}
+        onAddFriend={sendFriendRequest}
+        isFriend={isFriend}
+        isInvited={isInvited}
+        hasReceivedRequest={hasReceivedRequest}
+        canSendFriendRequest={canSendRequests}
       />
 
       <LobbyActions

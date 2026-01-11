@@ -13,11 +13,13 @@ import { useAuth } from "../../../context/AuthContext";
 import { useLobby } from "../../../context/LobbyContext";
 import { mapLobbyRawToLobby } from "../utils/lobbyMapper";
 import { useSocial } from "../../../context/SocialContext";
+import { useToast } from "../../../context/ToastContext";
 
 export function MakaoLobby() {
   const { user } = useAuth();
   const { currentLobby, clearLobby, refreshLobbyStatus, setCurrentLobby } = useLobby();
   const { friends, sentRequests, pendingRequests, sendFriendRequest } = useSocial();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   // Helper to check friend status
@@ -65,7 +67,7 @@ export function MakaoLobby() {
       setAvatarSelectFor(null);
     } catch (err) {
       console.error("Failed to change avatar:", err);
-      alert("Failed to change avatar. Please try again.");
+      showToast("Failed to change avatar. Please try again.", "error");
     }
   };
 

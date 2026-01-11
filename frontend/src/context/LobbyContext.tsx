@@ -7,10 +7,12 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { lobbyService } from "../services/lobbyService";
 import { socketService } from "../services/socketService";
 import { LobbyInfoRaw } from "../components/Games/utils/types";
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 
 interface LobbyContextType {
   currentLobby: LobbyInfoRaw | null;
@@ -27,9 +29,12 @@ export const LobbyProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { user } = useAuth(); // Monitor user state
+  const { showToast } = useToast();
+  const navigate = useNavigate();
   const [currentLobby, setCurrentLobby] = useState<LobbyInfoRaw | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const subscriptionRef = useRef<string | null>(null);
+  const kickSubscriptionRef = useRef<string | null>(null);
 
   const refreshLobbyStatus = useCallback(async () => {
     setIsLoading(true);
@@ -50,6 +55,10 @@ export const LobbyProvider: React.FC<{ children: ReactNode }> = ({
       socketService.unsubscribe(subscriptionRef.current);
       subscriptionRef.current = null;
     }
+    if (kickSubscriptionRef.current) {
+      socketService.unsubscribe(kickSubscriptionRef.current);
+      kickSubscriptionRef.current = null;
+    }
     setCurrentLobby(null);
   }, []);
 
@@ -67,18 +76,42 @@ export const LobbyProvider: React.FC<{ children: ReactNode }> = ({
     setCurrentLobby(data);
   }, []);
 
+  // Handle kick notification
+  const handleKickNotification = useCallback((data: { type: string; kickedBy: string; message: string }) => {
+    console.log("LobbyContext: Received kick notification", data);
+    if (data.type === 'KICKED') {
+      showToast(data.message || `You have been kicked by ${data.kickedBy}`, 'error');
+      // Clear lobby state and navigate to home
+      if (subscriptionRef.current) {
+        socketService.unsubscribe(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+      if (kickSubscriptionRef.current) {
+        socketService.unsubscribe(kickSubscriptionRef.current);
+        kickSubscriptionRef.current = null;
+      }
+      setCurrentLobby(null);
+      navigate('/home');
+    }
+  }, [showToast, navigate]);
+
   // Subscribe to WebSocket updates when lobby changes
   useEffect(() => {
-    if (!currentLobby?.id) {
+    if (!currentLobby?.id || !user?.id) {
       // No lobby, unsubscribe if subscribed
       if (subscriptionRef.current) {
         socketService.unsubscribe(subscriptionRef.current);
         subscriptionRef.current = null;
       }
+      if (kickSubscriptionRef.current) {
+        socketService.unsubscribe(kickSubscriptionRef.current);
+        kickSubscriptionRef.current = null;
+      }
       return;
     }
 
     const topic = `/topic/room/${currentLobby.id}`;
+    const kickTopic = `/topic/room/${currentLobby.id}/kicked/${user.id}`;
     
     // Only subscribe if not already subscribed to this topic
     if (subscriptionRef.current === topic) {
@@ -89,6 +122,9 @@ export const LobbyProvider: React.FC<{ children: ReactNode }> = ({
     if (subscriptionRef.current) {
       socketService.unsubscribe(subscriptionRef.current);
     }
+    if (kickSubscriptionRef.current) {
+      socketService.unsubscribe(kickSubscriptionRef.current);
+    }
 
     const connectAndSubscribe = async () => {
       try {
@@ -96,6 +132,11 @@ export const LobbyProvider: React.FC<{ children: ReactNode }> = ({
         console.log(`LobbyContext: Subscribing to ${topic}`);
         socketService.subscribe(topic, handleLobbyUpdate);
         subscriptionRef.current = topic;
+        
+        // Subscribe to kick notifications for this user
+        console.log(`LobbyContext: Subscribing to kick notifications ${kickTopic}`);
+        socketService.subscribe(kickTopic, handleKickNotification);
+        kickSubscriptionRef.current = kickTopic;
         
         // Refresh lobby status to ensure we have the latest data after connection
         const latestInfo = await lobbyService.getRoomInfo();
@@ -110,7 +151,7 @@ export const LobbyProvider: React.FC<{ children: ReactNode }> = ({
     return () => {
       // Keep subscription active
     };
-  }, [currentLobby?.id, handleLobbyUpdate]);
+  }, [currentLobby?.id, user?.id, handleLobbyUpdate, handleKickNotification]);
 
   // Check lobby status on mount
   useEffect(() => {

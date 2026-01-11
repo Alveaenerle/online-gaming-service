@@ -130,10 +130,6 @@ export function LobbyIndicator() {
                 {/* Room info */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-base">
-                    <span className="text-gray-500">Room</span>
-                    <span className="text-white font-medium truncate max-w-[280px]">
-                      {currentLobby.name}
-                    </span>
                   </div>
                   <div className="flex items-center justify-between text-base">
                     <span className="text-gray-500">Players</span>
