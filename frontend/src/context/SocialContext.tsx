@@ -12,6 +12,7 @@ interface SocialContextType {
   sendFriendRequest: (userId: string) => Promise<void>;
   acceptFriendRequest: (requestId: string) => Promise<void>;
   rejectFriendRequest: (requestId: string) => Promise<void>;
+  removeFriend: (friendId: string) => Promise<void>;
   refreshSocialData: () => Promise<void>;
 }
 
@@ -69,11 +70,7 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         await socialSocketService.connect();
         
-        // Listen for notifications
-        // The topic depends on backend configuration. Assuming user-specific queue.
-        // Usually: /user/queue/notifications. 
-        // Note: For StompJS over SockJS with user destinations, we often subscribe to /user/queue/notifications
-        // and the backend routes it.
+        // Listen for notifications (friend requests, accepts)
         socialSocketService.subscribe('/user/queue/notifications', (notification: any) => {
            if (!mounted) return;
            
@@ -86,6 +83,20 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 refreshSocialData(); // Refresh to update friend list
              }
            }
+        });
+
+        // Listen for presence updates (friends going online/offline)
+        socialSocketService.subscribe('/user/queue/presence', (presenceUpdate: { userId: string; status: 'ONLINE' | 'OFFLINE' }) => {
+           if (!mounted) return;
+           
+           console.log('[SocialContext] Presence update:', presenceUpdate);
+           
+           // Update the friend's status in local state
+           setFriends(prev => prev.map(friend => 
+             friend.id === presenceUpdate.userId 
+               ? { ...friend, status: presenceUpdate.status }
+               : friend
+           ));
         });
 
       } catch (err) {
@@ -146,6 +157,19 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
   };
 
+  const removeFriend = async (friendId: string) => {
+      try {
+          await socialService.removeFriend(friendId);
+          // Optimistic update: remove from local state
+          setFriends(prev => prev.filter(f => f.id !== friendId));
+          showToast("Friend removed", 'info');
+      } catch (error) {
+        showToast("Failed to remove friend", 'error');
+        // Refresh to get actual state
+        refreshSocialData();
+      }
+  };
+
   return (
     <SocialContext.Provider value={{
       friends,
@@ -155,6 +179,7 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       sendFriendRequest,
       acceptFriendRequest,
       rejectFriendRequest,
+      removeFriend,
       refreshSocialData
     }}>
       {children}

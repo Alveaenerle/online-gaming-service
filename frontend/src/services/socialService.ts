@@ -82,5 +82,12 @@ export const socialService = {
     });
     if (!response.ok) throw new Error('Failed to fetch sent requests');
     return response.json();
+  },
+
+  async removeFriend(friendId: string): Promise<void> {
+    const response = await fetchWithCredentials(`${API_BASE_URL}/friends/${friendId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to remove friend');
   }
 };

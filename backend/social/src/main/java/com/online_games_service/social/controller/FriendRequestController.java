@@ -188,4 +188,29 @@ public class FriendRequestController {
 
         return ResponseEntity.ok(friends);
     }
+
+    /**
+     * Remove a friend.
+     * 
+     * DELETE /friends/{friendId}
+     * 
+     * @param friendId The ID of the friend to remove
+     * @param userId The authenticated user's ID (from SessionUserFilter)
+     * @return 204 No Content on success
+     */
+    @DeleteMapping("/{friendId}")
+    public ResponseEntity<Void> removeFriend(
+            @PathVariable String friendId,
+            @RequestAttribute(value = "userId", required = false) String userId) {
+        if (userId == null) {
+            logger.warn("Attempt to remove friend without authentication");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        logger.info("User {} removing friend {}", userId, friendId);
+
+        friendRequestService.removeFriend(userId, friendId);
+
+        return ResponseEntity.noContent().build();
+    }
 }

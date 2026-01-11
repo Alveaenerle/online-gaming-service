@@ -43,7 +43,9 @@ export function LobbyPlayersSection({
             const alreadyFriend = player && isFriend ? isFriend(player.userId) : false;
             const alreadyInvited = player && isInvited ? isInvited(player.userId) : false;
             const receivedFromThem = player && hasReceivedRequest ? hasReceivedRequest(player.userId) : false;
-            const showAdd = canSendFriendRequest && !alreadyFriend && !alreadyInvited && !receivedFromThem;
+            // Don't show add button for guests (usernames starting with "Guest_")
+            const isTargetGuest = player?.username?.startsWith("Guest_") ?? false;
+            const showAdd = canSendFriendRequest && !alreadyFriend && !alreadyInvited && !receivedFromThem && !isTargetGuest;
 
             return (
               <PlayerCard

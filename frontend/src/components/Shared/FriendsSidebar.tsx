@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, X, Check, Clock } from "lucide-react";
+import { Users, X, Check, Clock, UserMinus } from "lucide-react";
 import { useSocial } from "../../context/SocialContext";
 
 interface FriendsSidebarProps {
@@ -12,7 +12,7 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { friends, pendingRequests, acceptFriendRequest, rejectFriendRequest } = useSocial();
+  const { friends, pendingRequests, acceptFriendRequest, rejectFriendRequest, removeFriend } = useSocial();
 
   return (
     <AnimatePresence>
@@ -116,26 +116,31 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
                                 border border-white/10
                                 hover:border-purple-500/40 transition group"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                {/* Initials avatar since we might not have URL */}
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-xs font-bold">
-                                    {friend.username.substring(0,2).toUpperCase()}
-                                </div>
-                                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#121018]
-                                    ${friend.status === 'ONLINE' ? 'bg-green-500' : 
-                                      friend.status === 'PLAYING' ? 'bg-yellow-500' : 'bg-gray-500'}`} 
-                                />
-                            </div>
-                            <div>
-                                <p className="font-semibold text-sm group-hover:text-purple-300 transition-colors">{friend.username}</p>
-                                <p className={`text-[10px] font-medium uppercase tracking-wide
-                                    ${friend.status === 'ONLINE' ? 'text-green-400' : 
-                                      friend.status === 'PLAYING' ? 'text-yellow-400' : 'text-gray-500'}`}
-                                >
-                                    {friend.status}
-                                </p>
-                            </div>
+                        <div className="flex flex-col">
+                            <p className="font-semibold text-sm text-white group-hover:text-purple-300 transition-colors">{friend.username}</p>
+                            <p className={`text-xs font-medium
+                                ${friend.status === 'ONLINE' ? 'text-green-400' : 
+                                  friend.status === 'PLAYING' ? 'text-yellow-400' : 'text-gray-500'}`}
+                            >
+                                {friend.status === 'ONLINE' ? 'online' : 
+                                 friend.status === 'PLAYING' ? 'playing' : 'offline'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => removeFriend(friend.id)}
+                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 
+                                         bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white 
+                                         transition-all"
+                                title="Remove friend"
+                            >
+                                <UserMinus size={14} />
+                            </button>
+                            {/* Status dot on the right */}
+                            <div className={`w-3 h-3 rounded-full flex-shrink-0
+                                ${friend.status === 'ONLINE' ? 'bg-green-500 shadow-lg shadow-green-500/50' : 
+                                  friend.status === 'PLAYING' ? 'bg-yellow-500 shadow-lg shadow-yellow-500/50' : 'bg-gray-500'}`} 
+                            />
                         </div>
                     </motion.div>
                     ))

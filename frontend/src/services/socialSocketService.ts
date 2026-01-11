@@ -36,11 +36,19 @@ class SocialSocketService {
   }
 
   subscribe(topic: string, callback: (payload: any) => void) {
-    if (!this.client?.connected) return;
+    if (!this.client?.connected) {
+      console.warn('[SocialSocket] Cannot subscribe - not connected. Topic:', topic);
+      return;
+    }
 
-    if (this.subscriptions.has(topic)) return;
+    if (this.subscriptions.has(topic)) {
+      console.log('[SocialSocket] Already subscribed to', topic);
+      return;
+    }
 
+    console.log('[SocialSocket] Subscribing to', topic);
     const sub = this.client.subscribe(topic, (msg) => {
+      console.log('[SocialSocket] Received message on', topic, msg.body);
       callback(JSON.parse(msg.body));
     });
     this.subscriptions.set(topic, sub);

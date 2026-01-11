@@ -26,4 +26,6 @@ public interface FriendRequestRepository extends MongoRepository<FriendRequest, 
     boolean existsByRequesterIdAndAddresseeIdAndStatus(String requesterId, String addresseeId, Status status);
     
     Optional<FriendRequest> findByIdAndAddresseeId(String id, String addresseeId);
+    
+    void deleteByRequesterIdAndAddresseeIdAndStatus(String requesterId, String addresseeId, Status status);
 }

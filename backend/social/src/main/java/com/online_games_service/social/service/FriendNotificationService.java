@@ -58,26 +58,32 @@ public class FriendNotificationService {
         Set<String> friendIds = getFriendIds(userId);
         
         if (friendIds.isEmpty()) {
-            logger.debug("User {} has no friends to notify about {} status", userId, status);
+            logger.info("User {} has no friends to notify about {} status", userId, status);
             return;
         }
 
+        logger.info("Notifying {} friends about user {} going {}", friendIds.size(), userId, status);
         PresenceUpdateMessage message = new PresenceUpdateMessage(userId, status);
 
         for (String friendId : friendIds) {
+            boolean isOnline = presenceService.isUserOnline(friendId);
+            logger.info("Friend {} online status: {}", friendId, isOnline);
+            
             // Only send to friends who are currently online
-            if (presenceService.isUserOnline(friendId)) {
+            if (isOnline) {
                 try {
                     messagingTemplate.convertAndSendToUser(
                             friendId,
                             PRESENCE_DESTINATION,
                             message
                     );
-                    logger.debug("Sent {} notification for user {} to friend {}", status, userId, friendId);
+                    logger.info("Sent {} notification for user {} to friend {}", status, userId, friendId);
                 } catch (Exception e) {
                     logger.warn("Failed to notify friend {} about user {} going {}: {}", 
                             friendId, userId, status, e.getMessage());
                 }
+            } else {
+                logger.info("Skipping friend {} - not online", friendId);
             }
         }
         

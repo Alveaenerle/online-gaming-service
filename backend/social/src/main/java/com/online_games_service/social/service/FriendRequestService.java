@@ -258,11 +258,12 @@ public class FriendRequestService {
     }
 
     /**
-     * Rejects a friend request.
+     * Rejects a friend request by deleting it.
+     * This allows the sender to send a new request later.
      * 
      * @param currentUserId The ID of the user rejecting the request
      * @param requestId The ID of the friend request to reject
-     * @return FriendRequestResponseDto with the updated request details
+     * @return FriendRequestResponseDto with the deleted request details
      * @throws FriendRequestException if validation fails or DB operation fails
      */
     @Transactional
@@ -278,24 +279,69 @@ public class FriendRequestService {
             throw new FriendRequestException(ErrorCode.REQUEST_ALREADY_ACCEPTED, "Request is no longer pending");
         }
 
+        // Store request details before deletion
+        String requestIdValue = request.getId();
+        String requesterId = request.getRequesterId();
+        String requesterUsername = request.getRequesterUsername();
+        String addresseeId = request.getAddresseeId();
+        java.time.LocalDateTime createdAt = request.getCreatedAt();
+
         try {
-            // Update request status to REJECTED
-            request.setStatus(Status.REJECTED);
-            request = friendRequestRepository.save(request);
-            logger.info("Friend request {} rejected", requestId);
+            // Delete the request so sender can send a new one later
+            friendRequestRepository.delete(request);
+            logger.info("Friend request {} rejected and deleted", requestIdValue);
         } catch (DataAccessException e) {
             logger.error("Database error while rejecting friend request: {}", e.getMessage(), e);
             throw new FriendRequestException(ErrorCode.DATABASE_ERROR, e);
         }
 
         return new FriendRequestResponseDto(
-                request.getId(),
-                request.getRequesterId(),
-                request.getRequesterUsername(),
-                request.getAddresseeId(),
-                request.getStatus().name(),
-                request.getCreatedAt(),
+                requestIdValue,
+                requesterId,
+                requesterUsername,
+                addresseeId,
+                "REJECTED",
+                createdAt,
                 "Friend request rejected"
         );
+    }
+
+    /**
+     * Removes a friend from the current user's friend list.
+     * 
+     * @param currentUserId The ID of the user removing the friend
+     * @param friendId The ID of the friend to remove
+     * @throws FriendRequestException if validation fails or DB operation fails
+     */
+    @Transactional
+    public void removeFriend(String currentUserId, String friendId) {
+        logger.info("User {} removing friend {}", currentUserId, friendId);
+
+        try {
+            // Remove from current user's profile
+            SocialProfile currentUserProfile = socialProfileRepository.findById(currentUserId)
+                    .orElse(null);
+            if (currentUserProfile != null) {
+                currentUserProfile.removeFriend(friendId);
+                socialProfileRepository.save(currentUserProfile);
+            }
+
+            // Remove from the other user's profile
+            SocialProfile friendProfile = socialProfileRepository.findById(friendId)
+                    .orElse(null);
+            if (friendProfile != null) {
+                friendProfile.removeFriend(currentUserId);
+                socialProfileRepository.save(friendProfile);
+            }
+
+            // Also delete any accepted friend request between them
+            friendRequestRepository.deleteByRequesterIdAndAddresseeIdAndStatus(currentUserId, friendId, Status.ACCEPTED);
+            friendRequestRepository.deleteByRequesterIdAndAddresseeIdAndStatus(friendId, currentUserId, Status.ACCEPTED);
+
+            logger.info("Friend {} removed from user {}'s friend list", friendId, currentUserId);
+        } catch (DataAccessException e) {
+            logger.error("Database error while removing friend: {}", e.getMessage(), e);
+            throw new FriendRequestException(ErrorCode.DATABASE_ERROR, e);
+        }
     }
 }
