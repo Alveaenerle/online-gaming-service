@@ -177,4 +177,84 @@ public class FriendNotificationServiceTest {
         // Then
         verify(messagingTemplate, never()).convertAndSendToUser(anyString(), anyString(), any());
     }
+
+    @Test
+    public void shouldSendFriendRequestNotification() {
+        // Given
+        String targetUserId = "targetUser";
+        String fromUserId = "user1";
+        String fromUserName = "User One";
+
+        // When
+        friendNotificationService.sendFriendRequestNotification(targetUserId, fromUserId, fromUserName);
+
+        // Then
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(targetUserId),
+                eq("/queue/notifications"),
+                argThat((Object notification) -> {
+                    if (notification instanceof java.util.Map) {
+                        java.util.Map map = (java.util.Map) notification;
+                        return "FRIEND_REQUEST".equals(map.get("subType")) &&
+                               fromUserId.equals(map.get("senderId")) &&
+                               fromUserName.equals(map.get("senderName"));
+                    }
+                    return false;
+                })
+        );
+    }
+
+    @Test
+    public void shouldHandleErrorWhenSendingFriendRequestNotification() {
+        // Given
+        String targetUserId = "targetUser";
+        doThrow(new RuntimeException("Error")).when(messagingTemplate)
+                .convertAndSendToUser(anyString(), anyString(), any());
+
+        // When
+        friendNotificationService.sendFriendRequestNotification(targetUserId, "user1", "User One");
+
+        // Then
+        verify(messagingTemplate).convertAndSendToUser(eq(targetUserId), anyString(), any());
+    }
+
+    @Test
+    public void shouldSendRequestAcceptedNotification() {
+        // Given
+        String targetUserId = "targetUser";
+        String accepterId = "user2";
+        String accepterName = "User Two";
+
+        // When
+        friendNotificationService.sendRequestAcceptedNotification(targetUserId, accepterId, accepterName);
+
+        // Then
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(targetUserId),
+                eq("/queue/notifications"),
+                argThat((Object notification) -> {
+                    if (notification instanceof java.util.Map) {
+                        java.util.Map map = (java.util.Map) notification;
+                        return "REQUEST_ACCEPTED".equals(map.get("subType")) &&
+                               accepterId.equals(map.get("accepterId")) &&
+                               accepterName.equals(map.get("accepterName"));
+                    }
+                    return false;
+                })
+        );
+    }
+
+    @Test
+    public void shouldHandleErrorWhenSendingRequestAcceptedNotification() {
+        // Given
+        String targetUserId = "targetUser";
+        doThrow(new RuntimeException("Error")).when(messagingTemplate)
+                .convertAndSendToUser(anyString(), anyString(), any());
+
+        // When
+        friendNotificationService.sendRequestAcceptedNotification(targetUserId, "user2", "User Two");
+
+        // Then
+        verify(messagingTemplate).convertAndSendToUser(eq(targetUserId), anyString(), any());
+    }
 }
