@@ -3,6 +3,7 @@ import Navbar from "../Shared/Navbar";
 import Title from "./Title";
 import Features from "./Features";
 import Footer from "../Shared/Footer";
+import { SocialCenter } from "../Shared/SocialCenter";
 
 const LandingPage: React.FC = () => {
   return (
@@ -15,6 +16,7 @@ const LandingPage: React.FC = () => {
         </div>
       </main>
       <Footer />
+      <SocialCenter />
     </div>
   );
 };

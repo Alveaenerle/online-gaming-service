@@ -7,6 +7,7 @@ import { LobbyActions } from "../shared/LobbyActions";
 import { LobbyPlayersSection } from "../shared/LobbyPlayersSection";
 import { AvatarPicker } from "../shared/AvatarPicker";
 import { InviteFriendModal } from "../shared/InviteFriendModal";
+import { ChatWidget } from "../shared/ChatWidget";
 import { SocialCenter } from "../../Shared/SocialCenter";
 import { ConfirmationModal } from "../../Shared/ConfirmationModal";
 
@@ -142,6 +143,8 @@ export function LudoLobby() {
       />
 
       <SocialCenter />
+      
+      <ChatWidget isHost={isHost} />
 
       {avatarSelectFor && (
         <AvatarPicker
