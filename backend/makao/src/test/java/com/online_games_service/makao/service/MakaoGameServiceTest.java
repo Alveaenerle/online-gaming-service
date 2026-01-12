@@ -1158,6 +1158,87 @@ public class MakaoGameServiceTest {
 		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-notify");
 	}
 
+	// ============================================
+	// Player Room Mapping Cleanup Tests
+	// ============================================
+
+	@Test
+	public void clearPlayerRoomMapping_deletesRedisKey() {
+		String playerId = "user-cleanup-1";
+
+		ReflectionTestUtils.invokeMethod(service, "clearPlayerRoomMapping", playerId);
+
+		verify(redisTemplate).delete("game:user-room:id:" + playerId);
+	}
+
+	@Test
+	public void clearPlayerRoomMapping_skipsBotsAndNullPlayers() {
+		ReflectionTestUtils.invokeMethod(service, "clearPlayerRoomMapping", (String) null);
+		ReflectionTestUtils.invokeMethod(service, "clearPlayerRoomMapping", "bot-1");
+
+		// Neither should trigger a delete
+		verify(redisTemplate, org.mockito.Mockito.never()).delete(org.mockito.ArgumentMatchers.anyString());
+	}
+
+	@Test
+	public void handleTurnTimeout_clearsPlayerRoomMapping() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-cleanup");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("timeout-player");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("timeout-player", "other")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("timeout-player", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))));
+		hands.put("other", new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN))));
+		game.setPlayersHands(hands);
+		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of("timeout-player", 0, "other", 0)));
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("timeout-player", "TimeoutUser", "other", "Other")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.THREE)))));
+
+		when(gameRepository.findById("room-cleanup")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "room-cleanup", "timeout-player");
+
+		// Verify Redis mapping was cleared for the timed-out player
+		verify(redisTemplate).delete("game:user-room:id:timeout-player");
+
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-cleanup");
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	public void endGame_clearsGameInProgressMap() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-end-cleanup");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("p1", new ArrayList<>());
+		game.setPlayersHands(hands);
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("p1", "Player1")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+
+		doReturn(game).when(gameRepository).save(game);
+
+		// Simulate that gameInProgress has an entry for this room
+		Map<String, java.util.concurrent.atomic.AtomicBoolean> gameInProgress = 
+				(Map<String, java.util.concurrent.atomic.AtomicBoolean>) ReflectionTestUtils.getField(service, "gameInProgress");
+		assertNotNull(gameInProgress);
+
+		// Add an entry
+		gameInProgress.put("room-end-cleanup", new java.util.concurrent.atomic.AtomicBoolean(false));
+		assertTrue(gameInProgress.containsKey("room-end-cleanup"));
+
+		// End the game
+		ReflectionTestUtils.invokeMethod(service, "endGame", game);
+
+		// Verify the entry was removed
+		assertFalse(gameInProgress.containsKey("room-end-cleanup"));
+	}
+
 	private MakaoGame baseGameWithTopCard(Card topCard) {
 		MakaoGame game = new MakaoGame();
 		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(topCard))));

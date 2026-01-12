@@ -706,6 +706,12 @@ public class MakaoGameService {
     private void endGame(MakaoGame game) {
         cancelTurnTimeout(game.getRoomId());
         cancelBotMove(game.getRoomId());
+        
+        // Clean up gameInProgress map entry for this room
+        if (game.getRoomId() != null) {
+            gameInProgress.remove(game.getRoomId());
+        }
+        
         game.setStatus(RoomStatus.FINISHED);
         game.setSpecialEffectActive(false);
         game.setDrawnCard(null);
@@ -871,6 +877,22 @@ public class MakaoGameService {
             }
         }
         return false;
+    }
+
+    /**
+     * Clears the Redis mapping for a player so they can join new games.
+     * Should be called when a player is removed from the game (timeout, kick, etc.)
+     */
+    private void clearPlayerRoomMapping(String playerId) {
+        if (playerId == null || isBot(playerId)) {
+            return;
+        }
+        try {
+            redisTemplate.delete(KEY_USER_ROOM_BY_ID + playerId);
+            log.debug("Cleared room mapping for player {}", playerId);
+        } catch (Exception e) {
+            log.error("Failed to clear room mapping for player {}", playerId, e);
+        }
     }
 
     private int calculateHandValue(List<Card> hand) {
@@ -1170,6 +1192,9 @@ public class MakaoGameService {
                 losers.add(timedOutPlayer);
             }
             game.setLosers(losers);
+
+            // Clean up Redis mapping for timed-out player so they can join new games
+            clearPlayerRoomMapping(timedOutPlayer);
 
             game.setActivePlayerId(botId);
 
