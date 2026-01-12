@@ -55,7 +55,7 @@ public class MakaoGameService {
     private final Map<String, ScheduledFuture<?>> botMoveSchedules = new ConcurrentHashMap<>();
     private final Map<String, AtomicBoolean> gameInProgress = new ConcurrentHashMap<>();
 
-    @Value("${makao.turn-timeout-seconds:65}")
+    @Value("${makao.turn-timeout-seconds:60}")
     private long turnTimeoutSeconds;
 
     @Value("${makao.bot-delay-min-ms:1000}")
@@ -275,6 +275,9 @@ public class MakaoGameService {
         String moveLog = formatMoveLog(playerName, playedCard, request);
         game.addMoveLog(moveLog);
 
+        // Check for MAKAO status (player has 1 card left)
+        checkAndSetMakaoStatus(game, userId, hand);
+
         if (hand.isEmpty()) {
             endGame(game);
             return game;
@@ -297,6 +300,7 @@ public class MakaoGameService {
             throw new IllegalStateException("Discard pile has no top card");
         }
 
+        // When special effect is active (2/3 or 4 chain), only matching special cards allowed
         if (game.isSpecialEffectActive()) {
             CardRank currentRank = current.getRank();
             if (currentRank == CardRank.TWO || currentRank == CardRank.THREE) {
@@ -308,18 +312,62 @@ public class MakaoGameService {
         }
 
         // If the previous player demanded a specific rank (Jack effect), respect it
-        // unless Jack is played again
+        // unless Jack is played again. Queen cannot bypass demands.
         if (game.getDemandedRank() != null) {
             return card.getRank() == game.getDemandedRank() || card.getRank() == CardRank.JACK;
         }
 
         // If the previous player demanded a specific suit (Ace effect), respect it
-        // unless Ace is played again
+        // unless Ace is played again. Queen cannot bypass demands.
         if (game.getDemandedSuit() != null) {
             return card.getSuit() == game.getDemandedSuit() || card.getRank() == CardRank.ACE;
         }
 
+        // QUEEN LOGIC: "Queen on everything, everything on Queen"
+        // Queen can be played on any non-special card
+        // Any non-special card can be played on Queen
+        boolean cardIsQueen = card.getRank() == CardRank.QUEEN;
+        boolean currentIsQueen = current.getRank() == CardRank.QUEEN;
+
+        // Check if card is a "special" card that has game effects
+        boolean cardIsSpecialEffect = isSpecialEffectCard(card);
+        boolean currentIsSpecialEffect = isSpecialEffectCard(current);
+
+        // Queen can be played on any non-special-effect card (regardless of rank/suit)
+        if (cardIsQueen && !currentIsSpecialEffect) {
+            return true;
+        }
+
+        // Any non-special-effect card can be played on Queen (regardless of rank/suit)
+        if (currentIsQueen && !cardIsSpecialEffect) {
+            return true;
+        }
+
+        // Standard matching: same rank or same suit
         return card.getRank() == current.getRank() || card.getSuit() == current.getSuit();
+    }
+
+    /**
+     * Checks if a card is a special effect card (2, 3, 4, Jack, Ace, or combat Kings).
+     * Queen is NOT a special effect card.
+     */
+    private boolean isSpecialEffectCard(Card card) {
+        if (card == null || card.getRank() == null) {
+            return false;
+        }
+        switch (card.getRank()) {
+            case TWO:
+            case THREE:
+            case FOUR:
+            case JACK:
+            case ACE:
+                return true;
+            case KING:
+                // Only Hearts and Spades Kings are special
+                return card.getSuit() == CardSuit.HEARTS || card.getSuit() == CardSuit.SPADES;
+            default:
+                return false;
+        }
     }
 
     private void setCardEffect(MakaoGame game, Card card, PlayCardRequest request) {
@@ -416,12 +464,17 @@ public class MakaoGameService {
 
             if (isBot(candidate)) {
                 game.setActivePlayerId(candidate);
+                // Clear turn timer - bots don't have timers
+                game.setTurnStartTime(null);
+                game.setTurnRemainingSeconds(null);
                 saveAndBroadcast(game);
                 scheduleBotMove(game.getRoomId(), candidate, playable);
                 return;
             }
 
             game.setActivePlayerId(candidate);
+            // Clear bot thinking state - human player's turn
+            game.setBotThinkingPlayerId(null);
             saveAndBroadcast(game);
             scheduleTurnTimeout(game);
             return;
@@ -610,6 +663,9 @@ public class MakaoGameService {
                 ? game.getActivePlayerPlayableCards()
                 : new ArrayList<>();
 
+        // Calculate remaining turn time
+        Integer turnRemainingSeconds = calculateTurnRemainingSeconds(game);
+
         for (Map.Entry<String, List<Card>> entry : hands.entrySet()) {
             String playerId = entry.getKey();
             if (isBot(playerId)) {
@@ -643,11 +699,27 @@ public class MakaoGameService {
                     game.getDiscardDeck() != null ? game.getDiscardDeck().size() : 0,
                     game.getLastMoveLog(),
                     game.getEffectNotification(),
-                    game.getMoveHistory() != null ? new ArrayList<>(game.getMoveHistory()) : new ArrayList<>()
+                    game.getMoveHistory() != null ? new ArrayList<>(game.getMoveHistory()) : new ArrayList<>(),
+                    turnRemainingSeconds,
+                    game.getMakaoPlayerId(),
+                    game.getBotThinkingPlayerId()
             );
 
             messagingTemplate.convertAndSend("/topic/makao/" + playerId, message);
         }
+    }
+
+    /**
+     * Calculates remaining seconds for the current turn.
+     * Returns null if no timer is active (e.g., bot's turn).
+     */
+    private Integer calculateTurnRemainingSeconds(MakaoGame game) {
+        if (game.getTurnStartTime() == null) {
+            return null;
+        }
+        long elapsed = System.currentTimeMillis() - game.getTurnStartTime();
+        int remaining = (int) (turnTimeoutSeconds - (elapsed / 1000));
+        return Math.max(0, remaining);
     }
 
     private boolean containsCard(List<Card> cards, Card target) {
@@ -740,6 +812,9 @@ public class MakaoGameService {
         String moveLog = formatMoveLog(botName, card, req);
         game.addMoveLog(moveLog);
 
+        // Check for MAKAO status (bot has 1 card left)
+        checkAndSetMakaoStatus(game, botId, hand);
+
         if (hand.isEmpty()) {
             endGame(game);
             return;
@@ -801,13 +876,23 @@ public class MakaoGameService {
         cancelTurnTimeout(game.getRoomId());
 
         if (game.getStatus() != RoomStatus.PLAYING) {
+            // Clear timer state when not playing
+            game.setTurnStartTime(null);
+            game.setTurnRemainingSeconds(null);
             return;
         }
 
         String activePlayer = game.getActivePlayerId();
         if (activePlayer == null || isBot(activePlayer)) {
+            // Bots don't have turn timers
+            game.setTurnStartTime(null);
+            game.setTurnRemainingSeconds(null);
             return;
         }
+
+        // Set turn start time and initial remaining seconds
+        game.setTurnStartTime(System.currentTimeMillis());
+        game.setTurnRemainingSeconds((int) turnTimeoutSeconds);
 
         ScheduledFuture<?> future = turnTimeoutScheduler.schedule(
                 () -> handleTurnTimeout(game.getRoomId(), activePlayer),
@@ -924,6 +1009,13 @@ public class MakaoGameService {
         // Cancel any existing scheduled bot move for this room
         cancelBotMove(roomId);
 
+        // Set bot thinking state - must update game in Redis
+        MakaoGame game = gameRepository.findById(roomId).orElse(null);
+        if (game != null) {
+            game.setBotThinkingPlayerId(botId);
+            gameRepository.save(game);
+        }
+
         // Calculate random delay between botDelayMinMs and botDelayMaxMs
         long delay = botDelayMinMs + (long) (random.nextDouble() * (botDelayMaxMs - botDelayMinMs));
 
@@ -966,6 +1058,9 @@ public class MakaoGameService {
                     log.warn("Game not found for room {} when executing bot move", roomId);
                     return;
                 }
+
+                // Clear bot thinking state - bot is now acting
+                game.setBotThinkingPlayerId(null);
 
                 if (game.getStatus() != RoomStatus.PLAYING) {
                     log.debug("Game {} is not in PLAYING status, skipping bot move", roomId);
@@ -1070,5 +1165,31 @@ public class MakaoGameService {
         }
         String name = suit.name();
         return name.charAt(0) + name.substring(1).toLowerCase();
+    }
+
+    /**
+     * Checks if a player has exactly 1 card left (MAKAO status).
+     * Sets makaoPlayerId and adds notification if so.
+     * Clears makaoPlayerId if player has more than 1 card.
+     */
+    private void checkAndSetMakaoStatus(MakaoGame game, String playerId, List<Card> hand) {
+        if (hand == null) {
+            return;
+        }
+
+        String playerName = getPlayerDisplayName(game, playerId);
+
+        if (hand.size() == 1) {
+            // Player has MAKAO - only 1 card left
+            game.setMakaoPlayerId(playerId);
+            String notification = String.format("🎴 MAKAO! %s has only 1 card left!", playerName);
+            game.setEffectNotification(notification);
+            game.addMoveLog(notification);
+        } else {
+            // Clear MAKAO status if this player had it but now has more cards
+            if (playerId.equals(game.getMakaoPlayerId())) {
+                game.setMakaoPlayerId(null);
+            }
+        }
     }
 }

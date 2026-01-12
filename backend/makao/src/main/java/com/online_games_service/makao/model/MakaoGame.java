@@ -58,6 +58,16 @@ public class MakaoGame implements Serializable {
 
     private int botCounter = 0;
 
+    // Turn timer tracking
+    private Long turnStartTime;
+    private Integer turnRemainingSeconds;
+
+    // MAKAO status - player who has only 1 card left
+    private String makaoPlayerId;
+
+    // Bot thinking state - which bot is currently "thinking"
+    private String botThinkingPlayerId;
+
     // Move history and effect tracking for notifications
     private String lastMoveLog;
     private String effectNotification;

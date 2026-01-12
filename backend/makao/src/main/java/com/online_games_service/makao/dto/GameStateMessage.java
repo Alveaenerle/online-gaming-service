@@ -35,4 +35,10 @@ public class GameStateMessage {
     private String effectNotification;
     // List of recent move logs for move history display
     private List<String> moveHistory;
+    // Turn timer - seconds remaining for current player's turn (null for bots)
+    private Integer turnRemainingSeconds;
+    // MAKAO status - player ID who has only 1 card left (MAKAO)
+    private String makaoPlayerId;
+    // Bot thinking state - ID of bot currently "thinking" (null if no bot thinking)
+    private String botThinkingPlayerId;
 }

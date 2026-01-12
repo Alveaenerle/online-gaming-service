@@ -51,10 +51,16 @@ export interface GameStateMessage {
   drawDeckCardsAmount: number;
   discardDeckCardsAmount: number;
   playersUsernames?: Record<string, string>;
-  // New fields for move history and effect notifications
+  // Move history and effect notifications
   lastMoveLog?: string | null;
   effectNotification?: string | null;
   moveHistory?: string[];
+  // Turn timer - seconds remaining for current player's turn (null for bots)
+  turnRemainingSeconds?: number | null;
+  // MAKAO status - player ID who has only 1 card left
+  makaoPlayerId?: string | null;
+  // Bot thinking state - ID of bot currently "thinking"
+  botThinkingPlayerId?: string | null;
 }
 
 // Request to play a card
