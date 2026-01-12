@@ -137,11 +137,7 @@ export function LudoArenaPage() {
         </aside>
       </div>
 
-      <DicePopup
-        isOpen={diceOpen}
-        onClose={() => setDiceOpen(false)}
-        onRollComplete={handleRollComplete}
-      />
+      <DicePopup isOpen={diceOpen} onClose={() => setDiceOpen(false)} />
     </div>
   );
 }

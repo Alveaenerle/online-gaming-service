@@ -8,17 +8,18 @@ import React, {
   useRef,
 } from "react";
 import { ludoService } from "../services/ludoGameService";
-import { socketService } from "../services/socketService";
+import { ludoSocketService } from "../services/ludoSocketService";
 import { LudoGameStateMessage } from "../components/Games/Ludo/types";
 import { useAuth } from "./AuthContext";
 
 interface LudoContextType {
   gameState: LudoGameStateMessage | null;
   isLoading: boolean;
+  isRolling: boolean;
   isMyTurn: boolean;
-  refreshGameState: () => Promise<void>;
   rollDice: () => Promise<void>;
   movePawn: (pawnId: number) => Promise<void>;
+  refreshGameState: () => Promise<void>;
 }
 
 const LudoContext = createContext<LudoContextType | undefined>(undefined);
@@ -29,90 +30,90 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
   const { user } = useAuth();
   const [gameState, setGameState] = useState<LudoGameStateMessage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRolling, setIsRolling] = useState(false);
+
   const subscriptionRef = useRef<string | null>(null);
 
-  // Sprawdzenie czy jest tura lokalnego gracza
-  const isMyTurn = gameState?.currentPlayerId === user?.id;
+  // LOGOWANIE KAŻDEJ ZMIANY STANU - Sprawdź to w konsoli!
+  useEffect(() => {
+    console.log("DEBUG: Current GameState in Context:", gameState);
+  }, [gameState]);
 
-  // Pobieranie stanu gry z API
+  const handleGameUpdate = useCallback((data: LudoGameStateMessage) => {
+    console.log("!!! SOCKET MESSAGE RECEIVED !!!", data); // Jeśli tego nie widzisz, socket nie działa
+
+    // Kluczowe: zatrzymujemy kostkę jeśli serwer mówi, że rzut się odbył
+    if (data.diceRolled || data.lastDiceRoll > 0) {
+      setIsRolling(false);
+    }
+
+    setGameState(data);
+  }, []);
+
   const refreshGameState = useCallback(async () => {
-    setIsLoading(true);
+    if (!user?.id) return;
     try {
       const state = await ludoService.getGameState();
       setGameState(state);
     } catch (err) {
-      console.error("LudoContext: Failed to fetch game state", err);
-      setGameState(null);
-    } finally {
-      setIsLoading(false);
+      console.warn("Silent refresh failed - probably not in game yet");
     }
-  }, []);
+  }, [user?.id]);
 
-  // Akcja rzutu kostką
   const rollDice = async () => {
     try {
+      setIsRolling(true);
+      console.log("Sending Roll Request...");
       await ludoService.rollDice();
-      // Nie musimy tu odświeżać stanu, bo przyjdzie przez WebSocket
+
+      // Safety stop: jeśli po 4s nic nie przyjdzie, zatrzymaj kostkę
+      setTimeout(() => setIsRolling(false), 4000);
     } catch (err) {
-      console.error("LudoContext: Roll error", err);
+      setIsRolling(false);
+      console.error("Roll API Error:", err);
     }
   };
 
-  // Akcja ruchu pionkiem
   const movePawn = async (pawnId: number) => {
     try {
       await ludoService.movePawn(pawnId);
     } catch (err) {
-      console.error("LudoContext: Move error", err);
+      console.error("Move API Error:", err);
     }
   };
 
-  // Obsługa aktualizacji z WebSocketu
-  const handleGameUpdate = useCallback((data: LudoGameStateMessage) => {
-    if (!data) return;
-    console.log("LudoContext: Received real-time update", data);
-    setGameState(data);
-  }, []);
-
-  // Zarządzanie subskrypcją WebSocket
+  // ZARZĄDZANIE SOCKETEM
   useEffect(() => {
-    // Subskrybujemy tylko jeśli mamy gameId (czyli gra się toczy)
-    if (!gameState?.gameId || !user?.id) {
-      if (subscriptionRef.current) {
-        socketService.unsubscribe(subscriptionRef.current);
-        subscriptionRef.current = null;
-      }
-      return;
-    }
+    const gameId = gameState?.gameId;
+    if (!gameId || !user?.id) return;
 
-    const topic = `/topic/ludo/${gameState.gameId}`;
+    const topic = `/topic/game/${gameId}`;
 
+    // Blokada wielokrotnej subskrypcji
     if (subscriptionRef.current === topic) return;
 
-    if (subscriptionRef.current) {
-      socketService.unsubscribe(subscriptionRef.current);
-    }
-
-    const connectAndSubscribe = async () => {
+    const startSocket = async () => {
       try {
-        await socketService.connect();
-        console.log(`LudoContext: Subscribing to ${topic}`);
-        socketService.subscribe(topic, handleGameUpdate);
-        subscriptionRef.current = topic;
+        console.log("Attempting socket connection...");
+        await ludoSocketService.connect();
 
-        // Pobieramy najświeższy stan zaraz po podłączeniu
-        const latest = await ludoService.getGameState();
-        setGameState(latest);
+        if (subscriptionRef.current) {
+          ludoSocketService.unsubscribe(subscriptionRef.current);
+        }
+
+        console.log(`SUBSCRIBING TO: ${topic}`);
+        ludoSocketService.subscribe(topic, handleGameUpdate);
+        subscriptionRef.current = topic;
       } catch (err) {
-        console.error("LudoContext: WebSocket subscription failed", err);
+        console.error("Socket flow failed:", err);
       }
     };
 
-    connectAndSubscribe();
+    startSocket();
 
     return () => {
-      // Subskrypcja zostaje przy zmianach komponentów,
-      // zostanie wyczyszczona tylko przy zmianie gameId lub wylogowaniu
+      // Nie czyścimy tu subskrypcji przy każdym renderze!
+      // Tylko jeśli gameId się faktycznie zmieni.
     };
   }, [gameState?.gameId, user?.id, handleGameUpdate]);
 
@@ -125,10 +126,11 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
       value={{
         gameState,
         isLoading,
-        isMyTurn,
-        refreshGameState,
+        isRolling,
+        isMyTurn: gameState?.currentPlayerId === user?.id,
         rollDice,
         movePawn,
+        refreshGameState,
       }}
     >
       {children}
@@ -136,10 +138,8 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
-export const useLudo = (): LudoContextType => {
-  const context = useContext(LudoContext);
-  if (!context) {
-    throw new Error("useLudo must be used within a LudoProvider");
-  }
-  return context;
+export const useLudo = () => {
+  const c = useContext(LudoContext);
+  if (!c) throw new Error("useLudo missing");
+  return c;
 };

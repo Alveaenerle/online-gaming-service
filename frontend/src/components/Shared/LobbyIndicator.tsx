@@ -18,7 +18,6 @@ export function LobbyIndicator() {
   const { currentLobby, isInLobby, clearLobby } = useLobby();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isLeaving, setIsLeaving] = useState(false);
-
   // Don't show if not in a lobby or if already on the lobby page
   const lobbyPath =
     currentLobby?.gameType === "MAKAO" ? "/lobby/makao" : "/lobby/ludo";
@@ -29,6 +28,14 @@ export function LobbyIndicator() {
     location.pathname === lobbyPath ||
     location.pathname === gamePath ||
     location.pathname.includes("/lobby/");
+  console.log(
+    "LobbyIndicator - isInLobby:",
+    isInLobby,
+    "currentLobby:",
+    currentLobby,
+    "isOnLobbyOrGamePage:",
+    isOnLobbyOrGamePage
+  );
 
   if (!isInLobby || !currentLobby || isOnLobbyOrGamePage) {
     return null;
@@ -39,6 +46,7 @@ export function LobbyIndicator() {
 
   const handleOpenLobby = () => {
     if (isPlaying) {
+      console.log(currentLobby);
       navigate(gamePath);
     } else {
       navigate(lobbyPath);
@@ -129,8 +137,7 @@ export function LobbyIndicator() {
               <div className="px-8 pb-8 space-y-5 border-t border-white/5 pt-6">
                 {/* Room info */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between text-base">
-                  </div>
+                  <div className="flex items-center justify-between text-base"></div>
                   <div className="flex items-center justify-between text-base">
                     <span className="text-gray-500">Players</span>
                     <span className="text-white font-medium flex items-center gap-2">
