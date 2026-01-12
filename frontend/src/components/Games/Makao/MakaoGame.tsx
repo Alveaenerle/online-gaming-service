@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../Shared/Navbar";
 import Card from "./Card";
+import Player from "./components/Player";
 import DemandPicker from "./components/DemandPicker";
 import DrawnCardModal from "./components/DrawnCardModal";
 import GameOverModal from "./components/GameOverModal";
 import MoveHistoryPanel from "./components/MoveHistoryPanel";
 import EffectToast from "./components/EffectToast";
-import BotThinkingIndicator from "./components/BotThinkingIndicator";
 import { useCardAnimations, CardAnimationManager, AnimatedCardPile } from "./components/AnimatedCard";
 import { useMakaoSocket } from "./hooks/useMakaoSocket";
 import { useMakaoActions } from "./hooks/useMakaoActions";
@@ -69,6 +69,7 @@ const MakaoGame: React.FC = () => {
   const deckRef = useRef<HTMLDivElement>(null);
   const discardRef = useRef<HTMLDivElement>(null);
   const handRef = useRef<HTMLDivElement>(null);
+  const playerRefsMap = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
 
   // Local UI state
   const [pendingCard, setPendingCard] = useState<CardType | null>(null);
@@ -80,9 +81,13 @@ const MakaoGame: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [previousCardPlayed, setPreviousCardPlayed] = useState<CardType | null>(null);
 
-  // Track bot thinking state
-  const [botThinking, setBotThinking] = useState(false);
-  const [botName, setBotName] = useState<string>("Bot");
+  // Helper to get or create a ref for a player
+  const getPlayerRef = useCallback((playerId: string) => {
+    if (!playerRefsMap.current.has(playerId)) {
+      playerRefsMap.current.set(playerId, React.createRef<HTMLDivElement>());
+    }
+    return playerRefsMap.current.get(playerId)!;
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -91,18 +96,6 @@ const MakaoGame: React.FC = () => {
       return;
     }
   }, [user?.id, navigate]);
-
-  // Detect when a bot is playing (show thinking indicator)
-  useEffect(() => {
-    if (gameState?.activePlayerId && isBot(gameState.activePlayerId)) {
-      const playerName = gameState.playersUsernames?.[gameState.activePlayerId] ||
-        getPlayerDisplayName(gameState.activePlayerId);
-      setBotName(playerName);
-      setBotThinking(true);
-    } else {
-      setBotThinking(false);
-    }
-  }, [gameState?.activePlayerId, gameState?.playersUsernames]);
 
   // Detect card plays for animation (when currentCard changes)
   useEffect(() => {
@@ -135,14 +128,14 @@ const MakaoGame: React.FC = () => {
   const isGameOver = gameState?.status === "FINISHED";
   const hasSpecialEffect = gameState?.specialEffectActive;
 
-  // Animation positions (relative to game table)
-  const animationPositions = useMemo(() => {
-    return {
-      center: { x: 0, y: 0 },
-      deck: { x: -100, y: 0 },
-      hand: { x: 0, y: 200 },
-    };
-  }, []);
+  // Get bot thinking player ID from game state
+  const botThinkingPlayerId = gameState?.botThinkingPlayerId || null;
+
+  // Get MAKAO player ID from game state
+  const makaoPlayerId = gameState?.makaoPlayerId || null;
+
+  // Get turn timer
+  const turnRemainingSeconds = gameState?.turnRemainingSeconds ?? null;
 
   // Check if a card can be played
   const canPlayCard = useCallback(
@@ -168,8 +161,8 @@ const MakaoGame: React.FC = () => {
         return;
       }
 
-      // Trigger play animation
-      addPlayAnimation(card, animationPositions.hand, user?.id);
+      // Trigger play animation (positions calculated by CardAnimationManager using refs)
+      addPlayAnimation(card, undefined, user?.id);
 
       // Play card directly
       const success = await playCard(card);
@@ -177,7 +170,7 @@ const MakaoGame: React.FC = () => {
         setMessage(`Played ${RANK_DISPLAY[card.rank]} of ${SUIT_INFO[card.suit].name}`);
       }
     },
-    [canPlayCard, playCard]
+    [canPlayCard, playCard, addPlayAnimation, user?.id]
   );
 
   // Handle demand selection (for Ace/Jack)
@@ -230,8 +223,8 @@ const MakaoGame: React.FC = () => {
 
     const result = await drawCard();
     if (result) {
-      // Trigger draw animation
-      addDrawAnimation(result.drawnCard, animationPositions.hand, user?.id);
+      // Trigger draw animation (positions calculated by CardAnimationManager using refs)
+      addDrawAnimation(result.drawnCard, undefined, user?.id);
 
       setDrawnCardInfo({
         card: result.drawnCard,
@@ -241,7 +234,7 @@ const MakaoGame: React.FC = () => {
         `Drew ${RANK_DISPLAY[result.drawnCard.rank]} of ${SUIT_INFO[result.drawnCard.suit].name}`
       );
     }
-  }, [isMyTurn, isLoading, drawnCardInfo, hasSpecialEffect, acceptEffect, drawCard]);
+  }, [isMyTurn, isLoading, drawnCardInfo, hasSpecialEffect, acceptEffect, drawCard, addDrawAnimation, user?.id]);
 
   // Handle playing drawn card
   const handlePlayDrawnCard = useCallback(async () => {
@@ -336,19 +329,15 @@ const MakaoGame: React.FC = () => {
         isMyTurn={isMyTurn || false}
       />
 
-      {/* Bot Thinking Indicator */}
-      <BotThinkingIndicator isVisible={botThinking} botName={botName} />
-
-      {/* Card Animation Layer */}
-      <div className="fixed inset-0 pointer-events-none z-50">
-        <CardAnimationManager
-          animations={animations}
-          onAnimationComplete={removeAnimation}
-          centerPosition={animationPositions.center}
-          deckPosition={animationPositions.deck}
-          handPosition={animationPositions.hand}
-        />
-      </div>
+      {/* Card Animation Layer - uses refs for accurate positioning */}
+      <CardAnimationManager
+        animations={animations}
+        onAnimationComplete={removeAnimation}
+        deckRef={deckRef}
+        discardRef={discardRef}
+        handRef={handRef}
+        playerRefs={playerRefsMap.current}
+      />
 
       <main className="pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
         <div className="h-full max-w-[2000px] mx-auto flex gap-2 justify-center">
@@ -372,7 +361,15 @@ const MakaoGame: React.FC = () => {
                   {others
                     .filter((p) => p.position === "top")
                     .map((player) => (
-                      <PlayerDisplay key={player.id} player={player} isBot={isBot(player.id)} />
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={makaoPlayerId === player.id}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                      />
                     ))}
                 </div>
               )}
@@ -383,7 +380,15 @@ const MakaoGame: React.FC = () => {
                   {others
                     .filter((p) => p.position === "left")
                     .map((player) => (
-                      <PlayerDisplay key={player.id} player={player} isBot={isBot(player.id)} />
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={makaoPlayerId === player.id}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                      />
                     ))}
                 </div>
               )}
@@ -394,7 +399,15 @@ const MakaoGame: React.FC = () => {
                   {others
                     .filter((p) => p.position === "right")
                     .map((player) => (
-                      <PlayerDisplay key={player.id} player={player} isBot={isBot(player.id)} />
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={makaoPlayerId === player.id}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                      />
                     ))}
                 </div>
               )}
@@ -695,97 +708,6 @@ const MakaoGame: React.FC = () => {
         )}
       </AnimatePresence>
     </div>
-  );
-};
-
-// ============================================
-// Player Display Component (for opponents)
-// ============================================
-
-interface PositionedPlayerView extends PlayerView {
-  position: "bottom" | "left" | "top" | "right";
-}
-
-interface PlayerDisplayProps {
-  player: PositionedPlayerView;
-  isBot?: boolean;
-}
-
-const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ player, isBot: playerIsBot = false }) => {
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`bg-[#1a1a27] p-3 rounded-xl border transition-all ${
-        player.isActive
-          ? "border-purpleEnd shadow-lg shadow-purpleEnd/20"
-          : "border-white/10"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        {/* Avatar */}
-        <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-            player.isActive
-              ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
-              : playerIsBot
-              ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
-              : "bg-gray-700 text-gray-300"
-          }`}
-        >
-          {playerIsBot ? "🤖" : player.username.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <p className="text-sm font-medium text-white truncate">
-              {player.username}
-            </p>
-            {playerIsBot && (
-              <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">
-                BOT
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-gray-400">{player.cardCount} cards</p>
-        </div>
-        {/* Active indicator */}
-        {player.isActive && (
-          <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.5, 1, 0.5]
-            }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className={`w-2.5 h-2.5 rounded-full ${
-              playerIsBot ? "bg-cyan-400" : "bg-purpleEnd"
-            }`}
-          />
-        )}
-      </div>
-
-      {/* Status indicators */}
-      <div className="flex gap-2 mt-1">
-        {player.skipTurns > 0 && (
-          <motion.span
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-[10px] text-orange-400 bg-orange-500/20 px-1.5 py-0.5 rounded"
-          >
-            ⏭️ Skips: {player.skipTurns}
-          </motion.span>
-        )}
-        {player.placement && (
-          <motion.span
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-[10px] text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded"
-          >
-            🏆 #{player.placement}
-          </motion.span>
-        )}
-      </div>
-    </motion.div>
   );
 };
 
