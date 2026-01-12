@@ -126,6 +126,9 @@ export const getPathCoords = (
     } else {
       currentPos++;
       stepsMoved++;
+      if (stepsMoved > 43) {
+        break;
+      }
     }
 
     const coords = getPawnCoords(currentPos, stepsMoved, color, pawnIndex);
