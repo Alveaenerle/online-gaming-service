@@ -4,9 +4,16 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.support.TestPropertySourceUtils;
 import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.utility.DockerImageName;
+
+import java.time.Duration;
 
 public class MongoContainerInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-    private static final MongoDBContainer MONGO = new MongoDBContainer("mongo:4.4");
+    // Use mongo:4.2 for compatibility with CPUs lacking AVX support (e.g., older Jenkins hosts)
+    // MongoDB 4.4+ requires AVX instructions and exits with code 100 on unsupported CPUs
+    private static final MongoDBContainer MONGO = new MongoDBContainer(
+            DockerImageName.parse("mongo:4.2"))
+            .withStartupTimeout(Duration.ofMinutes(2));
 
     @Override
     public void initialize(ConfigurableApplicationContext context) {
