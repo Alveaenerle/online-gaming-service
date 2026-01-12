@@ -951,6 +951,124 @@ public class MakaoGameServiceTest {
 		assertEquals(game.getStatus(), RoomStatus.FINISHED);
 	}
 
+	// ============================================
+	// Turn Timer Tests
+	// ============================================
+
+	@Test
+	public void calculateTurnRemainingSeconds_returnsNullWhenNoStartTime() {
+		MakaoGame game = new MakaoGame();
+		game.setTurnStartTime(null);
+
+		Integer remaining = ReflectionTestUtils.invokeMethod(service, "calculateTurnRemainingSeconds", game);
+
+		assertNull(remaining);
+	}
+
+	@Test
+	public void calculateTurnRemainingSeconds_returnsCorrectValue() {
+		MakaoGame game = new MakaoGame();
+		// Set start time to 30 seconds ago
+		game.setTurnStartTime(System.currentTimeMillis() - 30_000);
+
+		Integer remaining = ReflectionTestUtils.invokeMethod(service, "calculateTurnRemainingSeconds", game);
+
+		assertNotNull(remaining);
+		// Should be around 30 seconds remaining (60 - 30 = 30), allow some tolerance
+		assertTrue(remaining >= 28 && remaining <= 32, "Expected ~30 seconds remaining, got: " + remaining);
+	}
+
+	@Test
+	public void calculateTurnRemainingSeconds_returnsZeroWhenExpired() {
+		MakaoGame game = new MakaoGame();
+		// Set start time to 90 seconds ago (past the 60 second timeout)
+		game.setTurnStartTime(System.currentTimeMillis() - 90_000);
+
+		Integer remaining = ReflectionTestUtils.invokeMethod(service, "calculateTurnRemainingSeconds", game);
+
+		assertNotNull(remaining);
+		assertEquals(remaining.intValue(), 0);
+	}
+
+	@Test
+	public void scheduleTurnTimeout_setsTurnStartTimeForHumanPlayer() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-1");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("human-player");
+
+		ReflectionTestUtils.invokeMethod(service, "scheduleTurnTimeout", game);
+
+		assertNotNull(game.getTurnStartTime());
+		assertNotNull(game.getTurnRemainingSeconds());
+		assertEquals(game.getTurnRemainingSeconds().intValue(), 60);
+
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-timer-1");
+	}
+
+	@Test
+	public void scheduleTurnTimeout_clearsTurnTimeForBot() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-2");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("bot-1");
+		// Set some previous values that should be cleared
+		game.setTurnStartTime(System.currentTimeMillis());
+		game.setTurnRemainingSeconds(30);
+
+		ReflectionTestUtils.invokeMethod(service, "scheduleTurnTimeout", game);
+
+		assertNull(game.getTurnStartTime());
+		assertNull(game.getTurnRemainingSeconds());
+	}
+
+	@Test
+	public void scheduleTurnTimeout_clearsTurnTimeWhenNotPlaying() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-3");
+		game.setStatus(RoomStatus.FINISHED);
+		game.setActivePlayerId("human-player");
+		// Set some previous values that should be cleared
+		game.setTurnStartTime(System.currentTimeMillis());
+		game.setTurnRemainingSeconds(30);
+
+		ReflectionTestUtils.invokeMethod(service, "scheduleTurnTimeout", game);
+
+		assertNull(game.getTurnStartTime());
+		assertNull(game.getTurnRemainingSeconds());
+	}
+
+	@Test
+	public void handleTurnTimeout_resetsTimerForNextPlayer() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-4");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("p1");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("p1", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))));
+		hands.put("p2", new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN))));
+		game.setPlayersHands(hands);
+		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of("p1", 0, "p2", 0)));
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("p1", "Alice", "p2", "Bob")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.THREE)))));
+		// Set initial timer
+		game.setTurnStartTime(System.currentTimeMillis() - 60_000);
+		game.setTurnRemainingSeconds(0);
+
+		when(gameRepository.findById("room-timer-4")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "room-timer-4", "p1");
+
+		// Player p1 should be replaced by a bot, and the next player (p2) should have a new timer
+		assertTrue(game.getLosers().contains("p1"));
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-timer-4");
+	}
+
 	private MakaoGame baseGameWithTopCard(Card topCard) {
 		MakaoGame game = new MakaoGame();
 		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(topCard))));

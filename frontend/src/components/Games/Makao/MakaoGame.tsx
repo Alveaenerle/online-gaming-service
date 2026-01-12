@@ -13,6 +13,7 @@ import DiscardPile from "./components/DiscardPile";
 import { useCardAnimations, CardAnimationManager, AnimatedCardPile } from "./components/AnimatedCard";
 import { useMakaoSocket } from "./hooks/useMakaoSocket";
 import { useMakaoActions } from "./hooks/useMakaoActions";
+import { useTurnTimer } from "./hooks/useTurnTimer";
 import { useGameSounds } from "./utils/soundEffects";
 import { useAuth } from "../../../context/AuthContext";
 import { useLobby } from "../../../context/LobbyContext";
@@ -196,8 +197,16 @@ const MakaoGame: React.FC = () => {
   // Get MAKAO player ID from game state
   const makaoPlayerId = gameState?.makaoPlayerId || null;
 
-  // Get turn timer
-  const turnRemainingSeconds = gameState?.turnRemainingSeconds ?? null;
+  // Determine if active player is a bot
+  const isActivePlayerBot = gameState?.activePlayerId ? isBot(gameState.activePlayerId) : false;
+
+  // Turn timer - uses local countdown for smooth UI
+  const { remainingSeconds: turnRemainingSeconds } = useTurnTimer({
+    activePlayerId: gameState?.activePlayerId,
+    serverRemainingSeconds: gameState?.turnRemainingSeconds,
+    isActivePlayerBot,
+    isGamePlaying: gameState?.status === "PLAYING",
+  });
 
   // Check if a card can be played
   const canPlayCard = useCallback(
@@ -713,43 +722,99 @@ const MakaoGame: React.FC = () => {
                  </motion.button>
                </div>
 
-               {/* Current Turn */}
+               {/* Current Turn with Timer */}
                <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
                  <h3 className="text-xs font-medium text-gray-500 mb-2">
                    Current Turn
                  </h3>
                  <div className="flex items-center gap-2">
-                   <div
-                     className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                       isMyTurn
-                         ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
-                         : "bg-gray-700 text-gray-300"
-                     }`}
-                   >
-                     {(
-                       players.find((p) => p.id === gameState.activePlayerId)
-                         ?.username || "?"
-                     )
-                       .charAt(0)
-                       .toUpperCase()}
+                   {/* Avatar with Timer Ring */}
+                   <div className="relative">
+                     {/* Timer Ring - only show for human players */}
+                     {turnRemainingSeconds != null && !isActivePlayerBot && (
+                       <svg
+                         className="absolute inset-0 -rotate-90"
+                         width={36}
+                         height={36}
+                         viewBox="0 0 36 36"
+                       >
+                         {/* Background ring */}
+                         <circle
+                           cx={18}
+                           cy={18}
+                           r={16}
+                           fill="none"
+                           stroke="rgba(255,255,255,0.1)"
+                           strokeWidth={2.5}
+                         />
+                         {/* Progress ring */}
+                         <motion.circle
+                           cx={18}
+                           cy={18}
+                           r={16}
+                           fill="none"
+                           stroke={turnRemainingSeconds <= 5 ? "#ef4444" : turnRemainingSeconds <= 10 ? "#f97316" : "#8b5cf6"}
+                           strokeWidth={2.5}
+                           strokeLinecap="round"
+                           strokeDasharray={2 * Math.PI * 16}
+                           strokeDashoffset={(2 * Math.PI * 16) * (1 - Math.max(0, Math.min(1, turnRemainingSeconds / 60)))}
+                           animate={{
+                             strokeDashoffset: (2 * Math.PI * 16) * (1 - Math.max(0, Math.min(1, turnRemainingSeconds / 60))),
+                             stroke: turnRemainingSeconds <= 5 ? "#ef4444" : turnRemainingSeconds <= 10 ? "#f97316" : "#8b5cf6",
+                           }}
+                           transition={{ duration: 0.3, ease: "linear" }}
+                         />
+                       </svg>
+                     )}
+                     <div
+                       className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${
+                         isMyTurn
+                           ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
+                           : isActivePlayerBot
+                           ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
+                           : "bg-gray-700 text-gray-300"
+                       }`}
+                     >
+                       {isActivePlayerBot ? "🤖" : (
+                         players.find((p) => p.id === gameState.activePlayerId)
+                           ?.username || "?"
+                       )
+                         .charAt(0)
+                         .toUpperCase()}
+                     </div>
                    </div>
-                   <div>
-                     <p className="text-white text-sm font-medium">
+                   <div className="flex-1 min-w-0">
+                     <p className="text-white text-sm font-medium truncate">
                        {isMyTurn
                          ? "Your Turn"
                          : getPlayerDisplayName(gameState.activePlayerId)}
                      </p>
                      <p className="text-[10px] text-gray-500">
-                       {isMyTurn ? "Play a card or draw" : "Waiting..."}
+                       {isMyTurn ? "Play a card or draw" : isActivePlayerBot ? "Bot thinking..." : "Waiting..."}
                      </p>
                    </div>
-                   {isMyTurn && (
+                   {/* Timer display / Active indicator */}
+                   {turnRemainingSeconds != null && !isActivePlayerBot ? (
+                     <motion.div
+                       animate={turnRemainingSeconds <= 10 ? { opacity: [1, 0.5, 1] } : {}}
+                       transition={{ duration: 0.5, repeat: Infinity }}
+                       className={`text-sm font-mono font-bold ml-auto ${
+                         turnRemainingSeconds <= 5
+                           ? "text-red-400"
+                           : turnRemainingSeconds <= 10
+                           ? "text-orange-400"
+                           : "text-gray-400"
+                       }`}
+                     >
+                       {turnRemainingSeconds}s
+                     </motion.div>
+                   ) : isMyTurn ? (
                      <motion.div
                        animate={{ opacity: [0.5, 1, 0.5] }}
                        transition={{ duration: 1.5, repeat: Infinity }}
                        className="w-2.5 h-2.5 rounded-full bg-purpleEnd ml-auto"
                      />
-                   )}
+                   ) : null}
                  </div>
                </div>
 
