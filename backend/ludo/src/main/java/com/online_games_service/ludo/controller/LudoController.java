@@ -18,25 +18,21 @@ public class LudoController {
 
     private final LudoService ludoService;
 
-    @GetMapping("/{gameId}")
-    public ResponseEntity<LudoGameStateMessage> getGame(@PathVariable String gameId) {
-        return ResponseEntity.ok(ludoService.getGameState(gameId));
+    @GetMapping("/game-state")
+    public ResponseEntity<LudoGameStateMessage> getGameState(@RequestAttribute("userId") String userId) {
+        return ResponseEntity.ok(ludoService.getGameState(userId));
     }
 
-    @PostMapping("/{gameId}/roll")
-    public ResponseEntity<Map<String, String>> rollDice(@PathVariable String gameId,
-                                                        @RequestAttribute("userId") String userId) {
-
-        ludoService.rollDice(gameId, userId);
+    @PostMapping("/roll")
+    public ResponseEntity<Map<String, String>> rollDice(@RequestAttribute("userId") String userId) {
+        ludoService.rollDice(userId);
         return ResponseEntity.ok(Map.of("message", "Dice rolled"));
     }
 
-    @PostMapping("/{gameId}/move")
-    public ResponseEntity<Map<String, String>> movePawn(@PathVariable String gameId,
-                                                        @RequestParam int pawnIndex,
+    @PostMapping("/move")
+    public ResponseEntity<Map<String, String>> movePawn(@RequestParam int pawnIndex,
                                                         @RequestAttribute("userId") String userId) {
-
-        ludoService.movePawn(gameId, userId, pawnIndex);
+        ludoService.movePawn(userId, pawnIndex);
         return ResponseEntity.ok(Map.of("message", "Move accepted"));
     }
 
