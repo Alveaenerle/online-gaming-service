@@ -6,10 +6,12 @@ import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.model.Card;
 import com.online_games_service.makao.dto.DrawCardResponse;
 import com.online_games_service.makao.dto.PlayCardRequest;
+import com.online_games_service.makao.dto.PlayerTimeoutMessage;
 import com.online_games_service.makao.model.MakaoDeck;
 import com.online_games_service.makao.model.MakaoGame;
 import com.online_games_service.makao.repository.mongo.MakaoGameResultRepository;
 import com.online_games_service.makao.repository.redis.MakaoGameRedisRepository;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.amqp.core.TopicExchange;
@@ -1067,6 +1069,93 @@ public class MakaoGameServiceTest {
 		assertTrue(game.getLosers().contains("p1"));
 		// Cleanup
 		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-timer-4");
+	}
+
+	// ============================================
+	// Timeout Notification Tests
+	// ============================================
+
+	@Test
+	public void notifyPlayerTimeout_sendsMessageToKickedPlayer() {
+		String playerId = "user-123";
+		String roomId = "room-abc";
+		String botId = "bot-1";
+
+		ReflectionTestUtils.invokeMethod(service, "notifyPlayerTimeout", playerId, roomId, botId);
+
+		ArgumentCaptor<PlayerTimeoutMessage> messageCaptor = ArgumentCaptor.forClass(PlayerTimeoutMessage.class);
+		verify(messagingTemplate).convertAndSend(eq("/topic/makao/" + playerId + "/timeout"), messageCaptor.capture());
+
+		PlayerTimeoutMessage sentMessage = messageCaptor.getValue();
+		assertEquals(sentMessage.getRoomId(), roomId);
+		assertEquals(sentMessage.getPlayerId(), playerId);
+		assertEquals(sentMessage.getReplacedByBotId(), botId);
+		assertEquals(sentMessage.getType(), "PLAYER_TIMEOUT");
+		assertNotNull(sentMessage.getMessage());
+	}
+
+	@Test
+	public void notifyPlayerTimeout_doesNotSendToBots() {
+		String botId = "bot-1";
+		String roomId = "room-abc";
+		String replacingBotId = "bot-2";
+
+		ReflectionTestUtils.invokeMethod(service, "notifyPlayerTimeout", botId, roomId, replacingBotId);
+
+		// Should not send any message for bots
+		verify(messagingTemplate, org.mockito.Mockito.never()).convertAndSend(
+				org.mockito.ArgumentMatchers.anyString(),
+				any(PlayerTimeoutMessage.class)
+		);
+	}
+
+	@Test
+	public void notifyPlayerTimeout_doesNotSendForNullPlayer() {
+		ReflectionTestUtils.invokeMethod(service, "notifyPlayerTimeout", null, "room-abc", "bot-1");
+
+		// Should not send any message for null player
+		verify(messagingTemplate, org.mockito.Mockito.never()).convertAndSend(
+				org.mockito.ArgumentMatchers.anyString(),
+				any(PlayerTimeoutMessage.class)
+		);
+	}
+
+	@Test
+	public void handleTurnTimeout_sendsTimeoutNotificationToPlayer() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-notify");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("player-to-kick");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("player-to-kick", "other-player")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("player-to-kick", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))));
+		hands.put("other-player", new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN))));
+		game.setPlayersHands(hands);
+		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of("player-to-kick", 0, "other-player", 0)));
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("player-to-kick", "KickedUser", "other-player", "OtherUser")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.THREE)))));
+
+		when(gameRepository.findById("room-notify")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "room-notify", "player-to-kick");
+
+		// Verify timeout notification was sent to the kicked player
+		ArgumentCaptor<PlayerTimeoutMessage> messageCaptor = ArgumentCaptor.forClass(PlayerTimeoutMessage.class);
+		verify(messagingTemplate).convertAndSend(eq("/topic/makao/player-to-kick/timeout"), messageCaptor.capture());
+
+		PlayerTimeoutMessage sentMessage = messageCaptor.getValue();
+		assertEquals(sentMessage.getRoomId(), "room-notify");
+		assertEquals(sentMessage.getPlayerId(), "player-to-kick");
+		assertEquals(sentMessage.getReplacedByBotId(), "bot-1");
+		assertEquals(sentMessage.getType(), "PLAYER_TIMEOUT");
+
+		// Player should be in losers list
+		assertTrue(game.getLosers().contains("player-to-kick"));
+
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-notify");
 	}
 
 	private MakaoGame baseGameWithTopCard(Card topCard) {

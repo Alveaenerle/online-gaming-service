@@ -53,7 +53,7 @@ const MakaoGame: React.FC = () => {
   } = useGameSounds();
 
   // WebSocket connection and game state
-  const { gameState, isConnected, connectionError, resetState } = useMakaoSocket();
+  const { gameState, isConnected, connectionError, resetState, wasKickedByTimeout, clearTimeoutStatus } = useMakaoSocket();
 
 
   // Game actions
@@ -158,11 +158,12 @@ const MakaoGame: React.FC = () => {
         playMakaoSound();
     }
 
-    // 4. Detect if user was replaced by a bot (kicked due to timeout)
+    // 4. Detect if user was replaced by a bot (kicked due to timeout) - fallback detection
+    // Primary detection is via wasKickedByTimeout from WebSocket, this is a backup
     const isUserInGame = gameState.playersCardsAmount && user?.id && user.id in gameState.playersCardsAmount;
     const isUserInLosers = gameState.losers?.includes(user?.id || "");
 
-    if (wasInGameRef.current && !isUserInGame && !isGameOver && isUserInLosers) {
+    if (wasInGameRef.current && !isUserInGame && !isGameOver && isUserInLosers && !wasKickedByTimeout) {
       // User was in game but now they're not (and game isn't over) - they got replaced
       setWasReplacedByBot(true);
       setShowTimeoutModal(true);
@@ -173,7 +174,15 @@ const MakaoGame: React.FC = () => {
       wasInGameRef.current = true;
     }
 
-  }, [gameState, previousCardPlayed, user?.id, addPlayAnimation, playCardSound, playTurnStartSound, playMakaoSound]);
+  }, [gameState, previousCardPlayed, user?.id, addPlayAnimation, playCardSound, playTurnStartSound, playMakaoSound, wasKickedByTimeout]);
+
+  // Show timeout modal when kicked via WebSocket notification
+  useEffect(() => {
+    if (wasKickedByTimeout) {
+      setShowTimeoutModal(true);
+      setWasReplacedByBot(true);
+    }
+  }, [wasKickedByTimeout]);
 
   // Build player views from game state
   const players = useMemo<PlayerView[]>(() => {
@@ -888,9 +897,13 @@ const MakaoGame: React.FC = () => {
       {/* Timeout/Kicked Modal */}
       <TimeoutModal
         isOpen={showTimeoutModal}
-        onClose={() => setShowTimeoutModal(false)}
+        onClose={() => {
+          setShowTimeoutModal(false);
+          clearTimeoutStatus();
+        }}
         onReturnToLobby={() => {
           setShowTimeoutModal(false);
+          clearTimeoutStatus();
           clearLobby();
           navigate("/makao");
         }}

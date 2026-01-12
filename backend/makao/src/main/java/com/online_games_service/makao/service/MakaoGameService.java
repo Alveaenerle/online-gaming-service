@@ -7,6 +7,7 @@ import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
 import com.online_games_service.makao.dto.PlayCardRequest;
 import com.online_games_service.makao.dto.PlayerCardView;
+import com.online_games_service.makao.dto.PlayerTimeoutMessage;
 import com.online_games_service.makao.dto.DrawCardResponse;
 import com.online_games_service.makao.dto.EndGameRequest;
 import com.online_games_service.makao.dto.GameStateMessage;
@@ -1090,6 +1091,27 @@ public class MakaoGameService {
         }
     }
 
+    /**
+     * Sends a timeout notification to a player who was kicked due to inactivity.
+     * This message is sent directly to the player's personal topic so they receive it
+     * even though they are no longer in the game.
+     */
+    private void notifyPlayerTimeout(String playerId, String roomId, String replacedByBotId) {
+        if (playerId == null || isBot(playerId)) {
+            return;
+        }
+        
+        PlayerTimeoutMessage timeoutMessage = new PlayerTimeoutMessage(
+                roomId,
+                playerId,
+                replacedByBotId,
+                "You have been replaced by a bot due to inactivity. You did not make a move within the time limit."
+        );
+        
+        log.info("Sending timeout notification to player {} in room {}", playerId, roomId);
+        messagingTemplate.convertAndSend("/topic/makao/" + playerId + "/timeout", timeoutMessage);
+    }
+
     private void handleTurnTimeout(String roomId, String timedOutPlayer) {
         // Remove the triggered timer so a new one can be scheduled without being cancelled later in this call stack.
         turnTimeouts.remove(roomId);
@@ -1156,6 +1178,9 @@ public class MakaoGameService {
 
             // Add notification for player being replaced
             game.addMoveLog(String.format("Player timed out and was replaced by %s", "Bot " + nextBot));
+
+            // Send timeout notification directly to the kicked player
+            notifyPlayerTimeout(timedOutPlayer, roomId, botId);
 
             handleBotTurn(game, botId, playable);
             nextTurn(game);
