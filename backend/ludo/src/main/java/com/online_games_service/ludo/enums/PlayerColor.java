@@ -1,10 +1,10 @@
 package com.online_games_service.ludo.enums;
 
 public enum PlayerColor {
-    RED(0),     
-    BLUE(13),   
-    GREEN(26),  
-    YELLOW(39); 
+    RED(0),
+    BLUE(11),
+    YELLOW(22),
+    GREEN(33);
 
     private final int startPosition;
 

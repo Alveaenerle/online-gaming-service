@@ -69,7 +69,6 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         // Given
         ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"));
         
-        // Simulate a rolled 6
         LudoGame game = redisRepository.findById(ROOM_ID).get();
         game.setDiceRolled(true);
         game.setLastDiceRoll(6); 
@@ -97,10 +96,11 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         
         winner.getPawns().forEach(p -> { p.setInBase(false); p.setInHome(true); });
         
+        
         LudoPawn lastPawn = winner.getPawns().get(3);
         lastPawn.setInHome(false);
-        lastPawn.setStepsMoved(51); 
-        lastPawn.setPosition(51);  
+        lastPawn.setStepsMoved(43); 
+        lastPawn.setPosition(43);   
         
         game.setDiceRolled(true);
         game.setLastDiceRoll(1); 

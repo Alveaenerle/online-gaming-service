@@ -50,7 +50,7 @@ public class LudoService {
     @Value("${ludo.turn-timeout-seconds:60}")
     private long turnTimeoutSeconds;
 
-    private static final int BOARD_SIZE = 52;
+    private static final int BOARD_SIZE = 44;
     private static final String USER_GAME_KEY_PREFIX = "ludo:user-game:";
 
     // --- API FUNCTIONS ---
@@ -211,7 +211,7 @@ public class LudoService {
 
                 pawn.setInHome(true);
                 pawn.setPosition(-2);
-                pawn.setStepsMoved(BOARD_SIZE + (4 - (int) inHomeCount));
+                pawn.setStepsMoved(BOARD_SIZE + (3 - (int) inHomeCount));
             } else {
                 int nextPos = (pawn.getPosition() + roll) % BOARD_SIZE;
 

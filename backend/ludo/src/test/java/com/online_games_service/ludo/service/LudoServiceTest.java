@@ -340,8 +340,8 @@ public class LudoServiceTest {
         }
         
         winner.getPawns().get(3).setInHome(false); 
-        winner.getPawns().get(3).setStepsMoved(51); 
-        winner.getPawns().get(3).setPosition(51); 
+        winner.getPawns().get(3).setStepsMoved(43);
+        winner.getPawns().get(3).setPosition(43);  
         
         game.setDiceRolled(true);
         game.setLastDiceRoll(1);
@@ -412,10 +412,10 @@ public class LudoServiceTest {
         LudoPlayer blue = game.getPlayers().get(1); 
 
         red.getPawns().get(0).setInBase(false);
-        red.getPawns().get(0).setPosition(11); 
+        red.getPawns().get(0).setPosition(9);
         
         blue.getPawns().get(0).setInBase(false);
-        blue.getPawns().get(0).setPosition(13); 
+        blue.getPawns().get(0).setPosition(11); 
 
         game.setDiceRolled(true);
         game.setLastDiceRoll(2);
@@ -449,7 +449,6 @@ public class LudoServiceTest {
         // When & Then
         when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
         when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
-        
     }
 
     @Test
@@ -546,10 +545,6 @@ public class LudoServiceTest {
         ReflectionTestUtils.invokeMethod(ludoService, "executeBotMove", roomId, "bot-1", 6);
     }
 
-    private LudoGame createGame(String roomId, String p1, String p2) {
-        return new LudoGame(roomId, List.of(p1, p2), p1, Map.of(p1, "User1", p2, "User2"));
-    }
-
     @Test
     public void shouldAbortGame_WhenLastHumanTimesOut() {
         // Given
@@ -569,5 +564,71 @@ public class LudoServiceTest {
         // Then
         verify(gameRepository).deleteById(roomId);
         verify(scheduler, never()).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+    }
+
+    @Test
+    public void canPawnMoveSimple_shouldReturnFalseIfStartBlocked() {
+        // Given
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, "p1", "p2");
+        LudoPlayer player = game.getPlayers().get(0); // RED
+
+        player.getPawns().get(0).setInBase(false);
+        player.getPawns().get(0).setPosition(0); 
+
+        LudoPawn pawnInBase = player.getPawns().get(1);
+
+        // When
+        boolean canMove = ReflectionTestUtils.invokeMethod(ludoService, "canPawnMoveSimple", game, player, pawnInBase, 6);
+        
+        // Then
+        Assert.assertFalse(canMove);
+    }
+
+    @Test
+    public void canPlayerMove_shouldReturnFalseIfNoMovePossible() {
+        // Given
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, "p1", "p2");
+        LudoPlayer player = game.getPlayers().get(0);
+        
+        // When
+        boolean canMove = ReflectionTestUtils.invokeMethod(ludoService, "canPlayerMove", game, "p1", 5);
+
+        // Then
+        Assert.assertFalse(canMove);
+    }
+
+    @Test
+    public void performMoveLogic_shouldEnterHomeCorrectly() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+        LudoPlayer player = game.getPlayers().get(0); 
+        LudoPawn pawn = player.getPawns().get(0);
+
+        pawn.setInBase(false);
+        pawn.setPosition(43); 
+        pawn.setStepsMoved(43); 
+
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(1);
+        game.setWaitingForMove(true);
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        ludoService.movePawn(userId, 0);
+
+        // Then
+        Assert.assertTrue(pawn.isInHome());
+        Assert.assertEquals(pawn.getPosition(), -2);
+        Assert.assertEquals(pawn.getStepsMoved(), 47);
+    }
+
+    private LudoGame createGame(String roomId, String p1, String p2) {
+        return new LudoGame(roomId, List.of(p1, p2), p1, Map.of(p1, "User1", p2, "User2"));
     }
 }
