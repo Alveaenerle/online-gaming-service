@@ -150,7 +150,6 @@ export function MakaoLobby() {
       <InviteFriendModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
-        playersInLobby={lobby.players.map(p => p.username)}
       />
     </GameLobbyLayout>
   );
