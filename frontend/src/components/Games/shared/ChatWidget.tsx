@@ -53,6 +53,12 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+  const isOpenRef = useRef(isOpen);
+  
+  // Keep isOpenRef in sync with isOpen state
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
 
   // Connect to chat when lobby changes
   useEffect(() => {
@@ -71,18 +77,16 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
   // Handle incoming messages
   useEffect(() => {
     const unsubMessage = chatService.onMessage((message) => {
-      let isNewMessage = false;
       setMessages((prev) => {
         // Prevent duplicate messages
         if (prev.some((m) => m.id === message.id)) {
           return prev;
         }
-        isNewMessage = true;
         return [...prev, message];
       });
-      // Only increment unread for genuinely new messages
-      if (!isOpen && isNewMessage) {
-        setUnreadCount((prev) => prev + 1);
+      // Increment unread count when chat is closed
+      if (!isOpenRef.current) {
+        setUnreadCount((count) => count + 1);
       }
     });
 
@@ -130,7 +134,7 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
       unsubError();
       unsubTyping();
     };
-  }, [isOpen, showToast, user?.id]);
+  }, [showToast, user?.id]);
 
   // Cooldown timer
   useEffect(() => {
@@ -276,7 +280,7 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
         <MessageCircle className="w-6 h-6 text-white" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {Math.ceil(unreadCount / 2) > 9 ? "9+" : Math.ceil(unreadCount / 2)}
           </span>
         )}
       </motion.button>
@@ -478,7 +482,8 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
               <div className="px-3 py-2 text-sm text-gray-400 border-b border-white/10">
                 {contextMenu.username}
               </div>
-              {!isFriend(contextMenu.userId) && (
+              {/* Hide Add Friend if: current user is guest, or target is a guest, or already friends */}
+              {!user?.isGuest && !contextMenu.username.startsWith("Guest_") && !isFriend(contextMenu.userId) && (
                 <button
                   onClick={handleAddFriend}
                   className="w-full px-3 py-2 text-left text-sm text-white 
