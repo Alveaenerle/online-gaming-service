@@ -25,7 +25,8 @@ export function Pawn({
   const { id, position, color, stepsMoved } = pawn;
   const { row, col } = getPawnCoords(position, stepsMoved, color as Color, id);
 
-  const canMoveThisPawn = position !== -1 || diceValue === 6;
+  const canMoveThisPawn =
+    (position !== -1 || diceValue === 6) && position !== -2;
   const activeInteractable = isPlayerTurn && canMoveThisPawn && !isMoving;
 
   useEffect(() => {

@@ -84,15 +84,14 @@ export const getPawnCoords = (
   }
   const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
   if (position === -2 && stepsMoved > 43) {
-    console.log("Stepping into home stretch");
     const step = stepsMoved - 43;
     if (step >= 5) return { row: 8, col: 8 };
 
     const homeStretch = {
-      RED: { row: 8, col: 3 + step },
-      BLUE: { row: 3 + step, col: 8 },
-      YELLOW: { row: 8, col: 13 - step },
-      GREEN: { row: 13 - step, col: 8 },
+      RED: { row: 8, col: 2 + step },
+      BLUE: { row: 2 + step, col: 8 },
+      YELLOW: { row: 8, col: 14 - step },
+      GREEN: { row: 14 - step, col: 8 },
     };
     return homeStretch[color];
   }

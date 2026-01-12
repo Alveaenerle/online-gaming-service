@@ -98,7 +98,7 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
       await ludoService.movePawn(pawnId);
     } catch (err) {
       setGameNotification(
-        "Movement intercepted. Invalid coordinates.",
+        "Movement intercepted. This field is occupied.",
         "ERROR"
       );
     }
