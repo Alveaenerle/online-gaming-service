@@ -12,6 +12,8 @@ import com.online_games_service.ludo.repository.redis.LudoGameRedisRepository;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.Assert;
@@ -36,15 +38,21 @@ public class LudoServiceTest {
     @Mock private LudoGameResultRepository gameResultRepository;
     @Mock private RabbitTemplate rabbitTemplate;
     @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock private StringRedisTemplate stringRedisTemplate;
+    @Mock private ValueOperations<String, String> stringValueOperations;
     @Mock private ScheduledExecutorService scheduler;
 
     private LudoService ludoService;
     private AutoCloseable mocks;
+    private final String USER_GAME_PREFIX = "ludo:user-game:";
 
     @BeforeMethod
     public void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
-        ludoService = new LudoService(gameRepository, gameResultRepository, rabbitTemplate, messagingTemplate);
+        
+        when(stringRedisTemplate.opsForValue()).thenReturn(stringValueOperations);
+        
+        ludoService = new LudoService(gameRepository, gameResultRepository, rabbitTemplate, messagingTemplate, stringRedisTemplate);
         
         ReflectionTestUtils.setField(ludoService, "turnTimeoutScheduler", scheduler);
         
@@ -63,11 +71,16 @@ public class LudoServiceTest {
     @Test
     public void shutdown_shouldCancelTasksAndShutdownScheduler() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        String userId = "p1";
+        String roomId = "r1";
+        
+        LudoGame game = createGame(roomId, userId, "p2");
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
         when(gameRepository.save(any())).thenReturn(game);
         
-        ludoService.rollDice("r1", "p1");
+        ludoService.rollDice(userId);
 
         // When
         ludoService.shutdown();
@@ -93,6 +106,9 @@ public class LudoServiceTest {
             g.getCurrentPlayerColor() == PlayerColor.RED
         ));
         
+        verify(stringValueOperations).set(eq(USER_GAME_PREFIX + "p1"), eq(roomId), any());
+        verify(stringValueOperations).set(eq(USER_GAME_PREFIX + "p2"), eq(roomId), any());
+
         verify(messagingTemplate).convertAndSend(eq("/topic/game/r1"), any(Object.class));
         verify(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
     }
@@ -107,7 +123,7 @@ public class LudoServiceTest {
         
         // Then
         verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
-        verify(scheduler, never()).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+        verify(stringValueOperations, never()).set(anyString(), anyString(), any());
     }
 
     @Test
@@ -123,13 +139,18 @@ public class LudoServiceTest {
     @Test
     public void rollDice_shouldUpdateGameState() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+        
         game.getPlayers().get(0).getPawns().get(0).setInBase(false);
         game.getPlayers().get(0).getPawns().get(0).setPosition(1);
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When
-        ludoService.rollDice("r1", "p1");
+        ludoService.rollDice(userId);
 
         // Then
         Assert.assertTrue(game.isDiceRolled());
@@ -139,61 +160,81 @@ public class LudoServiceTest {
     @Test
     public void rollDice_shouldThrowIfNotPlayerTurn() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         game.setActivePlayerId("p2"); 
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(GameLogicException.class, () -> ludoService.rollDice("r1", "p1"));
+        Assert.assertThrows(GameLogicException.class, () -> ludoService.rollDice(userId));
     }
     
     @Test
     public void rollDice_shouldThrowIfWaitingForMove() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         game.setDiceRolled(true);
         game.setWaitingForMove(true);
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(GameLogicException.class, () -> ludoService.rollDice("r1", "p1"));
+        Assert.assertThrows(GameLogicException.class, () -> ludoService.rollDice(userId));
     }
 
     @Test
     public void rollDice_shouldThrowIfNoRollsLeft() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         game.setRollsLeft(0);
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalStateException.class, () -> ludoService.rollDice("r1", "p1"));
+        Assert.assertThrows(IllegalStateException.class, () -> ludoService.rollDice(userId));
     }
 
     @Test
     public void movePawn_shouldRequireSixToLeaveBase() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         game.setDiceRolled(true);
         game.setLastDiceRoll(3); 
         game.setWaitingForMove(true);
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 0));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn(userId, 0));
     }
 
     @Test
     public void movePawn_shouldLeaveBaseOnSix() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         game.setDiceRolled(true);
         game.setLastDiceRoll(6);
         game.setWaitingForMove(true);
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When
-        ludoService.movePawn("r1", "p1", 0);
+        ludoService.movePawn(userId, 0);
 
         // Then
         LudoPawn pawn = game.getPlayers().get(0).getPawns().get(0);
@@ -206,7 +247,9 @@ public class LudoServiceTest {
     @Test
     public void movePawn_shouldCaptureOpponent() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         LudoPlayer red = game.getPlayers().get(0);
         LudoPlayer blue = game.getPlayers().get(1);
 
@@ -220,10 +263,11 @@ public class LudoServiceTest {
         game.setLastDiceRoll(3);
         game.setWaitingForMove(true);
         
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When
-        ludoService.movePawn("r1", "p1", 0);
+        ludoService.movePawn(userId, 0);
 
         // Then
         Assert.assertEquals(red.getPawns().get(0).getPosition(), 17);
@@ -233,24 +277,32 @@ public class LudoServiceTest {
     @Test
     public void movePawn_shouldThrowIfPlayerNotFound() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "ghost";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, "p1", "p2");
         game.setDiceRolled(true);
-        game.setActivePlayerId("ghost"); 
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        game.setActivePlayerId(userId); 
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn("r1", "ghost", 0));
+        Assert.assertThrows(IllegalArgumentException.class, () -> ludoService.movePawn(userId, 0));
     }
     
     @Test
     public void movePawn_shouldThrowForInvalidIndex() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         game.setDiceRolled(true);
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 99));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn(userId, 99));
     }
 
     @Test
@@ -267,6 +319,9 @@ public class LudoServiceTest {
         LudoPlayer p1 = game.getPlayers().get(0);
         Assert.assertTrue(p1.isBot());
         Assert.assertTrue(p1.getUserId().startsWith("bot-"));
+        
+        verify(stringRedisTemplate).delete(USER_GAME_PREFIX + "p1");
+        
         verify(messagingTemplate, atLeastOnce()).convertAndSend(anyString(), any(Object.class));
         verify(scheduler, atLeastOnce()).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
     }
@@ -274,7 +329,9 @@ public class LudoServiceTest {
     @Test
     public void checkWinCondition_shouldFinishGame() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         LudoPlayer winner = game.getPlayers().get(0);
         
         for (LudoPawn p : winner.getPawns()) {
@@ -290,17 +347,19 @@ public class LudoServiceTest {
         game.setLastDiceRoll(1);
         game.setWaitingForMove(true);
         
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When
-        ludoService.movePawn("r1", "p1", 3);
+        ludoService.movePawn(userId, 3);
 
         // Then
         Assert.assertEquals(game.getStatus(), RoomStatus.FINISHED);
-        Assert.assertEquals(game.getWinnerId(), "p1");
+        Assert.assertEquals(game.getWinnerId(), userId);
         
         verify(gameResultRepository).save(any());
         verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.finish"), any(Object.class));
+        verify(stringRedisTemplate, atLeastOnce()).delete(anyString());
     }
 
     @Test
@@ -320,7 +379,9 @@ public class LudoServiceTest {
     @Test
     public void movePawn_shouldThrowIfTargetFieldOccupiedBySelf() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         LudoPlayer player = game.getPlayers().get(0);
         
         player.getPawns().get(0).setInBase(false);
@@ -334,16 +395,19 @@ public class LudoServiceTest {
         game.setLastDiceRoll(2);
         game.setWaitingForMove(true);
         
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 0));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn(userId, 0));
     }
 
     @Test
     public void movePawn_shouldThrowIfTargetIsSafePointWithOpponent() {
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         LudoPlayer red = game.getPlayers().get(0); 
         LudoPlayer blue = game.getPlayers().get(1); 
 
@@ -357,16 +421,19 @@ public class LudoServiceTest {
         game.setLastDiceRoll(2);
         game.setWaitingForMove(true);
         
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
 
         // When & Then
-        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn("r1", "p1", 0));
+        Assert.assertThrows(InvalidMoveException.class, () -> ludoService.movePawn(userId, 0));
     }
 
     @Test
     public void rollDice_shouldPassTurnIfNoMovesPossible() {        
         // Given
-        LudoGame game = createGame("r1", "p1", "p2");
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
         game.setRollsLeft(1); 
         
         game.getPlayers().get(0).getPawns().get(0).setInBase(false);
@@ -379,11 +446,11 @@ public class LudoServiceTest {
         game.setLastDiceRoll(2);
         game.setWaitingForMove(true); 
         
-        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
-        
         // When & Then
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+        
     }
-    
 
     @Test
     public void processBotStep_shouldInvokeLogic() {

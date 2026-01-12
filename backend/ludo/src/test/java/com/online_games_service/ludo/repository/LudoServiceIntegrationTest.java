@@ -77,7 +77,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         redisRepository.save(game); 
 
         // When
-        ludoService.movePawn(ROOM_ID, P1_ID, 0);
+        ludoService.movePawn(P1_ID, 0);
 
         // Then
         LudoGame updatedGame = redisRepository.findById(ROOM_ID).get();
@@ -108,7 +108,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         redisRepository.save(game);
 
         // When
-        ludoService.movePawn(ROOM_ID, P1_ID, 3);
+        ludoService.movePawn(P1_ID, 3);
 
         // Then
         Assert.assertFalse(redisRepository.existsById(ROOM_ID));

@@ -17,9 +17,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -32,6 +34,7 @@ public class LudoService {
     private final LudoGameResultRepository gameResultRepository;
     private final RabbitTemplate rabbitTemplate;
     private final SimpMessagingTemplate messagingTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
     
@@ -48,6 +51,7 @@ public class LudoService {
     private long turnTimeoutSeconds;
 
     private static final int BOARD_SIZE = 52;
+    private static final String USER_GAME_KEY_PREFIX = "ludo:user-game:";
 
     // --- API FUNCTIONS ---
 
@@ -71,26 +75,26 @@ public class LudoService {
             return;
         }
 
-        saveAndBroadcastState(game);
+        for (String playerId : playerIds) {
+            saveUserGameMapping(playerId, roomId);
+        }
+
+        saveAndBroadcast(game, null);
 
         scheduleTurnTimeout(game);
 
         log.info("Ludo game created for room: {}, gameId: {}", roomId, game.getGameId());
     }
 
-    public LudoGame getGame(String roomId) {
-        return gameRepository.findById(roomId)
-                .orElseThrow(() -> new IllegalArgumentException("Game not found for room: " + roomId));
+    public LudoGameStateMessage getGameState(String userId) {
+        LudoGame game = getGameByUserId(userId);
+        return mapToDTO(game, null);
     }
 
-    public LudoGameStateMessage getGameState(String roomId) {
-        return mapToDTO(getGame(roomId), null);
-    }
+    public void rollDice(String userId) {
+        LudoGame game = getGameByUserId(userId);
 
-    public void rollDice(String roomId, String playerId) {
-        LudoGame game = getGame(roomId);
-
-        validateTurn(game, playerId);
+        validateTurn(game, userId);
 
         if (game.isDiceRolled() && game.isWaitingForMove()) {
             throw new GameLogicException("You must move before rolling again!");
@@ -99,16 +103,16 @@ public class LudoService {
             throw new IllegalStateException("No rolls left!");
         }
 
-        performRollLogic(game, playerId);
+        performRollLogic(game, userId);
     }
 
-    public void movePawn(String roomId, String playerId, int pawnIndex) {
-        LudoGame game = getGame(roomId);
+    public void movePawn(String userId, int pawnIndex) {
+        LudoGame game = getGameByUserId(userId);
 
-        validateTurn(game, playerId);
+        validateTurn(game, userId);
         if (!game.isDiceRolled()) throw new IllegalStateException("Roll dice first!");
 
-        LudoPlayer player = game.getPlayerById(playerId);
+        LudoPlayer player = game.getPlayerById(userId);
         if (player == null) throw new IllegalArgumentException("Player not found in game");
 
         if (pawnIndex < 0 || pawnIndex >= player.getPawns().size()) {
@@ -121,6 +125,33 @@ public class LudoService {
         String capturedId = performMoveLogic(game, player, pawn, roll);
 
         handlePostMove(game, player, roll, capturedId);
+    }
+
+    // --- LOOKUP & MAPPING METHODS (DODANE) ---
+
+    private LudoGame getGameByUserId(String userId) {
+        String roomId = stringRedisTemplate.opsForValue().get(USER_GAME_KEY_PREFIX + userId);
+        if (roomId == null) {
+            throw new IllegalArgumentException("User " + userId + " is not currently in any Ludo game");
+        }
+        return gameRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("Game not found for room: " + roomId));
+    }
+
+    private void saveUserGameMapping(String userId, String roomId) {
+        stringRedisTemplate.opsForValue().set(USER_GAME_KEY_PREFIX + userId, roomId, Duration.ofHours(2));
+    }
+
+    private void removeUserGameMapping(String userId) {
+        stringRedisTemplate.delete(USER_GAME_KEY_PREFIX + userId);
+    }
+
+    private void removeAllUserMappings(LudoGame game) {
+        for (LudoPlayer player : game.getPlayers()) {
+            if (!player.isBot()) {
+                removeUserGameMapping(player.getUserId());
+            }
+        }
     }
 
     // --- ROLL AND MOVE LOGIC ---
@@ -149,7 +180,7 @@ public class LudoService {
             }
         }
 
-        saveAndBroadcastState(game);
+        saveAndBroadcast(game, null);
         
         if (game.getStatus() == RoomStatus.PLAYING && !isBot(game.getActivePlayerId())) {
             scheduleTurnTimeout(game);
@@ -213,7 +244,7 @@ public class LudoService {
                 game.setWaitingForMove(false);
                 game.setRollsLeft(1);
                 
-                saveAndBroadcastMoveResult(game, capturedId);
+                saveAndBroadcast(game, capturedId);
 
                 if (!isBot(player.getUserId())) {
                     scheduleTurnTimeout(game);
@@ -222,9 +253,8 @@ public class LudoService {
                 }
             } else {
                 if (capturedId != null) {
-                    saveAndBroadcastMoveResult(game, capturedId);
+                    saveAndBroadcast(game, capturedId);
                 }
-                
                 passTurnToNextPlayer(game);
             }
         }
@@ -251,7 +281,7 @@ public class LudoService {
             game.setActivePlayerId(nextPlayer.getUserId());
             updateRollsCountForPlayer(game, nextPlayer);
 
-            saveAndBroadcastState(game);
+            saveAndBroadcast(game, null);
 
             if (isBot(nextPlayer.getUserId())) {
                 handleBotTurn(game, nextPlayer.getUserId());
@@ -275,11 +305,11 @@ public class LudoService {
         try {
             LudoGame game = gameRepository.findById(roomId).orElse(null);
             if (game == null || game.getStatus() != RoomStatus.PLAYING) return;
-
+            
             if (checkAndAbortIfNoHumans(game)) {
                 return;
             }
-            
+
             if (!botId.equals(game.getActivePlayerId())) return;
 
             LudoPlayer bot = game.getPlayerById(botId);
@@ -300,7 +330,7 @@ public class LudoService {
                 if (game.getRollsLeft() > 0) {
                     game.setDiceRolled(false);
                     game.setWaitingForMove(false);
-                    saveAndBroadcastState(game);
+                    saveAndBroadcast(game, null);
                     
                     turnTimeoutScheduler.schedule(() -> processBotStep(roomId, botId), 1000, TimeUnit.MILLISECONDS);
                     return;
@@ -310,7 +340,7 @@ public class LudoService {
                 }
             }
 
-            saveAndBroadcastState(game);
+            saveAndBroadcast(game, null);
 
             if (canMove) {
                 turnTimeoutScheduler.schedule(() -> executeBotMove(roomId, botId, roll), 1000, TimeUnit.MILLISECONDS);
@@ -333,6 +363,7 @@ public class LudoService {
 
             if (pawnToMoveIndex != -1) {
                 LudoPawn pawn = bot.getPawns().get(pawnToMoveIndex);
+                
                 String capturedId = performMoveLogic(game, bot, pawn, roll);
                 
                 if (checkWinCondition(bot)) {
@@ -344,12 +375,12 @@ public class LudoService {
                     game.setDiceRolled(false);
                     game.setWaitingForMove(false);
                     game.setRollsLeft(1);
-                    saveAndBroadcastMoveResult(game, capturedId);
+                    saveAndBroadcast(game, capturedId);
                     
                     turnTimeoutScheduler.schedule(() -> processBotStep(roomId, botId), 1000, TimeUnit.MILLISECONDS);
                 } else {
                     if (capturedId != null) {
-                        saveAndBroadcastMoveResult(game, capturedId);
+                        saveAndBroadcast(game, capturedId);
                     }
                     passTurnToNextPlayer(game);
                 }
@@ -440,6 +471,8 @@ public class LudoService {
             
             LudoPlayer player = game.getPlayerById(timedOutPlayerId);
             if (player != null) {
+                removeUserGameMapping(player.getUserId());
+
                 int nextBotNum = game.getBotCounter() + 1;
                 game.setBotCounter(nextBotNum);
                 
@@ -455,9 +488,9 @@ public class LudoService {
                 game.setPlayersUsernames(usernames);
                 
                 game.setActivePlayerId(botId);
-
+                
                 if (checkAndAbortIfNoHumans(game)) {
-                    return; 
+                    return;
                 }
                 
                 game.setDiceRolled(false);
@@ -465,7 +498,7 @@ public class LudoService {
                 game.setLastDiceRoll(0);
                 updateRollsCountForPlayer(game, player); 
 
-                saveAndBroadcastState(game);
+                saveAndBroadcast(game, null);
                 
                 handleBotTurn(game, botId);
             } else {
@@ -514,10 +547,10 @@ public class LudoService {
                 enemy.setInHome(false);
 
                 capturedId[0] = game.getPlayers().stream()
-                    .filter(p -> p.getColor() == enemy.getColor())
-                    .findFirst()
-                    .map(LudoPlayer::getUserId)
-                    .orElse(null);
+                        .filter(p -> p.getColor() == enemy.getColor())
+                        .findFirst()
+                        .map(LudoPlayer::getUserId)
+                        .orElse(null);
             }
         });
         return capturedId[0];
@@ -541,17 +574,9 @@ public class LudoService {
         }
     }
 
-    // --- BROADCAST METHODS ---
-
-    private void saveAndBroadcastState(LudoGame game) {
+    private void saveAndBroadcast(LudoGame game, String capturedUserId) {
         gameRepository.save(game);
-        LudoGameStateMessage msg = mapToDTO(game, null); 
-        messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
-    }
-
-    private void saveAndBroadcastMoveResult(LudoGame game, String capturedUserId) {
-        gameRepository.save(game);
-        LudoGameStateMessage msg = mapToDTO(game, capturedUserId);
+        LudoGameStateMessage msg = mapToDTO(game, capturedUserId); 
         messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
     }
 
@@ -589,24 +614,27 @@ public class LudoService {
         GameFinishMessage finishMsg = new GameFinishMessage(game.getRoomId(), RoomStatus.FINISHED);
         rabbitTemplate.convertAndSend(exchangeName, finishRoutingKey, finishMsg);
         
-        saveAndBroadcastState(game);
+        saveAndBroadcast(game, null);
         
+        removeAllUserMappings(game);
+
         if (game.getRoomId() != null) {
             gameRepository.deleteById(game.getRoomId());
         }
     }
-
+    
     private boolean checkAndAbortIfNoHumans(LudoGame game) {
         boolean hasHumans = game.getPlayers().stream()
                 .anyMatch(p -> !p.isBot());
 
         if (!hasHumans) {
             log.info("No humans left in game {}. Aborting to save resources.", game.getRoomId());
+            removeAllUserMappings(game);
             gameRepository.deleteById(game.getRoomId());
             cancelTurnTimeout(game.getRoomId());
             return true;
         }
-        return false; 
+        return false;
     }
     
     private Map<String, Integer> calculatePlacement(LudoGame game, LudoPlayer winner) {
