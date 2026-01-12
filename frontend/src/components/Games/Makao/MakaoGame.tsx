@@ -52,7 +52,7 @@ const MakaoGame: React.FC = () => {
   } = useGameSounds();
 
   // WebSocket connection and game state
-  const { gameState, isConnected, connectionError } = useMakaoSocket();
+  const { gameState, isConnected, connectionError, resetState } = useMakaoSocket();
 
 
   // Game actions
@@ -312,11 +312,42 @@ const MakaoGame: React.FC = () => {
     setDrawnCardInfo(null);
   }, [skipDrawnCard]);
 
-  // Handle leaving game
+  // Handle leaving game (mid-game)
   const handleLeaveGame = useCallback(() => {
     clearLobby();
     navigate("/makao");
   }, [clearLobby, navigate]);
+
+  // Reset all local UI state (for new game)
+  const resetLocalState = useCallback(() => {
+    setPendingCard(null);
+    setDemandType(null);
+    setDrawnCardInfo(null);
+    setPreviousCardPlayed(null);
+    setShowTimeoutModal(false);
+    setWasReplacedByBot(false);
+    prevActivePlayerIdRef.current = null;
+    wasMyTurnRef.current = false;
+    wasInGameRef.current = false;
+    playerRefsMap.current.clear();
+  }, []);
+
+  // Handle "Play Again" - return to lobby with same players
+  const handlePlayAgain = useCallback(() => {
+    // Reset game-specific state
+    resetLocalState();
+    resetState(); // Reset WebSocket game state
+    // Navigate back to lobby (lobby context preserved)
+    navigate("/makao");
+  }, [resetLocalState, resetState, navigate]);
+
+  // Handle "Exit to Menu" - leave completely
+  const handleExitToMenu = useCallback(() => {
+    resetLocalState();
+    resetState();
+    clearLobby(); // Clear the lobby context entirely
+    navigate("/home");
+  }, [resetLocalState, resetState, clearLobby, navigate]);
 
   // Warning for errors
   useEffect(() => {
@@ -783,7 +814,8 @@ const MakaoGame: React.FC = () => {
           <GameOverModal
             players={players}
             myUserId={user?.id || ""}
-            onPlayAgain={() => navigate("/makao")}
+            onPlayAgain={handlePlayAgain}
+            onExitToMenu={handleExitToMenu}
           />
         )}
       </AnimatePresence>

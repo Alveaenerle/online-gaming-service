@@ -1,24 +1,24 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { PlayerView } from "../types";
 
 interface GameOverModalProps {
   players: PlayerView[];
   myUserId: string;
-  onPlayAgain?: () => void;
+  onPlayAgain: () => void;
+  onExitToMenu: () => void;
 }
 
 /**
  * Modal shown when game is finished - displays rankings and options
+ * Two actions: Play Again (return to lobby) and Exit to Menu (go home)
  */
 const GameOverModal: React.FC<GameOverModalProps> = ({
   players,
   myUserId,
   onPlayAgain,
+  onExitToMenu,
 }) => {
-  const navigate = useNavigate();
-
   // Sort players by placement
   const sortedPlayers = [...players]
     .filter((p) => p.placement !== null)
@@ -39,14 +39,6 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
       default:
         return `#${place}`;
     }
-  };
-
-  const handleBackToLobby = () => {
-    navigate("/makao");
-  };
-
-  const handleBackToHome = () => {
-    navigate("/home");
   };
 
   return (
@@ -138,33 +130,22 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
           transition={{ delay: 0.6 }}
           className="flex flex-col gap-3"
         >
-          {onPlayAgain && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onPlayAgain}
-              className="w-full py-3 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white font-bold shadow-neon"
-            >
-              Play Again
-            </motion.button>
-          )}
-
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={handleBackToLobby}
-            className="w-full py-3 rounded-xl bg-[#1a1a27] hover:bg-[#252532] text-white font-medium border border-white/10 transition-colors"
+            onClick={onPlayAgain}
+            className="w-full py-3 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white font-bold shadow-neon"
           >
-            Back to Makao Lobby
+            🔄 Play Again
           </motion.button>
 
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={handleBackToHome}
-            className="w-full py-2 text-gray-400 hover:text-white transition-colors text-sm"
+            onClick={onExitToMenu}
+            className="w-full py-3 rounded-xl bg-[#1a1a27] hover:bg-[#252532] text-white font-medium border border-white/10 transition-colors"
           >
-            Return to Home
+            🏠 Exit to Menu
           </motion.button>
         </motion.div>
       </motion.div>
