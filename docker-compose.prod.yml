@@ -275,6 +275,14 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
