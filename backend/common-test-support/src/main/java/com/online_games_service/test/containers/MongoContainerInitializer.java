@@ -9,8 +9,6 @@ import org.testcontainers.utility.DockerImageName;
 import java.time.Duration;
 
 public class MongoContainerInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-    // Use mongo:4.2 for compatibility with CPUs lacking AVX support (e.g., older Jenkins hosts)
-    // MongoDB 4.4+ requires AVX instructions and exits with code 100 on unsupported CPUs
     private static final MongoDBContainer MONGO = new MongoDBContainer(
             DockerImageName.parse("mongo:4.2"))
             .withStartupTimeout(Duration.ofMinutes(2));

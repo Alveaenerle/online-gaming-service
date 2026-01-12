@@ -21,7 +21,6 @@ pipeline {
         stage('Cleanup Docker') {
             steps {
                 script {
-                    // Clean up unused Docker resources to free disk space
                     sh 'docker system prune -af --volumes || true'
                 }
             }
