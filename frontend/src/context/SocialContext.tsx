@@ -78,6 +78,12 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         await socialSocketService.connect();
         
+        // Refresh social data AFTER socket is connected to get correct online statuses
+        // This ensures that friends' presence is up-to-date
+        if (mounted) {
+          await refreshSocialData();
+        }
+        
         // Listen for notifications (friend requests, accepts, game invites)
         socialSocketService.subscribe('/user/queue/notifications', (notification: any) => {
            if (!mounted) return;
