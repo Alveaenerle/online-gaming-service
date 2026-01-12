@@ -112,33 +112,6 @@ class SocketService {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       console.log("[SocketService] Retrying connection...");
-      // We don't call connect() because we are already inside a pending connect() flow loosely
-      // or we need to restart the cycle. 
-      // Actually since we didn't reject the promise, we just need to try connecting again.
-      // But we need to invoke the logic that creates new socket.
-      // So we call check logic again.
-      
-      // To keep it simple: just call connect() again? 
-      // But connect() returns existing promise.
-      // We need to trigger the internal logic of connect() again without creating new promise.
-      // Refactoring slightly for that isn't easy with current structure.
-      
-      // Cleaner strategy: The 'connect' method just sets up the state. 
-      // The internal 'connect' logic should be recursive or reusable.
-      
-      // Let's rely on a fresh connect() call clearing the old logic IF we reset state properly.
-      // But we want the original promise to resolve!
-      // This is getting complex.
-      // Simplified approach: Just restart. The original promise will hang forever (leak? no, just unresolved).
-      // Callers will time out or just wait.
-      // New callers will get new promise.
-      
-      // Let's clear connectPromise so next call creates new one?
-      // But old awaiters are stuck.
-      
-      // OK, I'll use a robust self-repairing existing connection.
-      // If we are disconnected, we just try to connect again.
-      this.connectPromise = null; // specific to allow retry to create new attempt
       this.connect();
     }, 5000);
   }
