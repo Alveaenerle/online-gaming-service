@@ -51,7 +51,6 @@ export const lobbyService = {
 
   joinRoom(
     accessCode: string,
-    maxPlayers = 4,
     gameType = "MAKAO",
     isRandom = false
   ): Promise<LobbyInfoRaw> {
@@ -59,7 +58,6 @@ export const lobbyService = {
       method: "POST",
       body: JSON.stringify({
         gameType,
-        maxPlayers,
         isRandom,
         accessCode: accessCode.trim(),
       }),

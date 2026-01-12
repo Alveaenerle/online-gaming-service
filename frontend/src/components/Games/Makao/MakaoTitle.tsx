@@ -87,7 +87,6 @@ export function MakaoTitle() {
     try {
       await lobbyService.joinRoom(
         isRandom ? "" : roomCode,
-        isRandom ? playerCount : undefined,
         "MAKAO",
         isRandom
       );

@@ -153,6 +153,10 @@ public class GameRoomService {
         String waitingKey = KEY_WAITING + requestedType;
         Set<Object> waitingRoomIds = redisTemplate.opsForSet().members(waitingKey);
 
+        // Find all available rooms and pick the one closest to being full
+        GameRoom bestRoom = null;
+        int bestFillRatio = -1; // Track how full the room is (players / maxPlayers ratio scaled)
+
         if (waitingRoomIds != null) {
             for (Object idObj : waitingRoomIds) {
                 String roomId = (String) idObj;
@@ -163,20 +167,36 @@ public class GameRoomService {
                     continue;
                 }
 
-                if (room.getMaxPlayers() == request.getMaxPlayers() &&
-                        room.getPlayers().size() < room.getMaxPlayers() &&
+                // Check if room has space and user is not already in it
+                if (room.getPlayers().size() < room.getMaxPlayers() &&
                         !room.getPlayers().containsKey(userId)) {
 
-                    return addUserToRoom(room, userId, username);
+                    // Calculate fill ratio (higher = closer to full)
+                    // Multiply by 100 to get integer percentage for comparison
+                    int fillRatio = (room.getPlayers().size() * 100) / room.getMaxPlayers();
+
+                    // Prefer rooms that are closer to being full
+                    if (fillRatio > bestFillRatio) {
+                        bestFillRatio = fillRatio;
+                        bestRoom = room;
+                    }
                 }
             }
         }
 
+        if (bestRoom != null) {
+            log.info("Found available room {} ({}/{} players) for user {}",
+                    bestRoom.getId(), bestRoom.getPlayers().size(), bestRoom.getMaxPlayers(), username);
+            return addUserToRoom(bestRoom, userId, username);
+        }
+
+        // No room found - create a new one with default maxPlayers for the game type
         log.info("No matching room found. Creating new one for {}", username);
         CreateRoomRequest createRequest = new CreateRoomRequest();
         createRequest.setName("Room #" + (1000 + RANDOM.nextInt(9000)));
         createRequest.setGameType(requestedType);
-        createRequest.setMaxPlayers(request.getMaxPlayers());
+        // Use a sensible default: 4 players for most games
+        createRequest.setMaxPlayers(4);
         createRequest.setPrivate(false);
 
         return createRoom(createRequest, userId, username);

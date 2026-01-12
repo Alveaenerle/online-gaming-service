@@ -41,7 +41,6 @@ export function LudoTitle() {
     try {
       await lobbyService.joinRoom(
         isRandom ? "" : roomCode,
-        isRandom ? playerCount : undefined,
         "LUDO",
         isRandom
       );
