@@ -97,10 +97,8 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
       setGameNotification(`Pawn ${pawnId} moving...`, "MOVING");
       await ludoService.movePawn(pawnId);
     } catch (err) {
-      setGameNotification(
-        "Movement intercepted. This field is occupied.",
-        "ERROR"
-      );
+      console.error("Move pawn error:", err);
+      setGameNotification(`Movement intercepted. ${err}`, "ERROR");
     }
   };
 
