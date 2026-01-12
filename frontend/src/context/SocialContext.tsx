@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { socialService, Friend, FriendRequest } from '../services/socialService';
+import { socialService, Friend, FriendRequest, GameInvite } from '../services/socialService';
 import { socialSocketService } from '../services/socialSocketService';
 import { useToast } from './ToastContext';
 
@@ -8,11 +8,15 @@ interface SocialContextType {
   friends: Friend[];
   pendingRequests: FriendRequest[];
   sentRequests: FriendRequest[];
+  gameInvites: GameInvite[];
   isLoading: boolean;
   sendFriendRequest: (userId: string) => Promise<void>;
   acceptFriendRequest: (requestId: string) => Promise<void>;
   rejectFriendRequest: (requestId: string) => Promise<void>;
   removeFriend: (friendId: string) => Promise<void>;
+  sendGameInvite: (targetUserId: string, lobbyId: string, lobbyName: string, gameType: 'MAKAO' | 'LUDO') => Promise<void>;
+  acceptGameInvite: (inviteId: string) => Promise<GameInvite>;
+  declineGameInvite: (inviteId: string) => Promise<void>;
   refreshSocialData: () => Promise<void>;
 }
 
@@ -24,6 +28,7 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
+  const [gameInvites, setGameInvites] = useState<GameInvite[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch initial data
@@ -36,19 +41,22 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setIsLoading(true);
     try {
       console.log('[SocialContext] Fetching social data...');
-      const [friendsData, requestsData, sentRequestsData] = await Promise.all([
+      const [friendsData, requestsData, sentRequestsData, gameInvitesData] = await Promise.all([
         socialService.getFriends(),
         socialService.getPendingRequests(),
-        socialService.getSentRequests()
+        socialService.getSentRequests(),
+        socialService.getPendingGameInvites()
       ]);
       console.log('[SocialContext] Received data:', { 
         friends: friendsData.length, 
         pending: requestsData.length, 
-        sent: sentRequestsData.length 
+        sent: sentRequestsData.length,
+        gameInvites: gameInvitesData.length
       });
       setFriends(friendsData);
       setPendingRequests(requestsData);
       setSentRequests(sentRequestsData);
+      setGameInvites(gameInvitesData);
     } catch (error) {
       console.error('[SocialContext] Failed to fetch social data:', error);
     } finally {
@@ -70,7 +78,7 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         await socialSocketService.connect();
         
-        // Listen for notifications (friend requests, accepts)
+        // Listen for notifications (friend requests, accepts, game invites)
         socialSocketService.subscribe('/user/queue/notifications', (notification: any) => {
            if (!mounted) return;
            
@@ -81,6 +89,22 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
              } else if (notification.subType === 'REQUEST_ACCEPTED') {
                 showToast(`${notification.accepterName || 'A user'} accepted your friend request`, 'success');
                 refreshSocialData(); // Refresh to update friend list
+             } else if (notification.subType === 'GAME_INVITE') {
+                const gameInvite = notification.gameInvite;
+                showToast(
+                  `${gameInvite?.senderUsername || 'Someone'} invited you to join "${gameInvite?.lobbyName || 'a game'}"`,
+                  'info'
+                );
+                // Optimistically add the invite if we have the data
+                if (gameInvite) {
+                  setGameInvites(prev => {
+                    const exists = prev.some(inv => inv.id === gameInvite.id);
+                    if (exists) return prev;
+                    return [...prev, gameInvite];
+                  });
+                } else {
+                  refreshSocialData();
+                }
              }
            }
         });
@@ -170,16 +194,59 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
   };
 
+  const sendGameInvite = async (targetUserId: string, lobbyId: string, lobbyName: string, gameType: 'MAKAO' | 'LUDO') => {
+    try {
+      await socialService.sendGameInvite(targetUserId, lobbyId, lobbyName, gameType);
+      showToast("Game invite sent", 'success');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send invite';
+      showToast(errorMessage, 'error');
+      console.error(error);
+    }
+  };
+
+  const acceptGameInvite = async (inviteId: string): Promise<GameInvite> => {
+    try {
+      const invite = await socialService.acceptGameInvite(inviteId);
+      // Remove from local state
+      setGameInvites(prev => prev.filter(inv => inv.id !== inviteId));
+      showToast("Game invite accepted! Joining lobby...", 'success');
+      return invite;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to accept invite';
+      showToast(errorMessage, 'error');
+      // Refresh to sync state
+      refreshSocialData();
+      throw error;
+    }
+  };
+
+  const declineGameInvite = async (inviteId: string) => {
+    // Optimistic update
+    setGameInvites(prev => prev.filter(inv => inv.id !== inviteId));
+    try {
+      await socialService.declineGameInvite(inviteId);
+      showToast("Game invite declined", 'info');
+    } catch (error) {
+      showToast("Failed to decline invite", 'error');
+      refreshSocialData();
+    }
+  };
+
   return (
     <SocialContext.Provider value={{
       friends,
       pendingRequests,
       sentRequests,
+      gameInvites,
       isLoading,
       sendFriendRequest,
       acceptFriendRequest,
       rejectFriendRequest,
       removeFriend,
+      sendGameInvite,
+      acceptGameInvite,
+      declineGameInvite,
       refreshSocialData
     }}>
       {children}

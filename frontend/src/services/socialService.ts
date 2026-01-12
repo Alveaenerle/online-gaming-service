@@ -18,6 +18,18 @@ export interface FriendRequest {
   createdAt: string;
 }
 
+export interface GameInvite {
+  id: string;
+  senderId: string;
+  senderUsername: string;
+  targetId: string;
+  lobbyId: string;
+  lobbyName: string;
+  gameType: 'MAKAO' | 'LUDO';
+  accessCode?: string;
+  createdAt: number;
+}
+
 const getHeaders = () => {
     return {
         'Content-Type': 'application/json',
@@ -89,5 +101,66 @@ export const socialService = {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error('Failed to remove friend');
+  },
+
+  // ============================================================
+  // GAME INVITE METHODS
+  // ============================================================
+
+  async sendGameInvite(
+    targetUserId: string,
+    lobbyId: string,
+    lobbyName: string,
+    gameType: 'MAKAO' | 'LUDO'
+  ): Promise<GameInvite> {
+    const response = await fetchWithCredentials(`${API_BASE_URL}/invites/send`, {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId, lobbyId, lobbyName, gameType }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to send game invite');
+    }
+    return response.json();
+  },
+
+  async getPendingGameInvites(): Promise<GameInvite[]> {
+    const response = await fetchWithCredentials(`${API_BASE_URL}/invites/pending`, {
+      method: 'GET',
+    });
+    if (!response.ok) throw new Error('Failed to fetch pending game invites');
+    return response.json();
+  },
+
+  async getSentGameInvites(): Promise<GameInvite[]> {
+    const response = await fetchWithCredentials(`${API_BASE_URL}/invites/sent`, {
+      method: 'GET',
+    });
+    if (!response.ok) throw new Error('Failed to fetch sent game invites');
+    return response.json();
+  },
+
+  async acceptGameInvite(inviteId: string): Promise<GameInvite> {
+    const response = await fetchWithCredentials(`${API_BASE_URL}/invites/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ inviteId }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to accept game invite');
+    }
+    return response.json();
+  },
+
+  async declineGameInvite(inviteId: string): Promise<GameInvite> {
+    const response = await fetchWithCredentials(`${API_BASE_URL}/invites/decline`, {
+      method: 'POST',
+      body: JSON.stringify({ inviteId }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to decline game invite');
+    }
+    return response.json();
   }
 };

@@ -10,10 +10,12 @@ type Props = {
   onToggleReady: () => void;
   isHost: boolean;
   onAddFriend?: (userId: string) => void;
+  onInviteToLobby?: () => void;
   isFriend?: (userId: string) => boolean;
   isInvited?: (userId: string) => boolean;
   hasReceivedRequest?: (userId: string) => boolean; // If this user has sent US a request
   canSendFriendRequest?: boolean; // If current user is allowed to send requests (e.g. not guest)
+  canInviteToLobby?: boolean; // If current user can invite friends to lobby
 };
 
 export function LobbyPlayersSection({
@@ -23,10 +25,12 @@ export function LobbyPlayersSection({
   onToggleReady,
   isHost,
   onAddFriend,
+  onInviteToLobby,
   isFriend,
   isInvited,
   hasReceivedRequest,
-  canSendFriendRequest = false
+  canSendFriendRequest = false,
+  canInviteToLobby = false
 }: Props) {
   const you = players.find((p) => p.isYou);
   const others = players.filter((p) => !p.isYou);
@@ -59,6 +63,8 @@ export function LobbyPlayersSection({
                 canAddFriend={showAdd}
                 isInvited={alreadyInvited}
                 hasReceivedRequest={receivedFromThem}
+                onInviteToLobby={onInviteToLobby}
+                canInviteToLobby={canInviteToLobby && !player}
               />
             );
           })}
