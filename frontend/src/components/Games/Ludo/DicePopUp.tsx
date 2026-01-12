@@ -1,8 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { useLudo } from "../../../context/LudoGameContext"; // Importuj swój context
+import { useLudo } from "../../../context/LudoGameContext";
 
-// DiceFace pozostaje bez zmian (ten sam kod z kropkami)
 const DiceFace = ({ value }: { value: number }) => (
   <div className="grid grid-cols-3 grid-rows-3 w-20 h-20 p-4 bg-white rounded-2xl shadow-[inset_0_0_15px_rgba(0,0,0,0.1)]">
     {(value === 1 || value === 3 || value === 5) && (
@@ -35,31 +34,59 @@ const DiceFace = ({ value }: { value: number }) => (
 
 export function DicePopup({
   isOpen,
-  onClose,
 }: {
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { gameState, isRolling, rollDice } = useLudo();
+  const { gameState, isRolling, rollDice, setGameNotification } = useLudo();
   const [displayValue, setDisplayValue] = useState(1);
+  const [isVisuallyRolling, setIsVisuallyRolling] = useState(false);
 
-  // Efekt "shuffling" - kręci się tylko gdy context mówi, że isRolling === true
+  useEffect(() => {
+    if (isRolling) {
+      setIsVisuallyRolling(true);
+    } else {
+      const timer = setTimeout(() => {
+        setIsVisuallyRolling(false);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isRolling]);
+
+  useEffect(() => {
+    if (!isVisuallyRolling && gameState?.lastDiceRoll && gameState.diceRolled) {
+      setGameNotification(
+        `Player ${gameState?.currentPlayerColor || "Unit"} rolled a ${
+          gameState?.lastDiceRoll
+        }.`,
+        "ROLLED"
+      );
+    }
+  }, [
+    isVisuallyRolling,
+    gameState?.lastDiceRoll,
+    gameState?.diceRolled,
+    gameState?.currentPlayerColor,
+    setGameNotification,
+  ]);
+
   useEffect(() => {
     let interval: any;
-    if (isRolling) {
+    if (isVisuallyRolling) {
       interval = setInterval(() => {
         setDisplayValue(Math.floor(Math.random() * 6) + 1);
       }, 100);
     } else if (gameState?.lastDiceRoll) {
-      // Gdy rzut się zakończy, ustawiamy finalną wartość z serwera
       setDisplayValue(gameState.lastDiceRoll);
     }
     return () => clearInterval(interval);
-  }, [isRolling, gameState?.lastDiceRoll]);
+  }, [isVisuallyRolling, gameState?.lastDiceRoll]);
 
-  // Gdy rzut jest gotowy (diceRolled to true i już się nie kręci)
   const isFinished =
-    !isRolling && gameState?.diceRolled && gameState.lastDiceRoll > 0;
+    !isVisuallyRolling &&
+    !isRolling &&
+    gameState?.diceRolled &&
+    gameState.lastDiceRoll > 0;
 
   return (
     <AnimatePresence>
@@ -76,16 +103,30 @@ export function DicePopup({
             className="relative w-80 bg-[#121018] border border-white/10 rounded-[45px] p-10 shadow-2xl flex flex-col items-center"
           >
             <div className="h-44 flex items-center justify-center relative">
+              {isFinished && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute -top-6 text-7xl font-black text-purple-500/40 italic"
+                >
+                  {gameState.lastDiceRoll}
+                </motion.div>
+              )}
+
               <motion.div
                 animate={
-                  isRolling
-                    ? { rotate: [0, 90, 180, 270, 360], scale: [1, 1.1, 1] }
+                  isVisuallyRolling || isRolling
+                    ? {
+                        rotate: [0, 90, 180, 270, 360],
+                        scale: [1, 1.2, 1],
+                        x: [0, -2, 2, -2, 0],
+                      }
                     : { rotate: 0 }
                 }
                 transition={
-                  isRolling
-                    ? { repeat: Infinity, duration: 0.4 }
-                    : { duration: 0.3 }
+                  isVisuallyRolling || isRolling
+                    ? { repeat: Infinity, duration: 0.3, ease: "linear" }
+                    : { type: "spring", stiffness: 260, damping: 20 }
                 }
               >
                 {isFinished && (
@@ -99,37 +140,45 @@ export function DicePopup({
               </motion.div>
             </div>
 
-            <div className="text-center w-full mt-4">
-              <h2 className="text-white text-xl font-black italic uppercase tracking-widest mb-8">
-                {isRolling
+            <div className="text-center w-full mt-4 min-h-[120px] flex flex-col justify-center">
+              <h2 className="text-white text-xl font-black italic uppercase tracking-widest">
+                {isVisuallyRolling || isRolling
                   ? "Neural Sync..."
                   : isFinished
                   ? `Result: ${gameState?.lastDiceRoll}`
                   : "Dice Protocol"}
               </h2>
 
-              <button
-                onClick={isFinished ? onClose : rollDice}
-                disabled={isRolling}
-                className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg
-                  ${
-                    isFinished
-                      ? "bg-emerald-600 hover:bg-emerald-500"
-                      : "bg-purple-600 hover:bg-purple-500"
-                  }
-                  ${
-                    isRolling
-                      ? "opacity-30 cursor-wait"
-                      : "opacity-100 active:scale-95"
-                  }
-                `}
-              >
-                {isRolling
-                  ? "Waiting..."
-                  : isFinished
-                  ? "Apply & Continue"
-                  : "Initialize Roll"}
-              </button>
+              <div className="mt-8">
+                {!isFinished && !isRolling && !isVisuallyRolling ? (
+                  <button
+                    onClick={rollDice}
+                    className="w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg bg-purple-600 hover:bg-purple-500 shadow-purple-500/20 active:scale-95"
+                  >
+                    Initialize Roll
+                  </button>
+                ) : isFinished ? (
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-emerald-500 font-bold text-sm tracking-tight uppercase"
+                  >
+                    Syncing Board...
+                  </motion.p>
+                ) : (
+                  <div className="flex justify-center">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1,
+                        ease: "linear",
+                      }}
+                      className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         </motion.div>

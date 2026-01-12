@@ -14,88 +14,96 @@ interface PawnProps {
 
 export function Pawn({
   pawn,
-  isInteractable,
+  isInteractable: isPlayerTurn,
   diceValue,
   onMoveComplete,
   onClick,
 }: PawnProps) {
   const controls = useAnimation();
   const [isMoving, setIsMoving] = useState(false);
-
-  // Ref do przechowywania poprzedniej pozycji, aby wiedzieć czy odpalić animację
   const prevPositionRef = useRef(pawn.position);
+  const { id, position, color, stepsMoved } = pawn;
+  const { row, col } = getPawnCoords(position, stepsMoved, color as Color, id);
 
-  const { id, position, color } = pawn;
-  const { row, col } = getPawnCoords(position, color as Color, id);
+  const canMoveThisPawn = position !== -1 || diceValue === 6;
+  const activeInteractable = isPlayerTurn && canMoveThisPawn && !isMoving;
 
-  // --- LOGIKA DEBUGOWANIA I ANIMACJI ---
+  useEffect(() => {
+    console.log(
+      `%c[GRID RENDER] Pawn-${color}-${id} | Pos: ${position} | Interactable: ${activeInteractable}`,
+      "background: #222; color: #bada55"
+    );
+    console.log("Active Interactable:", activeInteractable);
+  }, [row, col, position, activeInteractable]);
 
   useEffect(() => {
     const oldPos = prevPositionRef.current;
 
-    // Jeśli pozycja w propsach się zmieniła (np. po aktualizacji z WebSocketu)
     if (oldPos !== position) {
-      console.log(
-        `[Pawn-${color}-${id}] Position changed: ${oldPos} -> ${position}`
+      console.group(
+        `%c[MOVE START] ${color}-${id}`,
+        "color: #00d1ff; font-weight: bold;"
       );
+      console.log(`From: ${oldPos} -> To: ${position} | Dice: ${diceValue}`);
+
       prevPositionRef.current = position;
 
-      // Wyzwalaj animację tylko jeśli pionek porusza się do przodu (nie jest zbity)
-      // Jeśli position === -1, oznacza to zbicie - teleportujemy pionka do bazy
-      if (position !== -1 && oldPos !== position) {
-        // Obliczamy dystans (kroki). Jeśli mamy diceValue z propsów, używamy go.
-        // Jeśli nie (np. u przeciwnika), obliczamy różnicę pozycji.
-        const steps = position - oldPos;
-
-        handleAnimateSequence(oldPos, steps);
-      } else {
-        // Natychmiastowa synchronizacja pozycji (np. przy zbiciu)
+      if (position === -1) {
         controls.set({ gridRow: row, gridColumn: col });
+        console.groupEnd();
+        return;
       }
+
+      if (oldPos === -1 && position !== -1) {
+        controls.set({ gridRow: row, gridColumn: col });
+        console.groupEnd();
+        return;
+      }
+
+      if (position !== -1 && oldPos !== -1) {
+        let calculatedSteps =
+          position > 50 ? position - oldPos : (position - oldPos + 52) % 52;
+
+        const stepsToAnimate =
+          diceValue && diceValue > 0 ? diceValue : calculatedSteps;
+
+        if (stepsToAnimate > 0) {
+          handleAnimateSequence(oldPos, stepsToAnimate);
+        } else {
+          controls.set({ gridRow: row, gridColumn: col });
+        }
+      }
+      console.groupEnd();
     }
-  }, [position]); // Reaguje u każdego gracza, gdy przyjdzie nowy stan
+  }, [position, diceValue, row, col]);
 
   const handleAnimateSequence = async (startPos: number, steps: number) => {
-    if (steps <= 0 || isMoving) return;
-
-    console.log(
-      `[Pawn-${color}-${id}] Starting animation sequence for ${steps} steps`
-    );
     setIsMoving(true);
-
-    const path = getPathCoords(startPos, steps, color as Color, id);
+    const path = getPathCoords(startPos, steps, color as Color, id, stepsMoved);
 
     for (const step of path) {
       await controls.start({
         gridRow: step.row,
         gridColumn: step.col,
         y: [0, -25, 0],
-        scaleX: [1, 0.8, 1.2, 1],
-        scaleY: [1, 1.4, 0.8, 1],
-        transition: {
-          duration: 0.5,
-          times: [0, 0.4, 0.8, 1],
-          ease: "easeInOut",
-        },
+        transition: { duration: 0.35, ease: "easeInOut" },
       });
     }
 
     setIsMoving(false);
-    console.log(`[Pawn-${color}-${id}] Animation finished`);
-
-    if (onMoveComplete) {
-      onMoveComplete(id);
-    }
+    controls.set({ gridRow: row, gridColumn: col });
+    if (onMoveComplete) onMoveComplete(id);
   };
 
   const handleLocalClick = () => {
-    if (!isInteractable || isMoving) return;
-
-    console.log(`[Pawn-${color}-${id}] Clicked by user`);
+    if (!activeInteractable) {
+      console.log(
+        `[Pawn] Click ignored. InBase: ${position === -1}, Dice: ${diceValue}`
+      );
+      return;
+    }
     if (onClick) onClick(id);
   };
-
-  // --- RENDERING (BEZ ZMIAN W STYLACH) ---
 
   const colorConfig = {
     RED: "bg-red-500 shadow-red-500/50 ring-red-400",
@@ -111,32 +119,29 @@ export function Pawn({
       style={{
         gridRow: row,
         gridColumn: col,
-        zIndex: isMoving ? 50 : isInteractable ? 30 : 20,
+        zIndex: isMoving ? 50 : activeInteractable ? 35 : 20,
       }}
       onClick={handleLocalClick}
-      whileHover={isInteractable && !isMoving ? { scale: 1.1 } : {}}
+      whileHover={activeInteractable ? { scale: 1.1 } : {}}
       className={`
         relative w-[85%] h-[85%] rounded-full m-auto
         border-2 border-white/60 shadow-xl flex items-center justify-center
+        transition-all duration-300
         ${
           isMoving
             ? "cursor-default"
-            : isInteractable
+            : activeInteractable
             ? "cursor-pointer"
-            : "cursor-default"
+            : "cursor-not-allowed"
         }
         ${colorConfig[color as Color]}
-        ${
-          isInteractable && !isMoving
-            ? "ring-4 ring-white shadow-[0_0_20px_white]"
-            : "opacity-90 grayscale-[0.1]"
-        }
+        ${activeInteractable ? "ring-4 ring-white shadow-[0_0_20px_white]" : ""}
       `}
     >
       <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-black/20 via-transparent to-white/30" />
       <div className="absolute top-1 left-1 w-1/2 h-1/2 bg-white/30 rounded-full blur-[1px]" />
 
-      {isInteractable && !isMoving && (
+      {activeInteractable && (
         <motion.div
           layoutId={`pulse-${color}-${id}`}
           className="absolute -inset-2 rounded-full border-2 border-white/50"
@@ -145,7 +150,7 @@ export function Pawn({
         />
       )}
 
-      {isInteractable && diceValue && !isMoving && (
+      {activeInteractable && diceValue && (
         <motion.div
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1, y: -30 }}

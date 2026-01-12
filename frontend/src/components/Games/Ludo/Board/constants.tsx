@@ -48,8 +48,8 @@ export const generateBoard = (): Cell[] => {
 
   cells.push({ id: "center-main", row: 7, col: 7, type: "CENTER", span: 3 });
 
-  for (let r = 1; r <= 15; r++) {
-    for (let c = 1; c <= 15; c++) {
+  for (let r = 2; r <= 14; r++) {
+    for (let c = 2; c <= 14; c++) {
       const isBaseRed = r <= 4 && c <= 4;
       const isBaseBlue = r <= 4 && c >= 12;
       const isBaseYellow = r >= 12 && c >= 12;
@@ -73,19 +73,19 @@ export const generateBoard = (): Cell[] => {
         if (isHorizontalPath || isVerticalPath) {
           type = "PATH";
 
-          if (c === 8 && r > 1 && r < 7) {
+          if (c === 8 && r > 2 && r < 7) {
             type = "HOME";
             color = "BLUE";
           }
-          if (c === 8 && r > 9 && r < 15) {
+          if (c === 8 && r > 9 && r < 14) {
             type = "HOME";
             color = "GREEN";
           }
-          if (r === 8 && c > 1 && c < 7) {
+          if (r === 8 && c > 2 && c < 7) {
             type = "HOME";
             color = "RED";
           }
-          if (r === 8 && c > 9 && c < 15) {
+          if (r === 8 && c > 9 && c < 14) {
             type = "HOME";
             color = "YELLOW";
           }

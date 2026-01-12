@@ -10,6 +10,7 @@ import React, {
 import { ludoService } from "../services/ludoGameService";
 import { ludoSocketService } from "../services/ludoSocketService";
 import { LudoGameStateMessage } from "../components/Games/Ludo/types";
+import { NotificationType } from "../components/Games/Ludo/GameNotification";
 import { useAuth } from "./AuthContext";
 
 interface LudoContextType {
@@ -17,6 +18,9 @@ interface LudoContextType {
   isLoading: boolean;
   isRolling: boolean;
   isMyTurn: boolean;
+  notification: string;
+  notificationType: NotificationType;
+  setGameNotification: (message: string, type: NotificationType) => void;
   rollDice: () => Promise<void>;
   movePawn: (pawnId: number) => Promise<void>;
   refreshGameState: () => Promise<void>;
@@ -32,23 +36,39 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
 
+  const [notification, setNotification] = useState("Welcome to Ludo!");
+  const [notificationType, setNotificationType] =
+    useState<NotificationType>("INFO");
+
   const subscriptionRef = useRef<string | null>(null);
 
-  // LOGOWANIE KAŻDEJ ZMIANY STANU - Sprawdź to w konsoli!
-  useEffect(() => {
-    console.log("DEBUG: Current GameState in Context:", gameState);
-  }, [gameState]);
+  const setGameNotification = useCallback(
+    (message: string, type: NotificationType) => {
+      setNotification(message);
+      setNotificationType(type);
+    },
+    []
+  );
 
-  const handleGameUpdate = useCallback((data: LudoGameStateMessage) => {
-    console.log("!!! SOCKET MESSAGE RECEIVED !!!", data); // Jeśli tego nie widzisz, socket nie działa
+  const handleGameUpdate = useCallback(
+    (data: LudoGameStateMessage) => {
+      console.log("!!! SOCKET MESSAGE RECEIVED !!!", data);
 
-    // Kluczowe: zatrzymujemy kostkę jeśli serwer mówi, że rzut się odbył
-    if (data.diceRolled || data.lastDiceRoll > 0) {
-      setIsRolling(false);
-    }
+      if (data.diceRolled || data.lastDiceRoll > 0) {
+        setIsRolling(false);
+      }
 
-    setGameState(data);
-  }, []);
+      if (data.capturedUserId) {
+        setGameNotification(
+          "Unit captured! Tactical advantage gained.",
+          "COMBAT"
+        );
+      }
+
+      setGameState(data);
+    },
+    [setGameNotification]
+  );
 
   const refreshGameState = useCallback(async () => {
     if (!user?.id) return;
@@ -56,66 +76,56 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
       const state = await ludoService.getGameState();
       setGameState(state);
     } catch (err) {
-      console.warn("Silent refresh failed - probably not in game yet");
+      console.warn("Silent refresh failed");
     }
   }, [user?.id]);
 
   const rollDice = async () => {
     try {
       setIsRolling(true);
-      console.log("Sending Roll Request...");
       await ludoService.rollDice();
 
-      // Safety stop: jeśli po 4s nic nie przyjdzie, zatrzymaj kostkę
       setTimeout(() => setIsRolling(false), 4000);
     } catch (err) {
       setIsRolling(false);
-      console.error("Roll API Error:", err);
+      setGameNotification("Dice failure.", "ERROR");
     }
   };
 
   const movePawn = async (pawnId: number) => {
     try {
+      setGameNotification(`Pawn ${pawnId} moving...`, "MOVING");
       await ludoService.movePawn(pawnId);
     } catch (err) {
-      console.error("Move API Error:", err);
+      setGameNotification(
+        "Movement intercepted. Invalid coordinates.",
+        "ERROR"
+      );
     }
   };
 
-  // ZARZĄDZANIE SOCKETEM
   useEffect(() => {
     const gameId = gameState?.gameId;
     if (!gameId || !user?.id) return;
 
     const topic = `/topic/game/${gameId}`;
-
-    // Blokada wielokrotnej subskrypcji
     if (subscriptionRef.current === topic) return;
 
     const startSocket = async () => {
       try {
-        console.log("Attempting socket connection...");
         await ludoSocketService.connect();
-
         if (subscriptionRef.current) {
           ludoSocketService.unsubscribe(subscriptionRef.current);
         }
-
-        console.log(`SUBSCRIBING TO: ${topic}`);
         ludoSocketService.subscribe(topic, handleGameUpdate);
         subscriptionRef.current = topic;
       } catch (err) {
-        console.error("Socket flow failed:", err);
+        setGameNotification("Reconnecting...", "ERROR");
       }
     };
 
     startSocket();
-
-    return () => {
-      // Nie czyścimy tu subskrypcji przy każdym renderze!
-      // Tylko jeśli gameId się faktycznie zmieni.
-    };
-  }, [gameState?.gameId, user?.id, handleGameUpdate]);
+  }, [gameState?.gameId, user?.id, handleGameUpdate, setGameNotification]);
 
   useEffect(() => {
     refreshGameState();
@@ -127,6 +137,9 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
         gameState,
         isLoading,
         isRolling,
+        notification,
+        notificationType,
+        setGameNotification,
         isMyTurn: gameState?.currentPlayerId === user?.id,
         rollDice,
         movePawn,

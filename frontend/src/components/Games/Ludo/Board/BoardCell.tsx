@@ -28,10 +28,8 @@ export function BoardCell({ type, color }: Props) {
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
         <div className="relative w-full h-full border border-white/10 rounded-2xl flex items-center justify-center">
           <div className="absolute inset-0 opacity-20 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.1)_50%,transparent_75%)] bg-[length:250%_250%] animate-shimmer" />
-          <div className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center animate-pulse">
-            <div className="w-2 h-2 bg-white rounded-full shadow-[0_0_10px_white]" />
-          </div>
         </div>
+        .
       </div>
     );
   }
@@ -68,12 +66,6 @@ export function BoardCell({ type, color }: Props) {
         `}
       >
         <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-        {isStart && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-1/2 h-[1px] bg-white/40 rotate-45" />
-            <div className="w-1/2 h-[1px] bg-white/40 -rotate-45" />
-          </div>
-        )}
         .
       </div>
     </div>

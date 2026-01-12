@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { GameNotification, NotificationType } from "./GameNotification";
+import { GameNotification } from "./GameNotification";
 import { SidebarHeader } from "./SidebarHeader";
 import { ChatSection } from "./ChatSection";
 import { LudoBoard } from "./Board/LudoBoard";
@@ -8,28 +8,58 @@ import { PlayerCard } from "./PlayerCard";
 import { DicePopup } from "./DicePopUp";
 import { SidebarFooter } from "./SidebarFooter";
 
-// Importujemy hooki i typy
 import { useLudo } from "../../../context/LudoGameContext";
 import { useAuth } from "../../../context/AuthContext";
 
 export function LudoArenaPage() {
-  // 1. Wyciągamy dane i akcje z LudoContext
-  const { gameState, rollDice, movePawn, isMyTurn, isLoading } = useLudo();
+  const {
+    gameState,
+    rollDice,
+    movePawn,
+    isMyTurn,
+    isRolling,
+    notification,
+    notificationType,
+  } = useLudo();
 
-  // 2. Wyciągamy zalogowanego użytkownika
   const { user } = useAuth();
 
   const [diceOpen, setDiceOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [showMessage, setShowMessage] = useState(true);
 
-  const [notification, setNotification] = useState(
-    "System online. Neural link established."
-  );
-  const [notificationType, setNotificationType] =
-    useState<NotificationType>("INFO");
+  useEffect(() => {
+    if (!gameState || !user) return;
 
-  // Jeśli gra się jeszcze nie załadowała
+    const shouldShowDice =
+      isMyTurn && gameState.rollsLeft > 0 && !gameState.waitingForMove;
+
+    if (shouldShowDice && !diceOpen) {
+      console.log("[Arena] Auto-opening dice protocol...");
+      setDiceOpen(true);
+    }
+
+    if (!shouldShowDice && diceOpen && !isRolling) {
+      const timer = setTimeout(() => {
+        setDiceOpen(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    isMyTurn,
+    gameState?.rollsLeft,
+    gameState?.waitingForMove,
+    diceOpen,
+    isRolling,
+    user,
+  ]);
+
+  useEffect(() => {
+    if (notification) {
+      setShowMessage(true);
+    }
+  }, [notification]);
+
   if (!gameState) {
     return (
       <div className="min-h-screen bg-[#050508] flex items-center justify-center text-purple-500 font-black tracking-tighter">
@@ -38,38 +68,12 @@ export function LudoArenaPage() {
     );
   }
 
-  // --- LOGIKA RZUTU ---
-  const initiateRoll = async () => {
-    setNotification("Calculating trajectory... Requesting server seed.");
-    setNotificationType("ROLLING");
-    setShowMessage(true);
-
-    // Otwieramy popup - on sam wywoła rollDice() w środku lub zrobimy to tutaj:
-    setDiceOpen(true);
-  };
-
-  const handleRollComplete = async (value: number) => {
-    // Uwaga: W wersji z contextem, rollDice() wyśle request,
-    // a serwer zwróci nowy gameState przez WebSocket, co zamknie flow.
-    setNotification(`Dice Protocol: Value ${value} confirmed.`);
-    setNotificationType("ROLLED");
-  };
-
-  // --- LOGIKA KLIKNIĘCIA W PIONEK ---
   const handlePawnClick = async (pawnId: number) => {
-    if (!isMyTurn || !gameState.waitingForMove) return;
-
-    setNotification(`Command sent: Unit moving to sector...`);
-    setNotificationType("MOVING");
-
-    // Wywołujemy akcję z kontekstu (wysyła request do API)
     await movePawn(pawnId);
   };
 
   const handlePawnMoveFinished = (pawnId: number) => {
-    // Animacja na froncie się skończyła.
-    // Stan na serwerze prawdopodobnie już się zaktualizował przez WebSocket.
-    console.log(`Unit ${pawnId} position synchronized.`);
+    console.log(`Unit ${pawnId} synchronization complete.`);
   };
 
   return (
@@ -87,7 +91,6 @@ export function LudoArenaPage() {
             <div className="absolute inset-20 border border-white/[0.02] rounded-[40px] pointer-events-none" />
 
             <div className="relative pl-64 pr-64">
-              {/* Karty graczy z rzeczywistymi danymi */}
               {gameState.players.map((player, idx) => {
                 const sides = [
                   "top-left",
@@ -95,6 +98,7 @@ export function LudoArenaPage() {
                   "bottom-right",
                   "bottom-left",
                 ] as const;
+
                 return (
                   <PlayerCard
                     key={player.userId}
@@ -103,7 +107,7 @@ export function LudoArenaPage() {
                       username:
                         gameState.usernames[player.userId] || "Unknown Unit",
                       isTurn: player.userId === gameState.currentPlayerId,
-                      avatar: "/avatars/avatar_1.png",
+                      avatar: `/avatars/avatar_${(idx % 4) + 1}.png`,
                     }}
                     side={sides[idx]}
                   />
@@ -122,6 +126,7 @@ export function LudoArenaPage() {
                   waitingForMove={gameState.waitingForMove}
                   onPawnMoveComplete={handlePawnMoveFinished}
                   onPawnClick={handlePawnClick}
+                  loggedPlayerId={user ? user.id : ""}
                 />
               </motion.div>
             </div>
@@ -132,8 +137,7 @@ export function LudoArenaPage() {
           <SidebarHeader />
           <ChatSection message={chatMessage} onMessageChange={setChatMessage} />
 
-          {/* Stopka reaguje na to, czy jest Twoja tura */}
-          <SidebarFooter onDiceRoll={initiateRoll} />
+          <SidebarFooter />
         </aside>
       </div>
 

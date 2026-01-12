@@ -1,62 +1,72 @@
 import { Color } from "./constants";
 
-const PATH_MAP: [number, number][] = [
+export const PATH_MAP: [number, number][] = [
+  // 🔴 RED start → w prawo
   [7, 2],
   [7, 3],
   [7, 4],
   [7, 5],
   [7, 6],
+
+  // ↑ do góry
   [6, 7],
   [5, 7],
   [4, 7],
   [3, 7],
   [2, 7],
-  [1, 7],
-  [1, 8],
-  [1, 9],
+
+  // → w prawo (BLUE entry)
+  [2, 8],
   [2, 9],
   [3, 9],
   [4, 9],
   [5, 9],
   [6, 9],
+
+  // ↓ w dół
   [7, 10],
   [7, 11],
   [7, 12],
   [7, 13],
   [7, 14],
-  [7, 15],
-  [8, 15],
-  [9, 15],
+
+  // ↓ (YELLOW side)
+  [8, 14],
   [9, 14],
   [9, 13],
   [9, 12],
   [9, 11],
   [9, 10],
+
+  // → w prawo do GREEN side
   [10, 9],
   [11, 9],
   [12, 9],
   [13, 9],
   [14, 9],
-  [15, 9],
-  [15, 8],
-  [15, 7],
+
+  // ← w lewo
+  [14, 8],
   [14, 7],
   [13, 7],
   [12, 7],
   [11, 7],
   [10, 7],
+
+  // ↑ do RED side
   [9, 6],
   [9, 5],
   [9, 4],
   [9, 3],
   [9, 2],
-  [9, 1],
-  [8, 1],
-  [7, 1],
+
+  // domknięcie pętli
+  [8, 2],
 ];
 
 export const getPawnCoords = (
   position: number,
+  stepsMoved: number,
   color: Color,
   pawnIndex: number
 ) => {
@@ -67,26 +77,28 @@ export const getPawnCoords = (
       YELLOW: { r: [13, 13, 14, 14], c: [13, 14, 13, 14] },
       GREEN: { r: [13, 13, 14, 14], c: [2, 3, 2, 3] },
     };
-    return { row: bases[color].r[pawnIndex], col: bases[color].c[pawnIndex] };
+    const coords = {
+      row: bases[color].r[pawnIndex % 4],
+      col: bases[color].c[pawnIndex % 4],
+    };
+    return coords;
   }
-
-  if (position > 50) {
-    const step = position - 51;
-    if (step >= 4) {
-      return { row: 8, col: 8 };
-    }
+  const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
+  if (position === -2 && stepsMoved > 52) {
+    console.log("Stepping into home stretch");
+    const step = stepsMoved - 52;
+    if (step >= 5) return { row: 8, col: 8 };
 
     const homeStretch = {
-      RED: { row: 8, col: 2 + step },
-      BLUE: { row: 2 + step, col: 8 },
-      YELLOW: { row: 8, col: 14 - step },
-      GREEN: { row: 14 - step, col: 8 },
+      RED: { row: 8, col: 3 + step },
+      BLUE: { row: 3 + step, col: 8 },
+      YELLOW: { row: 8, col: 13 - step },
+      GREEN: { row: 13 - step, col: 8 },
     };
     return homeStretch[color];
   }
 
-  const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
-  const targetIndex = (position + offsets[color]) % PATH_MAP.length;
+  const targetIndex = position % PATH_MAP.length;
   const [row, col] = PATH_MAP[targetIndex];
 
   return { row, col };
@@ -96,24 +108,43 @@ export const getPathCoords = (
   startPos: number,
   steps: number,
   color: Color,
-  pawnIndex: number
+  pawnIndex: number,
+  stepsMoved: number
 ) => {
+  console.group(
+    `%c[LOGIC-PATH] Calculating path for ${color} pawn`,
+    "color: #ff00ff"
+  );
+  console.log(`Start Pos: ${startPos}, Steps: ${steps}`);
+
   const path = [];
   let currentPos = startPos;
 
   for (let i = 1; i <= steps; i++) {
+    const oldPos = currentPos;
+
     if (currentPos === -1) {
       currentPos = 0;
     } else {
       currentPos++;
+      stepsMoved++;
     }
 
-    if (currentPos >= 55) {
-      currentPos = 55;
+    const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
+    if (currentPos >= 56 + offsets[color]) {
+      currentPos = 56 + offsets[color];
     }
 
-    path.push(getPawnCoords(currentPos, color, pawnIndex));
+    const coords = getPawnCoords(currentPos, stepsMoved, color, pawnIndex);
+    path.push(coords);
+
+    console.log(
+      `Step ${i}: ${oldPos} -> ${currentPos} | Coords: [${coords.row}, ${coords.col}]`
+    );
   }
+
+  console.log("%cFull Path Array:", "color: #00ff00", path);
+  console.groupEnd();
 
   return path;
 };

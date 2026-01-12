@@ -16,7 +16,7 @@ export type NotificationType =
   | "ROLLING"
   | "ROLLED"
   | "MOVING"
-  | "BEAT"
+  | "COMBAT"
   | "ERROR";
 
 interface GameNotificationProps {
@@ -67,7 +67,7 @@ export function GameNotification({
       theme: "bg-amber-600/10 border-amber-500/30 text-amber-400",
       glow: "shadow-amber-500/10",
     },
-    BEAT: {
+    COMBAT: {
       icon: Swords,
       label: "Combat Encounter",
       theme: "bg-red-600/10 border-red-500/30 text-red-400",
