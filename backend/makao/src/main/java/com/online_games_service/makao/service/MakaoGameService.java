@@ -226,19 +226,19 @@ public class MakaoGameService {
     public void sendCurrentStateToPlayer(String userId) {
         if (userId == null) {
             log.warn("Cannot send state: userId is null");
-            return;
+            throw new IllegalArgumentException("userId is required");
         }
 
         String roomId = (String) redisTemplate.opsForValue().get(KEY_USER_ROOM_BY_ID + userId);
         if (roomId == null || roomId.isBlank()) {
-            log.debug("No room found for player {} when requesting state", userId);
-            return;
+            log.info("No room mapping found for player {} when requesting state (game may still be initializing)", userId);
+            throw new IllegalStateException("Player is not in a game");
         }
 
         MakaoGame game = gameRepository.findById(roomId).orElse(null);
         if (game == null) {
-            log.debug("Game not found for roomId {} when player {} requested state", roomId, userId);
-            return;
+            log.warn("Game not found for roomId {} when player {} requested state", roomId, userId);
+            throw new IllegalStateException("Game not found");
         }
 
         log.info("Sending current game state to player {} for room {}", userId, roomId);
@@ -777,17 +777,27 @@ public class MakaoGameService {
     }
 
     public void initializeGameAfterStart(String roomId) {
+        log.info("Initializing game after start for room {}", roomId);
+
         MakaoGame game = gameRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("Game not found for roomId: " + roomId));
 
+        // Set player-to-room mappings so players can request state later
+        log.info("Setting player-to-room mappings for {} players in room {}",
+                game.getPlayersOrderIds() != null ? game.getPlayersOrderIds().size() : 0, roomId);
+        setAllPlayersRoomMappings(game);
+
         String activePlayerId = game.getActivePlayerId();
         if (activePlayerId == null) {
+            log.warn("No active player set for game {}", roomId);
             return;
         }
 
         List<Card> playable = gatherPlayableCards(game, activePlayerId);
         game.setActivePlayerPlayableCards(playable);
         game.addMoveLog("Game started!");
+
+        log.info("Broadcasting initial game state for room {}", roomId);
         saveAndBroadcast(game);
 
         if (isBot(activePlayerId)) {
@@ -1007,6 +1017,29 @@ public class MakaoGameService {
             clearPlayerRoomMapping(playerId);
         }
         log.info("Cleared room mappings for all players in game {}", game.getRoomId());
+    }
+
+    /**
+     * Sets the Redis mappings for all human players in the game.
+     * Called when the game starts so players can request state later.
+     */
+    private void setAllPlayersRoomMappings(MakaoGame game) {
+        if (game == null || game.getPlayersOrderIds() == null || game.getRoomId() == null) {
+            log.warn("Cannot set player room mappings: game={}, playersOrderIds={}, roomId={}",
+                    game != null,
+                    game != null ? game.getPlayersOrderIds() : null,
+                    game != null ? game.getRoomId() : null);
+            return;
+        }
+        int humanCount = 0;
+        for (String playerId : game.getPlayersOrderIds()) {
+            if (playerId != null && !isBot(playerId)) {
+                redisTemplate.opsForValue().set(KEY_USER_ROOM_BY_ID + playerId, game.getRoomId());
+                log.info("Set room mapping: {} -> {}", KEY_USER_ROOM_BY_ID + playerId, game.getRoomId());
+                humanCount++;
+            }
+        }
+        log.info("Set room mappings for {} human players in game {}", humanCount, game.getRoomId());
     }
 
     private int calculateHandValue(List<Card> hand) {

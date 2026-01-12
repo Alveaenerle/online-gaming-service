@@ -168,15 +168,35 @@ export const useMakaoSocket = (): UseMakaoSocketReturn => {
             }
           });
 
-          // Request the current game state after subscribing
-          // This ensures we get the state even if we connected after the game started
-          console.log("[Makao WS] Requesting current game state...");
-          makaoGameService.requestState().then(() => {
-            console.log("[Makao WS] State request sent successfully");
-          }).catch((err) => {
-            // This is expected if the player isn't in a game yet
-            console.log("[Makao WS] State request failed (player may not be in a game):", err);
-          });
+          // Request the current game state after subscribing with retry logic
+          // The game might still be initializing on the backend (race condition with RabbitMQ)
+          const requestStateWithRetry = async (attempt: number, maxAttempts: number, delayMs: number) => {
+            if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {
+              return;
+            }
+
+            try {
+              console.log(`[Makao WS] Requesting game state (attempt ${attempt}/${maxAttempts})...`);
+              await makaoGameService.requestState();
+              console.log("[Makao WS] State request sent successfully");
+            } catch (err) {
+              console.log(`[Makao WS] State request failed (attempt ${attempt}/${maxAttempts}):`, err);
+
+              if (attempt < maxAttempts) {
+                // Retry with exponential backoff
+                const nextDelay = delayMs * 1.5;
+                console.log(`[Makao WS] Retrying in ${delayMs}ms...`);
+                setTimeout(() => {
+                  requestStateWithRetry(attempt + 1, maxAttempts, nextDelay);
+                }, delayMs);
+              } else {
+                console.log("[Makao WS] All state request attempts failed. Waiting for WebSocket broadcast.");
+              }
+            }
+          };
+
+          // Start retry sequence: 5 attempts, starting with 500ms delay
+          requestStateWithRetry(1, 5, 500);
         },
         (error: string | StompJs.Frame) => {
           if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {

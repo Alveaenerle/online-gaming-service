@@ -17,6 +17,7 @@ import { useTurnTimer } from "./hooks/useTurnTimer";
 import { useGameSounds } from "./utils/soundEffects";
 import { useAuth } from "../../../context/AuthContext";
 import { useLobby } from "../../../context/LobbyContext";
+import makaoGameService from "../../../services/makaoGameService";
 import {
   Card as CardType,
   CardSuit,
@@ -331,8 +332,15 @@ const MakaoGame: React.FC = () => {
   }, [skipDrawnCard]);
 
   // Handle leaving game (mid-game)
-  const handleLeaveGame = useCallback(() => {
+  const handleLeaveGame = useCallback(async () => {
     console.log("[MakaoGame] Leaving game mid-session");
+    try {
+      // Notify backend so player gets replaced by bot
+      await makaoGameService.leaveGame();
+    } catch (err) {
+      console.error("[MakaoGame] Failed to notify backend of leave:", err);
+      // Continue with navigation even if API call fails
+    }
     resetState();
     clearLobby();
     navigate("/makao");

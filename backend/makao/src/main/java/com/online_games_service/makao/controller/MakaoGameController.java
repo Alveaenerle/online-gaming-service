@@ -99,6 +99,20 @@ public class MakaoGameController {
         return ResponseEntity.ok(successBody());
     }
 
+    /**
+     * Leave the current game. The player will be replaced by a bot.
+     */
+    @PostMapping("/leave-game")
+    public ResponseEntity<Map<String, String>> leaveGame(
+            @RequestAttribute(value = "userId", required = false) String userId) {
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        makaoGameService.handlePlayerLeave(userId);
+        return ResponseEntity.ok(successBody());
+    }
+
     // for debugging purposes only
     // @PostMapping("/end-game")
     // public ResponseEntity<Map<String, String>> endGame(@RequestBody @Valid EndGameRequest request) {

@@ -126,6 +126,30 @@ export const makaoGameService = {
       method: "POST",
     });
   },
+
+  /**
+   * Leave the current game. The player will be replaced by a bot.
+   */
+  leaveGame(): Promise<{ message: string }> {
+    return request<{ message: string }>("/leave-game", {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Check if the user is currently in an active game.
+   * Returns true if in game, false if not.
+   */
+  async checkActiveGame(): Promise<boolean> {
+    try {
+      await request<{ message: string }>("/request-state", {
+        method: "POST",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
 
 export default makaoGameService;
