@@ -128,7 +128,8 @@ const SidebarNotifications: React.FC<SidebarNotificationsProps> = ({
         {renderDemandCard()}
       </AnimatePresence>
 
-      <div className="flex flex-col-reverse gap-2 overflow-hidden">
+      {/* Constraints added here */}
+      <div className="flex flex-col-reverse gap-2 overflow-y-auto max-h-[300px] pr-1 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
         <AnimatePresence initial={false} mode="popLayout">
           {notifications.map((toast) => (
             <motion.div

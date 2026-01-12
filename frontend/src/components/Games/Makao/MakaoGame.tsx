@@ -8,6 +8,7 @@ import DemandPicker from "./components/DemandPicker";
 import DrawnCardModal from "./components/DrawnCardModal";
 import GameOverModal from "./components/GameOverModal";
 import SidebarNotifications from "./components/SidebarNotifications";
+import DiscardPile from "./components/DiscardPile";
 import { useCardAnimations, CardAnimationManager, AnimatedCardPile } from "./components/AnimatedCard";
 import { useMakaoSocket } from "./hooks/useMakaoSocket";
 import { useMakaoActions } from "./hooks/useMakaoActions";
@@ -217,6 +218,8 @@ const MakaoGame: React.FC = () => {
     async (value: CardSuit | CardRank) => {
       if (!pendingCard) return;
 
+      // Trigger play animation for the pending card
+      addPlayAnimation(pendingCard, undefined, user?.id);
       playCardSound();
 
       if (demandType === "suit") {
@@ -229,7 +232,7 @@ const MakaoGame: React.FC = () => {
       setDemandType(null);
 
     },
-    [pendingCard, demandType, playCard, playCardSound]
+    [pendingCard, demandType, playCard, playCardSound, addPlayAnimation, user?.id]
   );
 
   // Cancel demand selection
@@ -276,10 +279,12 @@ const MakaoGame: React.FC = () => {
       return;
     }
 
+    // Trigger animation for playing the drawn card
+    addPlayAnimation(card, undefined, user?.id);
     playCardSound();
     await playDrawnCard();
     setDrawnCardInfo(null);
-  }, [drawnCardInfo, playDrawnCard, playCardSound]);
+  }, [drawnCardInfo, playDrawnCard, playCardSound, addPlayAnimation, user?.id]);
 
   // Handle skipping after draw
   const handleSkipDrawnCard = useCallback(async () => {
@@ -432,7 +437,6 @@ const MakaoGame: React.FC = () => {
                 >
                   <AnimatedCardPile
                     count={gameState.drawDeckCardsAmount}
-                    type="draw"
                     isClickable={isMyTurn && !drawnCardInfo && !hasSpecialEffect}
                     showGlow={isMyTurn && !drawnCardInfo && !hasSpecialEffect}
                     onClick={handleDrawCard}
@@ -442,11 +446,9 @@ const MakaoGame: React.FC = () => {
 
                 {/* Discard Pile - with animation support */}
                 <div ref={discardRef} className="text-center">
-                  <AnimatedCardPile
-                    count={gameState.discardDeckCardsAmount}
-                    type="discard"
+                  <DiscardPile
                     topCard={gameState.currentCard}
-                    secondCard={previousCardPlayed}
+                    count={gameState.discardDeckCardsAmount}
                   />
                   <p className="text-xs text-white/60 mt-2">Discard Pile</p>
                 </div>

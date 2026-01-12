@@ -832,8 +832,15 @@ public class MakaoGameService {
     }
 
     private CardRank randomRankDemand() {
-        CardRank[] ranks = CardRank.values();
-        return ranks[random.nextInt(ranks.length)];
+        CardRank[] validRanks = {
+            CardRank.FIVE,
+            CardRank.SIX,
+            CardRank.SEVEN,
+            CardRank.EIGHT,
+            CardRank.NINE,
+            CardRank.TEN
+        };
+        return validRanks[random.nextInt(validRanks.length)];
     }
 
     private CardSuit randomSuitDemand() {

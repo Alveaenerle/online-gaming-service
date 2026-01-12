@@ -423,14 +423,11 @@ export const useCardAnimations = (): UseCardAnimationsReturn => {
 };
 
 // ============================================
-// Card Pile Animation (for deck/discard)
+// Card Pile Animation (for deck)
 // ============================================
 
 interface CardPileProps {
   count: number;
-  type: "draw" | "discard";
-  topCard?: CardType;
-  secondCard?: CardType | null; // Added support for the card under the top card
   onClick?: () => void;
   isClickable?: boolean;
   showGlow?: boolean;
@@ -438,9 +435,6 @@ interface CardPileProps {
 
 export const AnimatedCardPile: React.FC<CardPileProps> = ({
   count,
-  type,
-  topCard,
-  secondCard,
   onClick,
   isClickable = false,
   showGlow = false,
@@ -467,21 +461,11 @@ export const AnimatedCardPile: React.FC<CardPileProps> = ({
             zIndex: i,
           }}
         >
-          {/* If it's discard pile and we have a second card, show it on the layer just below top (index = stackLayers - 1) */}
-          {type === "discard" && secondCard && i === stackLayers - 1 ? (
-             <img
-             src={getCardImagePath(secondCard)}
-             alt="Previous card"
-             className="w-full h-full object-contain bg-white opacity-60 grayscale-[0.3]"
-             draggable={false}
-           />
-          ) : (
-             <div className="w-full h-full bg-gradient-to-br from-purple-800 to-indigo-900 opacity-80" />
-          )}
+          <div className="w-full h-full bg-gradient-to-br from-purple-800 to-indigo-900 opacity-80" />
         </motion.div>
       ))}
 
-      {/* Top card or back */}
+      {/* Top card back */}
       <motion.div
         whileHover={isClickable ? { scale: 1.05, y: -4 } : undefined}
         className={`
@@ -492,18 +476,9 @@ export const AnimatedCardPile: React.FC<CardPileProps> = ({
         `}
         style={{ zIndex: stackLayers }}
       >
-        {type === "discard" && topCard ? (
-          <img
-            src={getCardImagePath(topCard)}
-            alt={`${topCard.rank} of ${topCard.suit}`}
-            className="w-full h-full object-contain bg-white"
-            draggable={false}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-900 flex items-center justify-center">
-            <span className="text-white/40 font-bold text-lg">OG</span>
-          </div>
-        )}
+        <div className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-900 flex items-center justify-center">
+          <span className="text-white/40 font-bold text-lg">OG</span>
+        </div>
       </motion.div>
 
       {/* Count badge */}
