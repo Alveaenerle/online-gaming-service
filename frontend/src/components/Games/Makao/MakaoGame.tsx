@@ -7,6 +7,7 @@ import Player from "./components/Player";
 import DemandPicker from "./components/DemandPicker";
 import DrawnCardModal from "./components/DrawnCardModal";
 import GameOverModal from "./components/GameOverModal";
+import TimeoutModal from "./components/TimeoutModal";
 import SidebarNotifications from "./components/SidebarNotifications";
 import DiscardPile from "./components/DiscardPile";
 import { useCardAnimations, CardAnimationManager, AnimatedCardPile } from "./components/AnimatedCard";
@@ -89,11 +90,15 @@ const MakaoGame: React.FC = () => {
     canPlay: boolean;
   } | null>(null);
   const [previousCardPlayed, setPreviousCardPlayed] = useState<CardType | null>(null);
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [wasReplacedByBot, setWasReplacedByBot] = useState(false);
 
   // Track previous active player to know who played the card
   const prevActivePlayerIdRef = useRef<string | null>(null);
   // Track previous turn to detecting turn start sfx
   const wasMyTurnRef = useRef<boolean>(false);
+  // Track if user was previously in the game (to detect being kicked)
+  const wasInGameRef = useRef<boolean>(false);
 
   // Helper to get or create a ref for a player
   const getPlayerRef = useCallback((playerId: string) => {
@@ -150,6 +155,21 @@ const MakaoGame: React.FC = () => {
     // 3. Detect Makao
     if (gameState.makaoPlayerId) {
         playMakaoSound();
+    }
+
+    // 4. Detect if user was replaced by a bot (kicked due to timeout)
+    const isUserInGame = gameState.playersCardsAmount && user?.id && user.id in gameState.playersCardsAmount;
+    const isUserInLosers = gameState.losers?.includes(user?.id || "");
+
+    if (wasInGameRef.current && !isUserInGame && !isGameOver && isUserInLosers) {
+      // User was in game but now they're not (and game isn't over) - they got replaced
+      setWasReplacedByBot(true);
+      setShowTimeoutModal(true);
+    }
+
+    // Update tracking ref
+    if (isUserInGame) {
+      wasInGameRef.current = true;
     }
 
   }, [gameState, previousCardPlayed, user?.id, addPlayAnimation, playCardSound, playTurnStartSound, playMakaoSound]);
@@ -365,8 +385,9 @@ const MakaoGame: React.FC = () => {
               {/* Table glow */}
               <div className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(ellipse_at_center,_rgba(108,42,255,0.1),_transparent_60%)]" />
 
-              {/* Other Players - Circular Layout */}
-              {/* Top - Player 2 */}
+              {/* Other Players - Circular Layout for 2-8 players */}
+
+              {/* Top Position */}
               {others.filter((p) => p.position === "top").length > 0 && (
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-3">
                   {others
@@ -385,7 +406,45 @@ const MakaoGame: React.FC = () => {
                 </div>
               )}
 
-              {/* Left - Player 1 */}
+              {/* Top-Left Position */}
+              {others.filter((p) => p.position === "top-left").length > 0 && (
+                <div className="absolute top-6 left-[15%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "top-left")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={makaoPlayerId === player.id}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Top-Right Position */}
+              {others.filter((p) => p.position === "top-right").length > 0 && (
+                <div className="absolute top-6 right-[15%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "top-right")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={makaoPlayerId === player.id}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Left Position */}
               {others.filter((p) => p.position === "left").length > 0 && (
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col gap-3">
                   {others
@@ -404,11 +463,49 @@ const MakaoGame: React.FC = () => {
                 </div>
               )}
 
-              {/* Right - Player 3 */}
+              {/* Right Position */}
               {others.filter((p) => p.position === "right").length > 0 && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-3">
                   {others
                     .filter((p) => p.position === "right")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={makaoPlayerId === player.id}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Bottom-Left Position */}
+              {others.filter((p) => p.position === "bottom-left").length > 0 && (
+                <div className="absolute bottom-20 left-[10%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "bottom-left")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={makaoPlayerId === player.id}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Bottom-Right Position */}
+              {others.filter((p) => p.position === "bottom-right").length > 0 && (
+                <div className="absolute bottom-20 right-[10%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "bottom-right")
                     .map((player) => (
                       <Player
                         key={player.id}
@@ -690,6 +787,17 @@ const MakaoGame: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Timeout/Kicked Modal */}
+      <TimeoutModal
+        isOpen={showTimeoutModal}
+        onClose={() => setShowTimeoutModal(false)}
+        onReturnToLobby={() => {
+          setShowTimeoutModal(false);
+          clearLobby();
+          navigate("/makao");
+        }}
+      />
     </div>
   );
 };

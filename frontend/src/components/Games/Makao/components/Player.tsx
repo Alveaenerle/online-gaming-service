@@ -162,8 +162,10 @@ const BotThinkingBubble: React.FC<BotThinkingBubbleProps> = ({ isThinking }) => 
 // Main Player Component
 // ============================================
 
+import { Position } from "../utils/cardHelpers";
+
 interface PositionedPlayerView extends PlayerView {
-  position: "bottom" | "left" | "top" | "right";
+  position: Position;
 }
 
 export interface PlayerProps {

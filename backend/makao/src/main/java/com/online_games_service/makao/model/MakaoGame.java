@@ -99,6 +99,9 @@ public class MakaoGame implements Serializable {
         if (maxPlayers < 2) {
             throw new IllegalArgumentException("maxPlayers must be at least 2");
         }
+        if (maxPlayers > 8) {
+            throw new IllegalArgumentException("maxPlayers cannot exceed 8");
+        }
         this.maxPlayers = maxPlayers;
         this.hostUserId = hostUserId;
 

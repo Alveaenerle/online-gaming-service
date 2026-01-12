@@ -194,14 +194,42 @@ export const isBot = (playerId: string): boolean => {
 // UI Positioning helpers
 // ============================================
 
-type Position = "bottom" | "left" | "top" | "right";
+export type Position = "bottom" | "left" | "top" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
 interface PositionedPlayer extends PlayerView {
   position: Position;
 }
 
 /**
+ * Get positions for a given number of other players (not including "me")
+ * Positions are distributed around the table starting from top and going clockwise
+ */
+const getPositionsForPlayerCount = (count: number): Position[] => {
+  switch (count) {
+    case 1:
+      return ["top"];
+    case 2:
+      return ["left", "right"];
+    case 3:
+      return ["left", "top", "right"];
+    case 4:
+      return ["left", "top-left", "top-right", "right"];
+    case 5:
+      return ["left", "top-left", "top", "top-right", "right"];
+    case 6:
+      return ["bottom-left", "left", "top-left", "top-right", "right", "bottom-right"];
+    case 7:
+      return ["bottom-left", "left", "top-left", "top", "top-right", "right", "bottom-right"];
+    default:
+      // 8+ players - full circle
+      return ["bottom-left", "left", "top-left", "top", "top-right", "right", "bottom-right"];
+  }
+};
+
+/**
  * Distribute players around the table relative to current player
+ * Current player is always at "bottom" position
+ * Other players are distributed evenly around the table
  */
 export const distributePlayersAroundTable = (
   players: PlayerView[],
@@ -216,29 +244,11 @@ export const distributePlayersAroundTable = (
     return { me, others: [] };
   }
 
-  // Position assignments based on player count
+  // Get position assignments based on player count
+  const positions = getPositionsForPlayerCount(total);
+
   const positionedOthers: PositionedPlayer[] = others.map((player, index) => {
-    let position: Position;
-
-    if (total === 1) {
-      position = "top";
-    } else if (total === 2) {
-      position = index === 0 ? "left" : "right";
-    } else if (total === 3) {
-      position = ["left", "top", "right"][index] as Position;
-    } else {
-      // 4+ players - distribute evenly
-      const positions: Position[] = ["left", "top", "top", "right"];
-      if (total <= 4) {
-        position = positions[index] || "top";
-      } else {
-        // More complex distribution for 5+ players
-        if (index < total / 3) position = "left";
-        else if (index < (2 * total) / 3) position = "top";
-        else position = "right";
-      }
-    }
-
+    const position = positions[index] || "top";
     return { ...player, position };
   });
 

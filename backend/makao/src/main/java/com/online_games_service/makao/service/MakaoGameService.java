@@ -69,6 +69,136 @@ public class MakaoGameService {
 
     private static final String KEY_USER_ROOM_BY_ID = "game:user-room:id:";
 
+    /**
+     * Handles a player leaving the game (disconnection or explicit leave).
+     * Replaces the player with a bot immediately.
+     * If it was the leaving player's turn, the bot takes over and continues.
+     */
+    public void handlePlayerLeave(String userId) {
+        if (userId == null || userId.isBlank()) {
+            log.warn("handlePlayerLeave called with null or empty userId");
+            return;
+        }
+
+        // Don't process bot leaves
+        if (isBot(userId)) {
+            return;
+        }
+
+        String roomId = (String) redisTemplate.opsForValue().get(KEY_USER_ROOM_BY_ID + userId);
+        if (roomId == null || roomId.isBlank()) {
+            log.debug("No room found for leaving player: {}", userId);
+            return;
+        }
+
+        MakaoGame game = gameRepository.findById(roomId).orElse(null);
+        if (game == null) {
+            log.debug("Game not found for roomId: {}", roomId);
+            return;
+        }
+
+        if (game.getStatus() != RoomStatus.PLAYING) {
+            log.debug("Game {} is not in PLAYING status, ignoring leave", roomId);
+            return;
+        }
+
+        // Check if player is actually in this game
+        if (!game.getPlayersOrderIds().contains(userId)) {
+            log.debug("Player {} is not in game {}", userId, roomId);
+            return;
+        }
+
+        log.info("Player {} is leaving game {}, replacing with bot", userId, roomId);
+
+        // Cancel any turn timeout for this player
+        cancelTurnTimeout(roomId);
+
+        // Create a new bot to replace the player
+        int nextBot = game.getBotCounter() + 1;
+        String botId = "bot-" + nextBot;
+        game.setBotCounter(nextBot);
+
+        // Transfer player's hand to the bot
+        Map<String, List<Card>> hands = new HashMap<>(game.getPlayersHands());
+        List<Card> playerHand = hands.getOrDefault(userId, new ArrayList<>());
+        hands.remove(userId);
+        hands.put(botId, playerHand);
+        game.setPlayersHands(hands);
+
+        // Transfer skip turns
+        Map<String, Integer> skipTurns = game.getPlayersSkipTurns() != null
+                ? new HashMap<>(game.getPlayersSkipTurns())
+                : new HashMap<>();
+        int pendingSkips = skipTurns.getOrDefault(userId, 0);
+        skipTurns.remove(userId);
+        skipTurns.put(botId, pendingSkips);
+        game.setPlayersSkipTurns(skipTurns);
+
+        // Update usernames
+        Map<String, String> usernames = game.getPlayersUsernames() != null
+                ? new HashMap<>(game.getPlayersUsernames())
+                : new HashMap<>();
+        String oldUsername = usernames.getOrDefault(userId, "Player");
+        usernames.remove(userId);
+        usernames.put(botId, "Bot " + nextBot);
+        game.setPlayersUsernames(usernames);
+
+        // Update player order
+        List<String> updatedOrder = game.getPlayersOrderIds() != null
+                ? new ArrayList<>(game.getPlayersOrderIds())
+                : new ArrayList<>();
+        int idx = updatedOrder.indexOf(userId);
+        if (idx >= 0) {
+            updatedOrder.set(idx, botId);
+        }
+        game.setPlayersOrderIds(updatedOrder);
+
+        // Add to losers list
+        List<String> losers = game.getLosers() != null
+                ? new ArrayList<>(game.getLosers())
+                : new ArrayList<>();
+        if (!losers.contains(userId)) {
+            losers.add(userId);
+        }
+        game.setLosers(losers);
+
+        // Add notification
+        game.addMoveLog(String.format("%s left the game and was replaced by Bot %d", oldUsername, nextBot));
+
+        // Clear MAKAO status if leaving player had it
+        if (userId.equals(game.getMakaoPlayerId())) {
+            game.setMakaoPlayerId(null);
+        }
+
+        // If it was the leaving player's turn, bot takes over
+        boolean wasActivePlayer = userId.equals(game.getActivePlayerId());
+        if (wasActivePlayer) {
+            game.setActivePlayerId(botId);
+            game.setDrawnCard(null);
+            game.setActivePlayerPlayableCards(new ArrayList<>());
+
+            List<Card> playable = gatherPlayableCards(game, botId);
+            game.setActivePlayerPlayableCards(playable);
+
+            // Check if bot needs to handle special effect
+            if (game.isSpecialEffectActive() && playable.isEmpty()) {
+                saveAndBroadcast(game);
+                applySpecialEffectPenalty(game, botId);
+                return;
+            }
+
+            // Schedule bot move
+            saveAndBroadcast(game);
+            scheduleBotMove(game.getRoomId(), botId, playable);
+        } else {
+            // Not active player - just save and broadcast
+            saveAndBroadcast(game);
+        }
+
+        // Clean up Redis mapping for the leaving player
+        redisTemplate.delete(KEY_USER_ROOM_BY_ID + userId);
+    }
+
     public void forceEndGame(EndGameRequest request) {
         if (request == null || request.getRoomId() == null || request.getRoomId().isBlank()) {
             throw new IllegalArgumentException("roomId is required to end the game");
@@ -259,6 +389,13 @@ public class MakaoGameService {
 
         if (playedCard.getRank() == CardRank.JACK && request.getRequestRank() == null) {
             throw new IllegalArgumentException("Jack requires requestRank to be provided");
+        }
+        if (playedCard.getRank() == CardRank.JACK && request.getRequestRank() != null) {
+            // Validate that the demanded rank is a non-functional card (5, 6, 7, 8, 9, 10)
+            if (!isValidDemandRank(request.getRequestRank())) {
+                throw new IllegalArgumentException("Invalid demand rank: " + request.getRequestRank() +
+                    ". Only non-functional ranks (5-10) can be demanded.");
+            }
         }
         if (playedCard.getRank() == CardRank.ACE && request.getRequestSuit() == null) {
             throw new IllegalArgumentException("Ace requires requestSuit to be provided");
@@ -829,6 +966,27 @@ public class MakaoGameService {
         game.setActivePlayerPlayableCards(new ArrayList<>());
 
         setCardEffect(game, card, req);
+    }
+
+    /**
+     * Validates that a demanded rank is a non-functional card.
+     * Only ranks 5, 6, 7, 8, 9, 10 can be demanded (no 2, 3, 4, Jack, Queen, King, Ace).
+     */
+    private boolean isValidDemandRank(CardRank rank) {
+        if (rank == null) {
+            return false;
+        }
+        switch (rank) {
+            case FIVE:
+            case SIX:
+            case SEVEN:
+            case EIGHT:
+            case NINE:
+            case TEN:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private CardRank randomRankDemand() {
