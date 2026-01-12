@@ -4,13 +4,21 @@ import { GameNotification, NotificationType } from "./GameNotification";
 import { SidebarHeader } from "./SidebarHeader";
 import { ChatSection } from "./ChatSection";
 import { LudoBoard } from "./Board/LudoBoard";
-import { Color } from "./Board/constants";
 import { PlayerCard } from "./PlayerCard";
 import { DicePopup } from "./DicePopUp";
 import { SidebarFooter } from "./SidebarFooter";
 
+// Importujemy hooki i typy
+import { useLudo } from "../../../context/LudoGameContext";
+import { useAuth } from "../../../context/AuthContext";
+
 export function LudoArenaPage() {
-  const [redPawns, setRedPawns] = useState([-1, -1, -1, -1]);
+  // 1. Wyciągamy dane i akcje z LudoContext
+  const { gameState, rollDice, movePawn, isMyTurn, isLoading } = useLudo();
+
+  // 2. Wyciągamy zalogowanego użytkownika
+  const { user } = useAuth();
+
   const [diceOpen, setDiceOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [showMessage, setShowMessage] = useState(true);
@@ -20,102 +28,48 @@ export function LudoArenaPage() {
   );
   const [notificationType, setNotificationType] =
     useState<NotificationType>("INFO");
-  const [lastDiceValue, setLastDiceValue] = useState<number | null>(null);
 
-  const mockPlayers = [
-    {
-      userId: "1",
-      username: "Commander RED",
-      color: "RED" as Color,
-      isTurn: true,
-      pawns: redPawns.map((pos) => ({ position: pos })),
-      avatar: "/avatars/avatar_1.png",
-      isHost: true,
-    },
-    {
-      userId: "2",
-      username: "Unit BLUE",
-      color: "BLUE" as Color,
-      isTurn: false,
-      pawns: [
-        { position: -1 },
-        { position: -1 },
-        { position: -1 },
-        { position: -1 },
-      ],
-      avatar: "/avatars/avatar_1.png",
-    },
-    {
-      userId: "3",
-      username: "Unit YELLOW",
-      color: "YELLOW" as Color,
-      isTurn: false,
-      pawns: [
-        { position: -1 },
-        { position: -1 },
-        { position: -1 },
-        { position: -1 },
-      ],
-      avatar: "/avatars/avatar_1.png",
-    },
-    {
-      userId: "4",
-      username: "Unit GREEN",
-      color: "GREEN" as Color,
-      isTurn: false,
-      pawns: [
-        { position: -1 },
-        { position: -1 },
-        { position: -1 },
-        { position: -1 },
-      ],
-      avatar: "/avatars/avatar_1.png",
-    },
-  ];
+  // Jeśli gra się jeszcze nie załadowała
+  if (!gameState) {
+    return (
+      <div className="min-h-screen bg-[#050508] flex items-center justify-center text-purple-500 font-black tracking-tighter">
+        INITIALIZING NEURAL LINK...
+      </div>
+    );
+  }
 
-  const initiateRoll = () => {
-    setNotification("Calculating trajectory... Rolling dice.");
+  // --- LOGIKA RZUTU ---
+  const initiateRoll = async () => {
+    setNotification("Calculating trajectory... Requesting server seed.");
     setNotificationType("ROLLING");
     setShowMessage(true);
+
+    // Otwieramy popup - on sam wywoła rollDice() w środku lub zrobimy to tutaj:
     setDiceOpen(true);
   };
 
-  const handleRollComplete = (value: number) => {
-    setLastDiceValue(value);
-    setNotification(
-      `Dice Protocol: Value ${value} confirmed. Proceed to move.`
-    );
+  const handleRollComplete = async (value: number) => {
+    // Uwaga: W wersji z contextem, rollDice() wyśle request,
+    // a serwer zwróci nowy gameState przez WebSocket, co zamknie flow.
+    setNotification(`Dice Protocol: Value ${value} confirmed.`);
     setNotificationType("ROLLED");
-    setShowMessage(true);
   };
 
-  const handlePawnMoveFinished = (color: Color, index: number) => {
-    console.log(`Pawn move finished for color: ${color}, index: ${index}`);
+  // --- LOGIKA KLIKNIĘCIA W PIONEK ---
+  const handlePawnClick = async (pawnId: number) => {
+    if (!isMyTurn || !gameState.waitingForMove) return;
 
-    if (color === "RED") {
-      const moveBy = lastDiceValue || 0;
+    setNotification(`Command sent: Unit moving to sector...`);
+    setNotificationType("MOVING");
 
-      setRedPawns((prevPawns) => {
-        const newPawns = [...prevPawns];
-        const currentPos = newPawns[index];
+    // Wywołujemy akcję z kontekstu (wysyła request do API)
+    await movePawn(pawnId);
+  };
 
-        const nextPos = currentPos === -1 ? moveBy - 1 : currentPos + moveBy;
-
-        newPawns[index] = nextPos;
-
-        console.log(`RED pawn [${index}] moved to position ${nextPos}`);
-
-        setNotification(
-          `Tactical Alert: Unit RED-${index} reached sector ${nextPos}.`
-        );
-        setNotificationType("MOVING");
-        setShowMessage(true);
-
-        return newPawns;
-      });
-
-      setLastDiceValue(null);
-    }
+  const handlePawnMoveFinished = (pawnId: number) => {
+    // Animacja na froncie się skończyła.
+    // Stan na serwerze prawdopodobnie już się zaktualizował przez WebSocket.
+    console.log(`Unit ${pawnId} position synchronized.`);
   };
 
   return (
@@ -133,10 +87,28 @@ export function LudoArenaPage() {
             <div className="absolute inset-20 border border-white/[0.02] rounded-[40px] pointer-events-none" />
 
             <div className="relative pl-64 pr-64">
-              <PlayerCard player={mockPlayers[0]} side="top-left" />
-              <PlayerCard player={mockPlayers[1]} side="top-right" />
-              <PlayerCard player={mockPlayers[2]} side="bottom-right" />
-              <PlayerCard player={mockPlayers[3]} side="bottom-left" />
+              {/* Karty graczy z rzeczywistymi danymi */}
+              {gameState.players.map((player, idx) => {
+                const sides = [
+                  "top-left",
+                  "top-right",
+                  "bottom-right",
+                  "bottom-left",
+                ] as const;
+                return (
+                  <PlayerCard
+                    key={player.userId}
+                    player={{
+                      ...player,
+                      username:
+                        gameState.usernames[player.userId] || "Unknown Unit",
+                      isTurn: player.userId === gameState.currentPlayerId,
+                      avatar: "/avatars/avatar_1.png",
+                    }}
+                    side={sides[idx]}
+                  />
+                );
+              })}
 
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -144,9 +116,12 @@ export function LudoArenaPage() {
                 className="relative z-10"
               >
                 <LudoBoard
-                  players={mockPlayers}
-                  diceValue={lastDiceValue}
+                  players={gameState.players}
+                  currentPlayerId={gameState.currentPlayerId}
+                  diceValue={gameState.lastDiceRoll}
+                  waitingForMove={gameState.waitingForMove}
                   onPawnMoveComplete={handlePawnMoveFinished}
+                  onPawnClick={handlePawnClick}
                 />
               </motion.div>
             </div>
@@ -157,6 +132,7 @@ export function LudoArenaPage() {
           <SidebarHeader />
           <ChatSection message={chatMessage} onMessageChange={setChatMessage} />
 
+          {/* Stopka reaguje na to, czy jest Twoja tura */}
           <SidebarFooter onDiceRoll={initiateRoll} />
         </aside>
       </div>

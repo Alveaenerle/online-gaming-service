@@ -21,6 +21,7 @@ import SupportPage from "./components/Pages/SupportPage";
 
 import { SocialProvider } from "./context/SocialContext";
 import { ToastProvider } from "./context/ToastContext";
+import { LudoProvider } from "./context/LudoGameContext";
 
 const App: React.FC = () => {
   return (
@@ -81,11 +82,14 @@ const App: React.FC = () => {
                     </RequireAuth>
                   }
                 />
+
                 <Route
                   path="/ludo/game"
                   element={
                     <RequireAuth>
-                      <LudoArenaPage />
+                      <LudoProvider>
+                        <LudoArenaPage />
+                      </LudoProvider>
                     </RequireAuth>
                   }
                 />
