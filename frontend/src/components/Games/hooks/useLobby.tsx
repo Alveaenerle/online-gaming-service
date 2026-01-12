@@ -8,7 +8,6 @@ export function useLobby(
   const [isConnected, setIsConnected] = useState(false);
   const onUpdateRef = useRef(onUpdate);
 
-  // Keep the ref up to date with the latest callback
   useEffect(() => {
     onUpdateRef.current = onUpdate;
   }, [onUpdate]);

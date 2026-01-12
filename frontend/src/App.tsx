@@ -25,86 +25,80 @@ import { ToastProvider } from "./context/ToastContext";
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/makao/game" element={<MakaoGame />} />
-          <Route path="/makao" element={<MakaoTitle />} />
-          <Route path="/lobby/makao" element={<MakaoLobby />} />
-          <Route path="/ludo" element={<LudoTitle />} />
-          <Route path="/lobby/ludo" element={<LudoLobby />} />
-          <Route path="/ludo/game" element={<LudoArenaPage />} />
-        </Routes>
-      </Router>
       <ToastProvider>
         <SocialProvider>
           <Router>
             <LobbyProvider>
-          <LobbyIndicator />
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/support" element={<SupportPage />} />
+              <LobbyIndicator />
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/support" element={<SupportPage />} />
 
-            {/* Protected routes */}
-            <Route
-              path="/home"
-              element={
-                <RequireAuth>
-                  <Home />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/makao/game"
-              element={
-                <RequireAuth>
-                  <MakaoGame />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/makao"
-              element={
-                <RequireAuth>
-                  <MakaoTitle />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/lobby/makao"
-              element={
-                <RequireAuth>
-                  <MakaoLobby />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/ludo"
-              element={
-                <RequireAuth>
-                  <LudoTitle />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/lobby/ludo"
-              element={
-                <RequireAuth>
-                  <LudoLobby />
-                </RequireAuth>
-              }
-            />
-          </Routes>
-        </LobbyProvider>
+                {/* Protected routes */}
+                <Route
+                  path="/home"
+                  element={
+                    <RequireAuth>
+                      <Home />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/makao/game"
+                  element={
+                    <RequireAuth>
+                      <MakaoGame />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/makao"
+                  element={
+                    <RequireAuth>
+                      <MakaoTitle />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/lobby/makao"
+                  element={
+                    <RequireAuth>
+                      <MakaoLobby />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/ludo"
+                  element={
+                    <RequireAuth>
+                      <LudoTitle />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/ludo/game"
+                  element={
+                    <RequireAuth>
+                      <LudoArenaPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/lobby/ludo"
+                  element={
+                    <RequireAuth>
+                      <LudoLobby />
+                    </RequireAuth>
+                  }
+                />
+              </Routes>
+            </LobbyProvider>
           </Router>
         </SocialProvider>
       </ToastProvider>
