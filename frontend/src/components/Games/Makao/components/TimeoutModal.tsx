@@ -113,14 +113,6 @@ const TimeoutModal: React.FC<TimeoutModalProps> = ({
               >
                 Return to Lobby
               </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={onClose}
-                className="w-full py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium border border-white/10 transition-colors"
-              >
-                Watch Game (Spectate)
-              </motion.button>
             </div>
           </motion.div>
         </motion.div>

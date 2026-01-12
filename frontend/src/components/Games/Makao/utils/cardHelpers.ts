@@ -145,6 +145,23 @@ export const getCardEffectDescription = (card: Card): string | null => {
 // ============================================
 
 /**
+ * Get avatar URL from avatarId
+ * Handles both human and bot avatars
+ */
+export const getAvatarUrl = (avatarId: string | undefined, playerId: string): string => {
+  // Bot avatar
+  if (playerId.startsWith("bot-") || avatarId === "bot_avatar.png") {
+    return "/avatars/bot_avatar.svg";
+  }
+  // Human avatar - construct URL from avatarId
+  if (avatarId) {
+    return `/avatars/${avatarId}`;
+  }
+  // Default fallback avatar
+  return "/avatars/avatar_1.png";
+};
+
+/**
  * Build player views from game state
  * Uses playerOrder from backend to maintain correct turn order
  */
@@ -158,6 +175,7 @@ export const buildPlayerViews = (
     activePlayerId,
     placement,
     playersUsernames,
+    playersAvatars,
     playerOrder,
   } = gameState;
 
@@ -169,6 +187,7 @@ export const buildPlayerViews = (
   return playerIds.map((playerId) => ({
     id: playerId,
     username: playersUsernames?.[playerId] || getPlayerDisplayName(playerId),
+    avatarUrl: getAvatarUrl(playersAvatars?.[playerId], playerId),
     cardCount: playersCardsAmount[playerId] || 0,
     isActive: playerId === activePlayerId,
     isMe: playerId === myUserId,

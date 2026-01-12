@@ -212,17 +212,28 @@ const Player = forwardRef<HTMLDivElement, PlayerProps>(({
             />
           )}
 
-          {/* Avatar */}
+          {/* Avatar Image */}
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+            className={`w-10 h-10 rounded-full overflow-hidden border-2 ${
               player.isActive
-                ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
+                ? isLowTime
+                  ? "border-red-500"
+                  : "border-purpleEnd"
                 : playerIsBot
-                ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
-                : "bg-gray-700 text-gray-300"
+                ? "border-cyan-500/50"
+                : "border-white/20"
             }`}
           >
-            {playerIsBot ? "🤖" : player.username.charAt(0).toUpperCase()}
+            <img
+              src={player.avatarUrl}
+              alt={`${player.username}'s avatar`}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback to default avatar if image fails to load
+                const target = e.target as HTMLImageElement;
+                target.src = playerIsBot ? "/avatars/bot_avatar.svg" : "/avatars/avatar_1.png";
+              }}
+            />
           </div>
 
           {/* MAKAO Badge */}

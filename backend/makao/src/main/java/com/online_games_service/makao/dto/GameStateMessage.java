@@ -43,4 +43,8 @@ public class GameStateMessage {
     private String botThinkingPlayerId;
     // Player turn order - list of player IDs in their turn order (human always first)
     private List<String> playerOrder;
+    // Player usernames - playerId -> username
+    private Map<String, String> playersUsernames;
+    // Player avatars - playerId -> avatarId (e.g., "avatar_1.png" or "bot_avatar.png")
+    private Map<String, String> playersAvatars;
 }

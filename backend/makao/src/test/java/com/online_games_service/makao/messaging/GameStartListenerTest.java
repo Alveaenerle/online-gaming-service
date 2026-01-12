@@ -47,6 +47,7 @@ public class GameStartListenerTest {
                 "Room",
                 GameType.MAKAO,
                 Map.of("host", "Host", "p2", "P2"),
+                Map.of("host", "avatar_1.png", "p2", "avatar_2.png"),
                 4,
                 "host",
                 "Host"
@@ -69,6 +70,7 @@ public class GameStartListenerTest {
                 "Room",
                 GameType.MAKAO,
                 Map.of("host", "Host"),
+                Map.of("host", "avatar_1.png"),
                 4,
                 "host",
                 "Host"
@@ -88,6 +90,7 @@ public class GameStartListenerTest {
                 "",
                 "Room",
                 GameType.MAKAO,
+                Map.of(),
                 Map.of(),
                 4,
                 "host",

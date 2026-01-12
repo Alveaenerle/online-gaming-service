@@ -144,6 +144,14 @@ public class MakaoGameService {
         usernames.put(botId, "Bot " + nextBot);
         game.setPlayersUsernames(usernames);
 
+        // Update avatars - remove old player's avatar and set bot avatar
+        Map<String, String> avatars = game.getPlayersAvatars() != null
+                ? new HashMap<>(game.getPlayersAvatars())
+                : new HashMap<>();
+        avatars.remove(userId);
+        avatars.put(botId, "bot_avatar.png");
+        game.setPlayersAvatars(avatars);
+
         // Update player order
         List<String> updatedOrder = game.getPlayersOrderIds() != null
                 ? new ArrayList<>(game.getPlayersOrderIds())
@@ -209,6 +217,93 @@ public class MakaoGameService {
                 .orElseThrow(() -> new IllegalArgumentException("Game not found for roomId: " + request.getRoomId()));
 
         endGame(game);
+    }
+
+    /**
+     * Send the current game state to a specific player.
+     * Used when a player connects/reconnects and needs the current state.
+     */
+    public void sendCurrentStateToPlayer(String userId) {
+        if (userId == null) {
+            log.warn("Cannot send state: userId is null");
+            return;
+        }
+
+        String roomId = (String) redisTemplate.opsForValue().get(KEY_USER_ROOM_BY_ID + userId);
+        if (roomId == null || roomId.isBlank()) {
+            log.debug("No room found for player {} when requesting state", userId);
+            return;
+        }
+
+        MakaoGame game = gameRepository.findById(roomId).orElse(null);
+        if (game == null) {
+            log.debug("Game not found for roomId {} when player {} requested state", roomId, userId);
+            return;
+        }
+
+        log.info("Sending current game state to player {} for room {}", userId, roomId);
+        sendStateToSinglePlayer(game, userId);
+    }
+
+    /**
+     * Send game state to a single player (used for reconnection/state request)
+     */
+    private void sendStateToSinglePlayer(MakaoGame game, String playerId) {
+        if (game == null || playerId == null || isBot(playerId)) {
+            return;
+        }
+
+        Map<String, List<Card>> hands = game.getPlayersHands();
+        if (hands == null) {
+            return;
+        }
+
+        Map<String, Integer> cardsAmount = new HashMap<>();
+        hands.forEach((pid, cards) -> cardsAmount.put(pid, cards != null ? cards.size() : 0));
+
+        List<Card> activePlayable = game.getActivePlayerPlayableCards() != null
+                ? game.getActivePlayerPlayableCards()
+                : new ArrayList<>();
+
+        Integer turnRemainingSeconds = calculateTurnRemainingSeconds(game);
+
+        List<Card> hand = hands.getOrDefault(playerId, new ArrayList<>());
+        List<PlayerCardView> myCards = new ArrayList<>();
+        boolean isActive = playerId.equals(game.getActivePlayerId());
+
+        for (Card card : hand) {
+            boolean playable = isActive && containsCard(activePlayable, card);
+            myCards.add(new PlayerCardView(card, playable));
+        }
+
+        GameStateMessage message = new GameStateMessage(
+                game.getRoomId(),
+                game.getActivePlayerId(),
+                game.getCurrentCard(),
+                myCards,
+                new HashMap<>(cardsAmount),
+                game.getPlayersSkipTurns() != null ? new HashMap<>(game.getPlayersSkipTurns()) : new HashMap<>(),
+                game.isSpecialEffectActive(),
+                game.getDemandedRank(),
+                game.getDemandedSuit(),
+                game.getRanking() != null ? new HashMap<>(game.getRanking()) : new HashMap<>(),
+                game.getPlacement() != null ? new HashMap<>(game.getPlacement()) : new HashMap<>(),
+                game.getLosers() != null ? new ArrayList<>(game.getLosers()) : new ArrayList<>(),
+                game.getStatus(),
+                game.getDrawDeck() != null ? game.getDrawDeck().size() : 0,
+                game.getDiscardDeck() != null ? game.getDiscardDeck().size() : 0,
+                game.getLastMoveLog(),
+                game.getEffectNotification(),
+                game.getMoveHistory() != null ? new ArrayList<>(game.getMoveHistory()) : new ArrayList<>(),
+                turnRemainingSeconds,
+                game.getMakaoPlayerId(),
+                game.getBotThinkingPlayerId(),
+                game.getPlayersOrderIds() != null ? new ArrayList<>(game.getPlayersOrderIds()) : new ArrayList<>(),
+                game.getPlayersUsernames() != null ? new HashMap<>(game.getPlayersUsernames()) : new HashMap<>(),
+                game.getPlayersAvatars() != null ? new HashMap<>(game.getPlayersAvatars()) : new HashMap<>()
+        );
+
+        messagingTemplate.convertAndSend("/topic/makao/" + playerId, message);
     }
 
     public DrawCardResponse drawCard(String userId) {
@@ -706,17 +801,20 @@ public class MakaoGameService {
     private void endGame(MakaoGame game) {
         cancelTurnTimeout(game.getRoomId());
         cancelBotMove(game.getRoomId());
-        
+
         // Clean up gameInProgress map entry for this room
         if (game.getRoomId() != null) {
             gameInProgress.remove(game.getRoomId());
         }
-        
+
         game.setStatus(RoomStatus.FINISHED);
         game.setSpecialEffectActive(false);
         game.setDrawnCard(null);
         game.setActivePlayerPlayableCards(new ArrayList<>());
         game.addMoveLog("Game ended!");
+
+        // Clear player room mappings so they can join new games
+        clearAllPlayersRoomMappings(game);
 
         Map<String, List<Card>> hands = game.getPlayersHands();
         Map<String, Integer> ranking = new HashMap<>();
@@ -847,7 +945,9 @@ public class MakaoGameService {
                     turnRemainingSeconds,
                     game.getMakaoPlayerId(),
                     game.getBotThinkingPlayerId(),
-                    game.getPlayersOrderIds() != null ? new ArrayList<>(game.getPlayersOrderIds()) : new ArrayList<>()
+                    game.getPlayersOrderIds() != null ? new ArrayList<>(game.getPlayersOrderIds()) : new ArrayList<>(),
+                    game.getPlayersUsernames() != null ? new HashMap<>(game.getPlayersUsernames()) : new HashMap<>(),
+                    game.getPlayersAvatars() != null ? new HashMap<>(game.getPlayersAvatars()) : new HashMap<>()
             );
 
             messagingTemplate.convertAndSend("/topic/makao/" + playerId, message);
@@ -893,6 +993,20 @@ public class MakaoGameService {
         } catch (Exception e) {
             log.error("Failed to clear room mapping for player {}", playerId, e);
         }
+    }
+
+    /**
+     * Clears the Redis mappings for all human players in the game.
+     * Called when the game ends to allow players to join new games.
+     */
+    private void clearAllPlayersRoomMappings(MakaoGame game) {
+        if (game == null || game.getPlayersOrderIds() == null) {
+            return;
+        }
+        for (String playerId : game.getPlayersOrderIds()) {
+            clearPlayerRoomMapping(playerId);
+        }
+        log.info("Cleared room mappings for all players in game {}", game.getRoomId());
     }
 
     private int calculateHandValue(List<Card> hand) {
@@ -1122,14 +1236,14 @@ public class MakaoGameService {
         if (playerId == null || isBot(playerId)) {
             return;
         }
-        
+
         PlayerTimeoutMessage timeoutMessage = new PlayerTimeoutMessage(
                 roomId,
                 playerId,
                 replacedByBotId,
                 "You have been replaced by a bot due to inactivity. You did not make a move within the time limit."
         );
-        
+
         log.info("Sending timeout notification to player {} in room {}", playerId, roomId);
         messagingTemplate.convertAndSend("/topic/makao/" + playerId + "/timeout", timeoutMessage);
     }

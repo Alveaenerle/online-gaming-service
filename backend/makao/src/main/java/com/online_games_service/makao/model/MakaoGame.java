@@ -39,6 +39,7 @@ public class MakaoGame implements Serializable {
 
     private Map<String, Integer> playersSkipTurns = new HashMap<>();
     private Map<String, String> playersUsernames = new HashMap<>(); // playerId -> username
+    private Map<String, String> playersAvatars = new HashMap<>(); // playerId -> avatarId
     private Map<String, List<Card>> playersHands = new HashMap<>();
 
     private MakaoDeck drawDeck;
@@ -93,7 +94,7 @@ public class MakaoGame implements Serializable {
         this.effectNotification = null;
     }
 
-    public MakaoGame(String roomId, Map<String, String> players, String hostUserId, int maxPlayers) {
+    public MakaoGame(String roomId, Map<String, String> players, Map<String, String> avatars, String hostUserId, int maxPlayers) {
         this.roomId = roomId;
         this.gameId = "MAKAO-" + UUID.randomUUID();
         if (maxPlayers < 2) {
@@ -109,12 +110,19 @@ public class MakaoGame implements Serializable {
             this.playersUsernames.putAll(players);
         }
 
+        // Initialize avatars for human players
+        if (avatars != null && !avatars.isEmpty()) {
+            this.playersAvatars.putAll(avatars);
+        }
+
         int missing = Math.max(0, maxPlayers - this.playersUsernames.size());
         while (missing > 0) {
             botCounter++;
             String botId = "bot-" + botCounter;
             if (!this.playersUsernames.containsKey(botId)) {
                 this.playersUsernames.put(botId, "Bot " + botCounter);
+                // Set default bot avatar
+                this.playersAvatars.put(botId, "bot_avatar.png");
                 missing--;
             }
         }

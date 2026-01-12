@@ -51,6 +51,7 @@ export interface GameStateMessage {
   drawDeckCardsAmount: number;
   discardDeckCardsAmount: number;
   playersUsernames?: Record<string, string>;
+  playersAvatars?: Record<string, string>;
   // Move history and effect notifications
   lastMoveLog?: string | null;
   effectNotification?: string | null;
@@ -83,6 +84,7 @@ export interface DrawCardResponse {
 export interface PlayerView {
   id: string;
   username: string;
+  avatarUrl: string;
   cardCount: number;
   isActive: boolean;
   isMe: boolean;

@@ -53,7 +53,7 @@ const MakaoGame: React.FC = () => {
   } = useGameSounds();
 
   // WebSocket connection and game state
-  const { gameState, isConnected, connectionError, resetState, wasKickedByTimeout, clearTimeoutStatus } = useMakaoSocket();
+  const { gameState, isConnected, connectionError, resetState, wasKickedByTimeout, clearTimeoutStatus, reconnect } = useMakaoSocket();
 
 
   // Game actions
@@ -332,12 +332,15 @@ const MakaoGame: React.FC = () => {
 
   // Handle leaving game (mid-game)
   const handleLeaveGame = useCallback(() => {
+    console.log("[MakaoGame] Leaving game mid-session");
+    resetState();
     clearLobby();
     navigate("/makao");
-  }, [clearLobby, navigate]);
+  }, [resetState, clearLobby, navigate]);
 
   // Reset all local UI state (for new game)
   const resetLocalState = useCallback(() => {
+    console.log("[MakaoGame] Resetting local UI state");
     setPendingCard(null);
     setDemandType(null);
     setDrawnCardInfo(null);
@@ -352,15 +355,19 @@ const MakaoGame: React.FC = () => {
 
   // Handle "Play Again" - return to lobby with same players
   const handlePlayAgain = useCallback(() => {
+    console.log("[MakaoGame] Play Again clicked - resetting for new game");
     // Reset game-specific state
     resetLocalState();
     resetState(); // Reset WebSocket game state
-    // Navigate back to lobby (lobby context preserved)
+    // Clear the lobby so user can join a new one
+    clearLobby();
+    // Navigate back to makao page to join/create new lobby
     navigate("/makao");
-  }, [resetLocalState, resetState, navigate]);
+  }, [resetLocalState, resetState, clearLobby, navigate]);
 
   // Handle "Exit to Menu" - leave completely
   const handleExitToMenu = useCallback(() => {
+    console.log("[MakaoGame] Exit to Menu clicked");
     resetLocalState();
     resetState();
     clearLobby(); // Clear the lobby context entirely
@@ -776,27 +783,36 @@ const MakaoGame: React.FC = () => {
                        </svg>
                      )}
                      <div
-                       className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${
-                         isMyTurn
-                           ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
+                       className={`w-9 h-9 rounded-full overflow-hidden border-2 ${
+                         turnRemainingSeconds != null && turnRemainingSeconds <= 10
+                           ? "border-red-500"
                            : isActivePlayerBot
-                           ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
-                           : "bg-gray-700 text-gray-300"
+                           ? "border-cyan-500"
+                           : "border-purpleEnd"
                        }`}
                      >
-                       {isActivePlayerBot ? "🤖" : (
-                         players.find((p) => p.id === gameState.activePlayerId)
-                           ?.username || "?"
-                       )
-                         .charAt(0)
-                         .toUpperCase()}
+                       <img
+                         src={
+                           players.find((p) => p.id === gameState.activePlayerId)?.avatarUrl ||
+                           (isActivePlayerBot ? "/avatars/bot_avatar.svg" : "/avatars/avatar_1.png")
+                         }
+                         alt="Active Player"
+                         className="w-full h-full object-cover"
+                         onError={(e) => {
+                           const target = e.target as HTMLImageElement;
+                           target.src = isActivePlayerBot
+                             ? "/avatars/bot_avatar.svg"
+                             : "/avatars/avatar_1.png";
+                         }}
+                       />
                      </div>
                    </div>
                    <div className="flex-1 min-w-0">
                      <p className="text-white text-sm font-medium truncate">
                        {isMyTurn
                          ? "Your Turn"
-                         : getPlayerDisplayName(gameState.activePlayerId)}
+                         : players.find((p) => p.id === gameState.activePlayerId)?.username ||
+                           getPlayerDisplayName(gameState.activePlayerId)}
                      </p>
                      <p className="text-[10px] text-gray-500">
                        {isMyTurn ? "Play a card or draw" : isActivePlayerBot ? "Bot thinking..." : "Waiting..."}

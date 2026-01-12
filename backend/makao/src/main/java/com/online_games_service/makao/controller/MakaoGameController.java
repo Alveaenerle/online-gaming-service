@@ -84,6 +84,21 @@ public class MakaoGameController {
         return ResponseEntity.ok(successBody());
     }
 
+    /**
+     * Request the current game state to be sent via WebSocket.
+     * Useful when a client connects/reconnects and needs the current state.
+     */
+    @PostMapping("/request-state")
+    public ResponseEntity<Map<String, String>> requestState(
+            @RequestAttribute(value = "userId", required = false) String userId) {
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        makaoGameService.sendCurrentStateToPlayer(userId);
+        return ResponseEntity.ok(successBody());
+    }
+
     // for debugging purposes only
     // @PostMapping("/end-game")
     // public ResponseEntity<Map<String, String>> endGame(@RequestBody @Valid EndGameRequest request) {

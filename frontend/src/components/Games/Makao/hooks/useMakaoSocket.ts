@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../../../../context/AuthContext";
 import { GameStateMessage } from "../types";
+import makaoGameService from "../../../../services/makaoGameService";
 import SockJS from "sockjs-client";
 import * as StompJs from "stompjs";
 
@@ -21,6 +22,7 @@ interface UseMakaoSocketReturn {
   timeoutMessage: string | null;
   resetState: () => void;
   clearTimeoutStatus: () => void;
+  reconnect: () => void;
 }
 
 /**
@@ -34,111 +36,197 @@ export const useMakaoSocket = (): UseMakaoSocketReturn => {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [wasKickedByTimeout, setWasKickedByTimeout] = useState(false);
   const [timeoutMessage, setTimeoutMessage] = useState<string | null>(null);
+
+  // Connection management refs
   const clientRef = useRef<StompJs.Client | null>(null);
   const subscriptionRef = useRef<StompJs.Subscription | null>(null);
   const timeoutSubscriptionRef = useRef<StompJs.Subscription | null>(null);
+  const isMountedRef = useRef(true);
+  const connectionIdRef = useRef(0); // Track connection attempts to avoid stale closures
 
-  // Handle incoming game state update
-  const handleGameUpdate = useCallback((message: StompJs.Message) => {
-    try {
-      const data: GameStateMessage = JSON.parse(message.body);
-      console.log("[Makao WS] Game state update:", data);
-      setGameState(data);
-      setConnectionError(null);
-    } catch (err) {
-      console.error("[Makao WS] Failed to parse message:", err);
+  // Cleanup function to properly disconnect and clear subscriptions
+  const cleanup = useCallback(() => {
+    console.log("[Makao WS] Running cleanup...");
+
+    if (subscriptionRef.current) {
+      try {
+        console.log("[Makao WS] Unsubscribing from game state topic");
+        subscriptionRef.current.unsubscribe();
+      } catch (e) {
+        console.warn("[Makao WS] Error unsubscribing from game state:", e);
+      }
+      subscriptionRef.current = null;
     }
+
+    if (timeoutSubscriptionRef.current) {
+      try {
+        console.log("[Makao WS] Unsubscribing from timeout topic");
+        timeoutSubscriptionRef.current.unsubscribe();
+      } catch (e) {
+        console.warn("[Makao WS] Error unsubscribing from timeout:", e);
+      }
+      timeoutSubscriptionRef.current = null;
+    }
+
+    if (clientRef.current) {
+      try {
+        if (clientRef.current.connected) {
+          console.log("[Makao WS] Disconnecting STOMP client");
+          clientRef.current.disconnect(() => {
+            console.log("[Makao WS] STOMP client disconnected");
+          });
+        }
+      } catch (e) {
+        console.warn("[Makao WS] Error disconnecting:", e);
+      }
+      clientRef.current = null;
+    }
+
+    setIsConnected(false);
   }, []);
 
-  // Handle timeout notification
-  const handleTimeoutNotification = useCallback((message: StompJs.Message) => {
-    try {
-      const data: PlayerTimeoutMessage = JSON.parse(message.body);
-      console.log("[Makao WS] Timeout notification received:", data);
-      setWasKickedByTimeout(true);
-      setTimeoutMessage(data.message);
-    } catch (err) {
-      console.error("[Makao WS] Failed to parse timeout message:", err);
-    }
-  }, []);
-
-  // Connect and subscribe to WebSocket
-  useEffect(() => {
+  // Connect to WebSocket
+  const connect = useCallback(() => {
     if (!user?.id) {
+      console.log("[Makao WS] Cannot connect: no user ID");
       setConnectionError("User not authenticated");
       return;
     }
 
+    // Increment connection ID to invalidate any pending callbacks from previous connections
+    const currentConnectionId = ++connectionIdRef.current;
+    console.log(`[Makao WS] Starting connection attempt #${currentConnectionId} for user ${user.id}`);
+
+    // Clean up any existing connection first
+    cleanup();
+
     const topic = `/topic/makao/${user.id}`;
     const timeoutTopic = `/topic/makao/${user.id}/timeout`;
 
-    const connect = () => {
-      try {
-        console.log("[Makao WS] Connecting to Makao WebSocket...");
-        const socket = new SockJS("http://localhost/api/makao/ws");
-        const client = StompJs.over(socket);
-        client.debug = () => {}; // Disable debug logs
+    try {
+      console.log("[Makao WS] Creating SockJS connection...");
+      const socket = new SockJS("http://localhost/api/makao/ws");
+      const client = StompJs.over(socket);
 
-        client.connect(
-          {},
-          () => {
-            console.log("[Makao WS] Connected successfully");
-            setIsConnected(true);
-            setConnectionError(null);
+      // Disable verbose STOMP debug logs but keep our custom ones
+      client.debug = () => {};
 
-            console.log(`[Makao WS] Subscribing to ${topic}`);
-            subscriptionRef.current = client.subscribe(topic, handleGameUpdate);
-
-            console.log(`[Makao WS] Subscribing to timeout topic ${timeoutTopic}`);
-            timeoutSubscriptionRef.current = client.subscribe(timeoutTopic, handleTimeoutNotification);
-          },
-          (error: string | StompJs.Frame) => {
-            console.error("[Makao WS] Connection error:", error);
-            setConnectionError("Failed to connect to game server");
-            setIsConnected(false);
+      client.connect(
+        {},
+        () => {
+          // Check if this connection is still valid (component still mounted, same connection attempt)
+          if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {
+            console.log(`[Makao WS] Connection #${currentConnectionId} completed but is stale, disconnecting`);
+            try {
+              client.disconnect(() => {});
+            } catch (e) {
+              // Ignore
+            }
+            return;
           }
-        );
 
-        clientRef.current = client;
-      } catch (err) {
-        console.error("[Makao WS] Connection failed:", err);
-        setConnectionError("Failed to connect to game server");
-        setIsConnected(false);
-      }
-    };
+          console.log(`[Makao WS] Connection #${currentConnectionId} established successfully`);
+          setIsConnected(true);
+          setConnectionError(null);
+          clientRef.current = client;
 
+          // Subscribe to game state updates
+          console.log(`[Makao WS] Subscribing to game state: ${topic}`);
+          subscriptionRef.current = client.subscribe(topic, (message: StompJs.Message) => {
+            if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {
+              console.log("[Makao WS] Ignoring message from stale connection");
+              return;
+            }
+            try {
+              const data: GameStateMessage = JSON.parse(message.body);
+              console.log("[Makao WS] Received game state update:", {
+                roomId: data.roomId,
+                status: data.status,
+                activePlayerId: data.activePlayerId,
+                playerCount: Object.keys(data.playersCardsAmount || {}).length,
+              });
+              setGameState(data);
+              setConnectionError(null);
+            } catch (err) {
+              console.error("[Makao WS] Failed to parse game state message:", err);
+            }
+          });
+
+          // Subscribe to timeout notifications
+          console.log(`[Makao WS] Subscribing to timeout notifications: ${timeoutTopic}`);
+          timeoutSubscriptionRef.current = client.subscribe(timeoutTopic, (message: StompJs.Message) => {
+            if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {
+              return;
+            }
+            try {
+              const data: PlayerTimeoutMessage = JSON.parse(message.body);
+              console.log("[Makao WS] Received timeout notification:", data);
+              setWasKickedByTimeout(true);
+              setTimeoutMessage(data.message);
+            } catch (err) {
+              console.error("[Makao WS] Failed to parse timeout message:", err);
+            }
+          });
+
+          // Request the current game state after subscribing
+          // This ensures we get the state even if we connected after the game started
+          console.log("[Makao WS] Requesting current game state...");
+          makaoGameService.requestState().then(() => {
+            console.log("[Makao WS] State request sent successfully");
+          }).catch((err) => {
+            // This is expected if the player isn't in a game yet
+            console.log("[Makao WS] State request failed (player may not be in a game):", err);
+          });
+        },
+        (error: string | StompJs.Frame) => {
+          if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {
+            return;
+          }
+          console.error(`[Makao WS] Connection #${currentConnectionId} error:`, error);
+          setConnectionError("Failed to connect to game server");
+          setIsConnected(false);
+          clientRef.current = null;
+        }
+      );
+    } catch (err) {
+      console.error("[Makao WS] Failed to create connection:", err);
+      setConnectionError("Failed to connect to game server");
+      setIsConnected(false);
+    }
+  }, [user?.id, cleanup]);
+
+  // Initial connection on mount
+  useEffect(() => {
+    isMountedRef.current = true;
+    console.log("[Makao WS] Hook mounted, initiating connection");
     connect();
 
-    // Cleanup on unmount
     return () => {
-      console.log(`[Makao WS] Cleaning up WebSocket connection`);
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe();
-        subscriptionRef.current = null;
-      }
-      if (timeoutSubscriptionRef.current) {
-        timeoutSubscriptionRef.current.unsubscribe();
-        timeoutSubscriptionRef.current = null;
-      }
-      if (clientRef.current?.connected) {
-        clientRef.current.disconnect(() => {
-          console.log("[Makao WS] Disconnected");
-        });
-        clientRef.current = null;
-      }
+      console.log("[Makao WS] Hook unmounting, cleaning up");
+      isMountedRef.current = false;
+      cleanup();
     };
-  }, [user?.id, handleGameUpdate, handleTimeoutNotification]);
+  }, [connect, cleanup]);
 
-  // Reset state (e.g., when leaving game)
+  // Reset state (e.g., when leaving game or playing again)
   const resetState = useCallback(() => {
+    console.log("[Makao WS] Resetting state");
     setGameState(null);
     setConnectionError(null);
     setWasKickedByTimeout(false);
     setTimeoutMessage(null);
   }, []);
 
+  // Force reconnect (useful when starting a new game)
+  const reconnect = useCallback(() => {
+    console.log("[Makao WS] Force reconnect requested");
+    resetState();
+    connect();
+  }, [resetState, connect]);
+
   // Clear timeout status (e.g., after user acknowledges the modal)
   const clearTimeoutStatus = useCallback(() => {
+    console.log("[Makao WS] Clearing timeout status");
     setWasKickedByTimeout(false);
     setTimeoutMessage(null);
   }, []);
@@ -151,6 +239,7 @@ export const useMakaoSocket = (): UseMakaoSocketReturn => {
     timeoutMessage,
     resetState,
     clearTimeoutStatus,
+    reconnect,
   };
 };
 
