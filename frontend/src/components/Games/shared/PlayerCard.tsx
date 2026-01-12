@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Crown, UserMinus, UserPlus, UserCheck, Mail } from "lucide-react";
+import { Crown, UserMinus, UserPlus, UserCheck, Mail, Plus } from "lucide-react";
 
 type Props = {
   player?: {
@@ -12,13 +12,15 @@ type Props = {
   };
   onKick?: (userId: string) => void;
   onAddFriend?: (userId: string) => void;
+  onInviteToLobby?: () => void;
   showKickButton?: boolean;
   canAddFriend?: boolean;
+  canInviteToLobby?: boolean;
   isInvited?: boolean;
   hasReceivedRequest?: boolean; // This user sent us a friend request
 };
 
-export function PlayerCard({ player, onKick, onAddFriend, showKickButton, canAddFriend, isInvited, hasReceivedRequest }: Props) {
+export function PlayerCard({ player, onKick, onAddFriend, onInviteToLobby, showKickButton, canAddFriend, canInviteToLobby, isInvited, hasReceivedRequest }: Props) {
   return (
     <motion.div
       layout
@@ -29,8 +31,13 @@ export function PlayerCard({ player, onKick, onAddFriend, showKickButton, canAdd
           ? `bg-[#121018] border border-white/5 shadow-2xl ${
               player.isReady ? "border-purple-500/40" : ""
             }`
-          : "bg-white/[0.02] border border-dashed border-white/10"
+          : "bg-white/[0.02] border border-dashed border-white/10 group cursor-pointer hover:border-purple-500/40 hover:bg-purple-500/5"
       }`}
+      onClick={() => {
+        if (!player && canInviteToLobby && onInviteToLobby) {
+          onInviteToLobby();
+        }
+      }}
     >
       {player ? (
         <>
@@ -121,11 +128,24 @@ export function PlayerCard({ player, onKick, onAddFriend, showKickButton, canAdd
           )}
         </>
       ) : (
-        <div className="flex flex-col items-center gap-2 opacity-30">
-          <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">
-            Empty Slot
-          </span>
+        <div className="flex flex-col items-center gap-3">
+          {canInviteToLobby ? (
+            <>
+              <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center group-hover:border-purple-500/50 group-hover:bg-purple-500/10 transition-all duration-300">
+                <Plus size={24} className="text-white/30 group-hover:text-purple-400 transition-colors" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-white/30 group-hover:text-purple-400 transition-colors">
+                Invite Friend
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20 opacity-30" />
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
+                Empty Slot
+              </span>
+            </>
+          )}
         </div>
       )}
     </motion.div>

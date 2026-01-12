@@ -257,4 +257,192 @@ public class FriendNotificationServiceTest {
         // Then
         verify(messagingTemplate).convertAndSendToUser(eq(targetUserId), anyString(), any());
     }
+
+    @Test
+    public void shouldSendMutualPresenceUpdatesWhenBothUsersOnline() {
+        // Given
+        String user1 = "user1";
+        String user2 = "user2";
+        
+        when(presenceService.isUserOnline(user1)).thenReturn(true);
+        when(presenceService.isUserOnline(user2)).thenReturn(true);
+
+        // When
+        friendNotificationService.sendMutualPresenceUpdates(user1, user2);
+
+        // Then - user1 receives user2's status
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(user1),
+                eq("/queue/presence"),
+                argThat(msg -> {
+                    PresenceUpdateMessage m = (PresenceUpdateMessage) msg;
+                    return m.getUserId().equals(user2) && 
+                           m.getStatus() == PresenceUpdateMessage.PresenceStatus.ONLINE;
+                })
+        );
+        
+        // user2 receives user1's status
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(user2),
+                eq("/queue/presence"),
+                argThat(msg -> {
+                    PresenceUpdateMessage m = (PresenceUpdateMessage) msg;
+                    return m.getUserId().equals(user1) && 
+                           m.getStatus() == PresenceUpdateMessage.PresenceStatus.ONLINE;
+                })
+        );
+    }
+
+    @Test
+    public void shouldSendMutualPresenceUpdatesWhenOnlyOneUserOnline() {
+        // Given
+        String user1 = "user1";
+        String user2 = "user2";
+        
+        when(presenceService.isUserOnline(user1)).thenReturn(true);
+        when(presenceService.isUserOnline(user2)).thenReturn(false);
+
+        // When
+        friendNotificationService.sendMutualPresenceUpdates(user1, user2);
+
+        // Then - user1 (online) receives user2's OFFLINE status
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(user1),
+                eq("/queue/presence"),
+                argThat(msg -> {
+                    PresenceUpdateMessage m = (PresenceUpdateMessage) msg;
+                    return m.getUserId().equals(user2) && 
+                           m.getStatus() == PresenceUpdateMessage.PresenceStatus.OFFLINE;
+                })
+        );
+        
+        // user2 (offline) should NOT receive any notification
+        verify(messagingTemplate, never()).convertAndSendToUser(
+                eq(user2),
+                anyString(),
+                any()
+        );
+    }
+
+    @Test
+    public void shouldNotSendPresenceUpdatesWhenBothUsersOffline() {
+        // Given
+        String user1 = "user1";
+        String user2 = "user2";
+        
+        when(presenceService.isUserOnline(user1)).thenReturn(false);
+        when(presenceService.isUserOnline(user2)).thenReturn(false);
+
+        // When
+        friendNotificationService.sendMutualPresenceUpdates(user1, user2);
+
+        // Then - no notifications sent
+        verify(messagingTemplate, never()).convertAndSendToUser(anyString(), anyString(), any());
+    }
+
+    @Test
+    public void shouldHandleErrorInMutualPresenceUpdates() {
+        // Given
+        String user1 = "user1";
+        String user2 = "user2";
+        
+        when(presenceService.isUserOnline(user1)).thenReturn(true);
+        when(presenceService.isUserOnline(user2)).thenReturn(true);
+        
+        doThrow(new RuntimeException("Error")).when(messagingTemplate)
+                .convertAndSendToUser(eq(user1), anyString(), any());
+
+        // When
+        friendNotificationService.sendMutualPresenceUpdates(user1, user2);
+
+        // Then - should still try to send to user2 despite error for user1
+        verify(messagingTemplate).convertAndSendToUser(eq(user1), anyString(), any());
+        verify(messagingTemplate).convertAndSendToUser(eq(user2), anyString(), any());
+    }
+
+    // ============================================================
+    // GAME INVITE NOTIFICATION TESTS
+    // ============================================================
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void shouldSendGameInviteNotification() {
+        // Given
+        String targetUserId = "target1";
+        String inviteId = "invite123";
+        String senderId = "sender1";
+        String senderUsername = "Alice";
+        String lobbyId = "lobby1";
+        String lobbyName = "Fun Game";
+        String gameType = "MAKAO";
+        String accessCode = "ABC123";
+
+        // When
+        friendNotificationService.sendGameInviteNotification(
+                targetUserId, inviteId, senderId, senderUsername, 
+                lobbyId, lobbyName, gameType, accessCode);
+
+        // Then
+        ArgumentCaptor<java.util.Map<String, Object>> messageCaptor = ArgumentCaptor.forClass(java.util.Map.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(targetUserId), 
+                eq("/queue/notifications"), 
+                messageCaptor.capture()
+        );
+
+        java.util.Map<String, Object> notification = messageCaptor.getValue();
+        Assert.assertEquals(notification.get("type"), "NOTIFICATION_RECEIVED");
+        Assert.assertEquals(notification.get("subType"), "GAME_INVITE");
+
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> gameInvite = (java.util.Map<String, Object>) notification.get("gameInvite");
+        Assert.assertEquals(gameInvite.get("id"), inviteId);
+        Assert.assertEquals(gameInvite.get("senderId"), senderId);
+        Assert.assertEquals(gameInvite.get("senderUsername"), senderUsername);
+        Assert.assertEquals(gameInvite.get("lobbyId"), lobbyId);
+        Assert.assertEquals(gameInvite.get("lobbyName"), lobbyName);
+        Assert.assertEquals(gameInvite.get("gameType"), gameType);
+        Assert.assertEquals(gameInvite.get("accessCode"), accessCode);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void shouldSendGameInviteNotificationWithNullAccessCode() {
+        // Given
+        String targetUserId = "target1";
+        String inviteId = "invite123";
+
+        // When
+        friendNotificationService.sendGameInviteNotification(
+                targetUserId, inviteId, "sender", "Sender", 
+                "lobby", "Lobby", "LUDO", null);
+
+        // Then
+        ArgumentCaptor<java.util.Map<String, Object>> messageCaptor = ArgumentCaptor.forClass(java.util.Map.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(targetUserId), 
+                eq("/queue/notifications"), 
+                messageCaptor.capture()
+        );
+
+        java.util.Map<String, Object> notification = messageCaptor.getValue();
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> gameInvite = (java.util.Map<String, Object>) notification.get("gameInvite");
+        Assert.assertEquals(gameInvite.get("accessCode"), "");
+    }
+
+    @Test
+    public void shouldHandleExceptionInGameInviteNotification() {
+        // Given
+        doThrow(new RuntimeException("Error")).when(messagingTemplate)
+                .convertAndSendToUser(anyString(), anyString(), any());
+
+        // When - should not throw
+        friendNotificationService.sendGameInviteNotification(
+                "target", "invite", "sender", "Sender", 
+                "lobby", "Lobby", "MAKAO", "CODE");
+
+        // Then
+        verify(messagingTemplate).convertAndSendToUser(anyString(), anyString(), any());
+    }
 }

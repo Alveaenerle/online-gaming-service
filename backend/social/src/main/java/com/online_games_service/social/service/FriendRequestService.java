@@ -181,6 +181,8 @@ public class FriendRequestService {
             notificationPublisher.publishRequestAccepted(requesterId, currentUserId, currentUserName, isOnline);
             // Also send via WebSocket for real-time updates
             friendNotificationService.sendRequestAcceptedNotification(requesterId, currentUserId, currentUserName);
+            // Send mutual presence updates so both users see each other's online status
+            friendNotificationService.sendMutualPresenceUpdates(currentUserId, requesterId);
         } catch (Exception e) {
             // Log but don't fail the request - notification is best-effort
             logger.warn("Failed to publish request accepted notification: {}", e.getMessage());

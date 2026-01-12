@@ -23,4 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-package-lock.json
+# TypeScript build artifacts
+*.tsbuildinfo
+src/**/*.js
+!src/**/*.test.js

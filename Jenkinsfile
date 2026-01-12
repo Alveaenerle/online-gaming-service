@@ -18,6 +18,14 @@ pipeline {
     }
 
     stages {
+        stage('Cleanup Docker') {
+            steps {
+                script {
+                    sh 'docker system prune -af --volumes || true'
+                }
+            }
+        }
+
         stage('Run tests & Code Coverage') {
             when {
                 anyOf {
