@@ -237,12 +237,7 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
 
   const handleAddFriend = async () => {
     if (!contextMenu) return;
-    try {
-      await sendFriendRequest(contextMenu.userId);
-      showToast(`Friend request sent to ${contextMenu.username}`, "success");
-    } catch {
-      showToast("Failed to send friend request", "error");
-    }
+    await sendFriendRequest(contextMenu.userId);
     setContextMenu(null);
   };
 
