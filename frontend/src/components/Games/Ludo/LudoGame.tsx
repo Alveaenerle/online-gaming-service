@@ -10,7 +10,7 @@ import { DicePopup } from "./DicePopUp";
 import { SidebarFooter } from "./SidebarFooter";
 
 export function LudoArenaPage() {
-  const [redPos, setRedPos] = useState(-1);
+  const [redPawns, setRedPawns] = useState([-1, -1, -1, -1]);
   const [diceOpen, setDiceOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [showMessage, setShowMessage] = useState(true);
@@ -28,12 +28,7 @@ export function LudoArenaPage() {
       username: "Commander RED",
       color: "RED" as Color,
       isTurn: true,
-      pawns: [
-        { position: redPos },
-        { position: -1 },
-        { position: -1 },
-        { position: -1 },
-      ],
+      pawns: redPawns.map((pos) => ({ position: pos })),
       avatar: "/avatars/avatar_1.png",
       isHost: true,
     },
@@ -94,14 +89,32 @@ export function LudoArenaPage() {
     setShowMessage(true);
   };
 
-  const handlePawnClick = (color: Color, index: number) => {
-    if (color === "RED" && index === 0) {
-      setRedPos((prev) => (prev === -1 ? 0 : (prev + 1) % 51));
-      setNotification(
-        `Tactical Alert: Unit RED advanced to sector ${redPos + 1}.`
-      );
-      setNotificationType("MOVING");
-      setShowMessage(true);
+  const handlePawnMoveFinished = (color: Color, index: number) => {
+    console.log(`Pawn move finished for color: ${color}, index: ${index}`);
+
+    if (color === "RED") {
+      const moveBy = lastDiceValue || 0;
+
+      setRedPawns((prevPawns) => {
+        const newPawns = [...prevPawns];
+        const currentPos = newPawns[index];
+
+        const nextPos = currentPos === -1 ? moveBy - 1 : currentPos + moveBy;
+
+        newPawns[index] = nextPos;
+
+        console.log(`RED pawn [${index}] moved to position ${nextPos}`);
+
+        setNotification(
+          `Tactical Alert: Unit RED-${index} reached sector ${nextPos}.`
+        );
+        setNotificationType("MOVING");
+        setShowMessage(true);
+
+        return newPawns;
+      });
+
+      setLastDiceValue(null);
     }
   };
 
@@ -132,7 +145,8 @@ export function LudoArenaPage() {
               >
                 <LudoBoard
                   players={mockPlayers}
-                  onPawnClick={handlePawnClick}
+                  diceValue={lastDiceValue}
+                  onPawnMoveComplete={handlePawnMoveFinished}
                 />
               </motion.div>
             </div>

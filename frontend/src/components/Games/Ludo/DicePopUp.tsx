@@ -59,7 +59,6 @@ export function DicePopup({
   onRollComplete: (v: number) => void;
 }) {
   const [isRolling, setIsRolling] = useState(false);
-  const [displayValue, setDisplayValue] = useState(1);
   const [result, setResult] = useState<number | null>(null);
 
   useEffect(() => {
@@ -72,9 +71,7 @@ export function DicePopup({
   useEffect(() => {
     let interval: any;
     if (isRolling) {
-      interval = setInterval(() => {
-        setDisplayValue(Math.floor(Math.random() * 6) + 1);
-      }, 80);
+      interval = setInterval(() => {}, 80);
     }
     return () => clearInterval(interval);
   }, [isRolling]);
@@ -85,7 +82,6 @@ export function DicePopup({
     setTimeout(() => {
       const finalValue = Math.floor(Math.random() * 6) + 1;
       setResult(finalValue);
-      setDisplayValue(finalValue);
       setIsRolling(false);
       onRollComplete(finalValue);
     }, 1000);
@@ -128,7 +124,7 @@ export function DicePopup({
                     className="absolute inset-0  blur-3xl rounded-full"
                   />
                 )}
-                <DiceFace value={displayValue} />
+                <DiceFace value={result !== null ? result : 6} />
               </motion.div>
             </div>
 

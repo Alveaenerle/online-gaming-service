@@ -74,8 +74,8 @@ export function BoardCell({ type, color }: Props) {
             <div className="w-1/2 h-[1px] bg-white/40 -rotate-45" />
           </div>
         )}
+        .
       </div>
-      .
     </div>
   );
 }

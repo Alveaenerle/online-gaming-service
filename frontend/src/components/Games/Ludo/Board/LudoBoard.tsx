@@ -4,10 +4,15 @@ import { Pawn } from "./Pawn";
 
 interface LudoBoardProps {
   players: any[];
-  onPawnClick: (color: Color, index: number) => void;
+  diceValue: number | null;
+  onPawnMoveComplete: (color: Color, index: number) => void;
 }
 
-export function LudoBoard({ players, onPawnClick }: LudoBoardProps) {
+export function LudoBoard({
+  players,
+  diceValue,
+  onPawnMoveComplete,
+}: LudoBoardProps) {
   return (
     <div className="relative p-4 bg-[#0a0a0f] rounded-[45px] border-[3px] border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
       <div className="grid grid-cols-13 grid-rows-13 gap-0.5 w-[600px] h-[600px] relative">
@@ -33,8 +38,11 @@ export function LudoBoard({ players, onPawnClick }: LudoBoardProps) {
               color={player.color as Color}
               position={pawn.position}
               pawnIndex={idx}
-              isInteractable={player.isTurn}
-              onClick={() => onPawnClick(player.color as Color, idx)}
+              isInteractable={player.isTurn && !!diceValue}
+              diceValue={diceValue ?? 0}
+              onMoveComplete={() =>
+                onPawnMoveComplete(player.color as Color, idx)
+              }
             />
           ))
         )}

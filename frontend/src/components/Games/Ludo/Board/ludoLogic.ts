@@ -70,8 +70,12 @@ export const getPawnCoords = (
     return { row: bases[color].r[pawnIndex], col: bases[color].c[pawnIndex] };
   }
 
-  if (position >= 100) {
-    const step = position - 100;
+  if (position > 50) {
+    const step = position - 51;
+    if (step >= 4) {
+      return { row: 8, col: 8 };
+    }
+
     const homeStretch = {
       RED: { row: 8, col: 2 + step },
       BLUE: { row: 2 + step, col: 8 },
@@ -81,18 +85,35 @@ export const getPawnCoords = (
     return homeStretch[color];
   }
 
-  const offsets = {
-    RED: 0,
-    BLUE: 13,
-    YELLOW: 26,
-    GREEN: 39,
-  };
-
-  const playerOffset = offsets[color];
-  const totalLength = PATH_MAP.length;
-
-  const targetIndex = (position + playerOffset) % totalLength;
+  const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
+  const targetIndex = (position + offsets[color]) % PATH_MAP.length;
   const [row, col] = PATH_MAP[targetIndex];
 
   return { row, col };
+};
+
+export const getPathCoords = (
+  startPos: number,
+  steps: number,
+  color: Color,
+  pawnIndex: number
+) => {
+  const path = [];
+  let currentPos = startPos;
+
+  for (let i = 1; i <= steps; i++) {
+    if (currentPos === -1) {
+      currentPos = 0;
+    } else {
+      currentPos++;
+    }
+
+    if (currentPos >= 55) {
+      currentPos = 55;
+    }
+
+    path.push(getPawnCoords(currentPos, color, pawnIndex));
+  }
+
+  return path;
 };
