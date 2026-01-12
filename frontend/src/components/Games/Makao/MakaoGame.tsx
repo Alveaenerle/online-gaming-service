@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../Shared/Navbar";
@@ -6,6 +6,10 @@ import Card from "./Card";
 import DemandPicker from "./components/DemandPicker";
 import DrawnCardModal from "./components/DrawnCardModal";
 import GameOverModal from "./components/GameOverModal";
+import MoveHistoryPanel from "./components/MoveHistoryPanel";
+import EffectToast from "./components/EffectToast";
+import BotThinkingIndicator from "./components/BotThinkingIndicator";
+import { useCardAnimations, CardAnimationManager, AnimatedCardPile } from "./components/AnimatedCard";
 import { useMakaoSocket } from "./hooks/useMakaoSocket";
 import { useMakaoActions } from "./hooks/useMakaoActions";
 import { useAuth } from "../../../context/AuthContext";
@@ -25,6 +29,7 @@ import {
   SUIT_INFO,
   requiresDemand,
   getPlayerDisplayName,
+  isBot,
 } from "./utils/cardHelpers";
 
 // ============================================
@@ -51,6 +56,20 @@ const MakaoGame: React.FC = () => {
     clearError,
   } = useMakaoActions();
 
+  // Card animations hook
+  const {
+    animations,
+    addPlayAnimation,
+    addDrawAnimation,
+    removeAnimation,
+  } = useCardAnimations();
+
+  // Refs for animation positions
+  const gameTableRef = useRef<HTMLDivElement>(null);
+  const deckRef = useRef<HTMLDivElement>(null);
+  const discardRef = useRef<HTMLDivElement>(null);
+  const handRef = useRef<HTMLDivElement>(null);
+
   // Local UI state
   const [pendingCard, setPendingCard] = useState<CardType | null>(null);
   const [demandType, setDemandType] = useState<DemandType | null>(null);
@@ -59,6 +78,11 @@ const MakaoGame: React.FC = () => {
     canPlay: boolean;
   } | null>(null);
   const [message, setMessage] = useState<string>("");
+  const [previousCardPlayed, setPreviousCardPlayed] = useState<CardType | null>(null);
+
+  // Track bot thinking state
+  const [botThinking, setBotThinking] = useState(false);
+  const [botName, setBotName] = useState<string>("Bot");
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -67,6 +91,33 @@ const MakaoGame: React.FC = () => {
       return;
     }
   }, [user?.id, navigate]);
+
+  // Detect when a bot is playing (show thinking indicator)
+  useEffect(() => {
+    if (gameState?.activePlayerId && isBot(gameState.activePlayerId)) {
+      const playerName = gameState.playersUsernames?.[gameState.activePlayerId] ||
+        getPlayerDisplayName(gameState.activePlayerId);
+      setBotName(playerName);
+      setBotThinking(true);
+    } else {
+      setBotThinking(false);
+    }
+  }, [gameState?.activePlayerId, gameState?.playersUsernames]);
+
+  // Detect card plays for animation (when currentCard changes)
+  useEffect(() => {
+    if (gameState?.currentCard && previousCardPlayed) {
+      const cardChanged =
+        gameState.currentCard.rank !== previousCardPlayed.rank ||
+        gameState.currentCard.suit !== previousCardPlayed.suit;
+
+      if (cardChanged) {
+        // Trigger play animation for the new card
+        addPlayAnimation(gameState.currentCard);
+      }
+    }
+    setPreviousCardPlayed(gameState?.currentCard || null);
+  }, [gameState?.currentCard]);
 
   // Build player views from game state
   const players = useMemo<PlayerView[]>(() => {
@@ -83,6 +134,15 @@ const MakaoGame: React.FC = () => {
   const isMyTurn = gameState?.activePlayerId === user?.id;
   const isGameOver = gameState?.status === "FINISHED";
   const hasSpecialEffect = gameState?.specialEffectActive;
+
+  // Animation positions (relative to game table)
+  const animationPositions = useMemo(() => {
+    return {
+      center: { x: 0, y: 0 },
+      deck: { x: -100, y: 0 },
+      hand: { x: 0, y: 200 },
+    };
+  }, []);
 
   // Check if a card can be played
   const canPlayCard = useCallback(
@@ -107,6 +167,9 @@ const MakaoGame: React.FC = () => {
         setDemandType(demand);
         return;
       }
+
+      // Trigger play animation
+      addPlayAnimation(card, animationPositions.hand, user?.id);
 
       // Play card directly
       const success = await playCard(card);
@@ -167,6 +230,9 @@ const MakaoGame: React.FC = () => {
 
     const result = await drawCard();
     if (result) {
+      // Trigger draw animation
+      addDrawAnimation(result.drawnCard, animationPositions.hand, user?.id);
+
       setDrawnCardInfo({
         card: result.drawnCard,
         canPlay: result.playable,
@@ -261,10 +327,41 @@ const MakaoGame: React.FC = () => {
       <Navbar />
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)]" />
 
+      {/* Effect Toast Notifications */}
+      <EffectToast
+        effectNotification={gameState.effectNotification}
+        specialEffectActive={hasSpecialEffect || false}
+        demandedSuit={gameState.demandedSuit}
+        demandedRank={gameState.demandedRank ? RANK_DISPLAY[gameState.demandedRank] : null}
+        isMyTurn={isMyTurn || false}
+      />
+
+      {/* Bot Thinking Indicator */}
+      <BotThinkingIndicator isVisible={botThinking} botName={botName} />
+
+      {/* Card Animation Layer */}
+      <div className="fixed inset-0 pointer-events-none z-50">
+        <CardAnimationManager
+          animations={animations}
+          onAnimationComplete={removeAnimation}
+          centerPosition={animationPositions.center}
+          deckPosition={animationPositions.deck}
+          handPosition={animationPositions.hand}
+        />
+      </div>
+
       <main className="pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
         <div className="h-full max-w-[2000px] mx-auto flex gap-2 justify-center">
+          {/* Move History Panel - Left Sidebar */}
+          <div className="w-64 flex-shrink-0 hidden xl:block">
+            <MoveHistoryPanel
+              moveHistory={gameState.moveHistory || []}
+              lastMoveLog={gameState.lastMoveLog}
+            />
+          </div>
+
           {/* Game Table Area */}
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center" ref={gameTableRef}>
             <div className="relative w-full max-w-5xl aspect-[16/10] bg-gradient-to-br from-[#18171f] to-[#0d0c12] rounded-[3rem] border border-purpleEnd/20 shadow-2xl shadow-black/50 p-8">
               {/* Table glow */}
               <div className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(ellipse_at_center,_rgba(108,42,255,0.1),_transparent_60%)]" />
@@ -275,7 +372,7 @@ const MakaoGame: React.FC = () => {
                   {others
                     .filter((p) => p.position === "top")
                     .map((player) => (
-                      <PlayerDisplay key={player.id} player={player} />
+                      <PlayerDisplay key={player.id} player={player} isBot={isBot(player.id)} />
                     ))}
                 </div>
               )}
@@ -286,7 +383,7 @@ const MakaoGame: React.FC = () => {
                   {others
                     .filter((p) => p.position === "left")
                     .map((player) => (
-                      <PlayerDisplay key={player.id} player={player} />
+                      <PlayerDisplay key={player.id} player={player} isBot={isBot(player.id)} />
                     ))}
                 </div>
               )}
@@ -297,44 +394,41 @@ const MakaoGame: React.FC = () => {
                   {others
                     .filter((p) => p.position === "right")
                     .map((player) => (
-                      <PlayerDisplay key={player.id} player={player} />
+                      <PlayerDisplay key={player.id} player={player} isBot={isBot(player.id)} />
                     ))}
                 </div>
               )}
 
               {/* Center - Deck & Discard */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12">
-                {/* Draw Pile */}
+                {/* Draw Pile - with animation support */}
                 <div
-                  className={`text-center ${
-                    isMyTurn && !drawnCardInfo && !hasSpecialEffect
-                      ? "cursor-pointer group"
-                      : ""
-                  }`}
+                  ref={deckRef}
+                  className="text-center"
                   onClick={
                     isMyTurn && !drawnCardInfo && !hasSpecialEffect
                       ? handleDrawCard
                       : undefined
                   }
                 >
-                  <div className="relative group-hover:scale-105 transition-transform">
-                    <div className="absolute -top-0.5 -left-0.5 w-[58px] h-[82px] rounded-lg bg-purpleStart/30" />
-                    <div className="absolute -top-1 -left-1 w-[58px] h-[82px] rounded-lg bg-purpleStart/20" />
-                    <div className="w-[56px] h-[80px] rounded-lg bg-gradient-to-br from-purple-600 to-purple-900 border border-white/20 flex items-center justify-center">
-                      <span className="text-white/40 font-bold">OG</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-white/60 mt-2">
-                    Draw ({gameState.drawDeckCardsAmount})
-                  </p>
+                  <AnimatedCardPile
+                    count={gameState.drawDeckCardsAmount}
+                    type="draw"
+                    isClickable={isMyTurn && !drawnCardInfo && !hasSpecialEffect}
+                    showGlow={isMyTurn && !drawnCardInfo && !hasSpecialEffect}
+                    onClick={handleDrawCard}
+                  />
+                  <p className="text-xs text-white/60 mt-2">Draw Deck</p>
                 </div>
 
-                {/* Discard Pile */}
-                <div className="text-center">
-                  {gameState.currentCard && (
-                    <Card card={gameState.currentCard} size="md" showEffect />
-                  )}
-                  <p className="text-xs text-white/60 mt-2">Discard</p>
+                {/* Discard Pile - with animation support */}
+                <div ref={discardRef} className="text-center">
+                  <AnimatedCardPile
+                    count={gameState.discardDeckCardsAmount}
+                    type="discard"
+                    topCard={gameState.currentCard}
+                  />
+                  <p className="text-xs text-white/60 mt-2">Discard Pile</p>
                 </div>
               </div>
 
@@ -355,43 +449,70 @@ const MakaoGame: React.FC = () => {
 
               {/* My Cards - Bottom */}
               {me && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[90%]">
-                  <div
+                <div
+                  ref={handRef}
+                  className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[90%]"
+                >
+                  <motion.div
+                    layout
                     className={`p-3 rounded-xl ${
                       isMyTurn
-                        ? "bg-purpleEnd/20 border border-purpleEnd"
+                        ? "bg-purpleEnd/20 border border-purpleEnd shadow-lg shadow-purpleEnd/20"
                         : "bg-[#1a1a27]"
-                    }`}
+                    } transition-all duration-300`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs text-gray-400">
-                        {isMyTurn ? "Your turn!" : "Waiting for your turn..."}
+                        {isMyTurn ? (
+                          <span className="flex items-center gap-1.5">
+                            <motion.span
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                              className="w-2 h-2 rounded-full bg-green-500"
+                            />
+                            Your turn!
+                          </span>
+                        ) : (
+                          "Waiting for your turn..."
+                        )}
                       </p>
                       <p className="text-xs text-gray-500">
                         {gameState.myCards.length} cards
                       </p>
                     </div>
                     <div className="flex gap-1 flex-wrap justify-center">
-                      {gameState.myCards.map((cardView, index) => (
-                        <div
-                          key={`${cardView.card.suit}-${cardView.card.rank}-${index}`}
-                          className={
-                            canPlayCard(cardView)
-                              ? "cursor-pointer hover:scale-110 transition-transform hover:-translate-y-2"
-                              : ""
-                          }
-                          onClick={() => handleCardClick(cardView)}
-                        >
-                          <Card
-                            card={cardView.card}
-                            size="md"
-                            isPlayable={canPlayCard(cardView)}
-                            showEffect
-                          />
-                        </div>
-                      ))}
+                      <AnimatePresence mode="popLayout">
+                        {gameState.myCards.map((cardView, index) => (
+                          <motion.div
+                            key={`${cardView.card.suit}-${cardView.card.rank}-${index}`}
+                            layout
+                            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.5, y: -20 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 25,
+                            }}
+                            whileHover={canPlayCard(cardView) ? { scale: 1.1, y: -12 } : {}}
+                            className={
+                              canPlayCard(cardView)
+                                ? "cursor-pointer"
+                                : ""
+                            }
+                            onClick={() => handleCardClick(cardView)}
+                          >
+                            <Card
+                              card={cardView.card}
+                              size="md"
+                              isPlayable={canPlayCard(cardView)}
+                              showEffect
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               )}
             </div>
@@ -424,15 +545,15 @@ const MakaoGame: React.FC = () => {
               </motion.button>
             </div>
 
-            {/* Activity */}
+            {/* Latest Activity - Compact */}
             <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
               <h3 className="text-xs font-medium text-gray-500 mb-2">
-                Activity
+                Latest Action
               </h3>
-              <div className="min-h-[48px] flex items-center">
+              <div className="min-h-[40px] flex items-center">
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={message}
+                    key={gameState.lastMoveLog || message}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10 }}
@@ -440,14 +561,14 @@ const MakaoGame: React.FC = () => {
                       actionError ? "text-red-400" : "text-white"
                     }`}
                   >
-                    {message || "Game in progress..."}
+                    {gameState.lastMoveLog || message || "Game in progress..."}
                   </motion.p>
                 </AnimatePresence>
               </div>
             </div>
 
             {/* Game Status */}
-            <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10 flex-1">
+            <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
               <h3 className="text-xs font-medium text-gray-500 mb-3">
                 Game Status
               </h3>
@@ -587,11 +708,15 @@ interface PositionedPlayerView extends PlayerView {
 
 interface PlayerDisplayProps {
   player: PositionedPlayerView;
+  isBot?: boolean;
 }
 
-const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ player }) => {
+const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ player, isBot: playerIsBot = false }) => {
   return (
-    <div
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
       className={`bg-[#1a1a27] p-3 rounded-xl border transition-all ${
         player.isActive
           ? "border-purpleEnd shadow-lg shadow-purpleEnd/20"
@@ -599,38 +724,68 @@ const PlayerDisplay: React.FC<PlayerDisplayProps> = ({ player }) => {
       }`}
     >
       <div className="flex items-center gap-2">
+        {/* Avatar */}
         <div
-          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
             player.isActive
               ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
+              : playerIsBot
+              ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
               : "bg-gray-700 text-gray-300"
           }`}
         >
-          {player.username.charAt(0).toUpperCase()}
+          {playerIsBot ? "🤖" : player.username.charAt(0).toUpperCase()}
         </div>
-        <div>
-          <p className="text-sm font-medium text-white">{player.username}</p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1">
+            <p className="text-sm font-medium text-white truncate">
+              {player.username}
+            </p>
+            {playerIsBot && (
+              <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">
+                BOT
+              </span>
+            )}
+          </div>
           <p className="text-xs text-gray-400">{player.cardCount} cards</p>
         </div>
+        {/* Active indicator */}
         {player.isActive && (
           <motion.div
-            animate={{ opacity: [0.5, 1, 0.5] }}
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.5, 1, 0.5]
+            }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="w-2 h-2 rounded-full bg-purpleEnd ml-1"
+            className={`w-2.5 h-2.5 rounded-full ${
+              playerIsBot ? "bg-cyan-400" : "bg-purpleEnd"
+            }`}
           />
         )}
       </div>
-      {player.skipTurns > 0 && (
-        <p className="text-xs text-orange-400 mt-1">
-          Skips: {player.skipTurns}
-        </p>
-      )}
-      {player.placement && (
-        <p className="text-xs text-green-400 mt-1">
-          Finished #{player.placement}
-        </p>
-      )}
-    </div>
+
+      {/* Status indicators */}
+      <div className="flex gap-2 mt-1">
+        {player.skipTurns > 0 && (
+          <motion.span
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-[10px] text-orange-400 bg-orange-500/20 px-1.5 py-0.5 rounded"
+          >
+            ⏭️ Skips: {player.skipTurns}
+          </motion.span>
+        )}
+        {player.placement && (
+          <motion.span
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-[10px] text-green-400 bg-green-500/20 px-1.5 py-0.5 rounded"
+          >
+            🏆 #{player.placement}
+          </motion.span>
+        )}
+      </div>
+    </motion.div>
   );
 };
 

@@ -51,6 +51,10 @@ export interface GameStateMessage {
   drawDeckCardsAmount: number;
   discardDeckCardsAmount: number;
   playersUsernames?: Record<string, string>;
+  // New fields for move history and effect notifications
+  lastMoveLog?: string | null;
+  effectNotification?: string | null;
+  moveHistory?: string[];
 }
 
 // Request to play a card
