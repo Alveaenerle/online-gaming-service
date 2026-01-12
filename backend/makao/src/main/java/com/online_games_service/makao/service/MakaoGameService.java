@@ -839,7 +839,8 @@ public class MakaoGameService {
                     game.getMoveHistory() != null ? new ArrayList<>(game.getMoveHistory()) : new ArrayList<>(),
                     turnRemainingSeconds,
                     game.getMakaoPlayerId(),
-                    game.getBotThinkingPlayerId()
+                    game.getBotThinkingPlayerId(),
+                    game.getPlayersOrderIds() != null ? new ArrayList<>(game.getPlayersOrderIds()) : new ArrayList<>()
             );
 
             messagingTemplate.convertAndSend("/topic/makao/" + playerId, message);

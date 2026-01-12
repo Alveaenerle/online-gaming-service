@@ -37,8 +37,10 @@ public class GameStateMessage {
     private List<String> moveHistory;
     // Turn timer - seconds remaining for current player's turn (null for bots)
     private Integer turnRemainingSeconds;
-    // MAKAO status - player ID who has only 1 card left (MAKAO)
+    // MAKAO status - player who has only 1 card left (MAKAO)
     private String makaoPlayerId;
     // Bot thinking state - ID of bot currently "thinking" (null if no bot thinking)
     private String botThinkingPlayerId;
+    // Player turn order - list of player IDs in their turn order (human always first)
+    private List<String> playerOrder;
 }

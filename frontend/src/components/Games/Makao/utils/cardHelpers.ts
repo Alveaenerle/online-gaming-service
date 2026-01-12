@@ -146,6 +146,7 @@ export const getCardEffectDescription = (card: Card): string | null => {
 
 /**
  * Build player views from game state
+ * Uses playerOrder from backend to maintain correct turn order
  */
 export const buildPlayerViews = (
   gameState: GameStateMessage,
@@ -157,9 +158,13 @@ export const buildPlayerViews = (
     activePlayerId,
     placement,
     playersUsernames,
+    playerOrder,
   } = gameState;
 
-  const playerIds = Object.keys(playersCardsAmount);
+  // Use playerOrder if available, otherwise fall back to playersCardsAmount keys
+  const playerIds = playerOrder && playerOrder.length > 0
+    ? playerOrder
+    : Object.keys(playersCardsAmount);
 
   return playerIds.map((playerId) => ({
     id: playerId,
@@ -201,56 +206,115 @@ interface PositionedPlayer extends PlayerView {
 }
 
 /**
- * Get positions for a given number of other players (not including "me")
- * Positions are distributed around the table starting from top and going clockwise
+ * Position configurations for different player counts (2-8 players)
+ * Positions are assigned clockwise starting from the position after "bottom" (local player)
+ *
+ * Layout visualization:
+ *       top-left    top    top-right
+ *          |         |         |
+ *   left --+----[TABLE]----+-- right
+ *          |         |         |
+ *  bottom-left  [BOTTOM]  bottom-right
+ *              (local user)
  */
-const getPositionsForPlayerCount = (count: number): Position[] => {
-  switch (count) {
-    case 1:
-      return ["top"];
-    case 2:
-      return ["left", "right"];
-    case 3:
-      return ["left", "top", "right"];
-    case 4:
-      return ["left", "top-left", "top-right", "right"];
-    case 5:
-      return ["left", "top-left", "top", "top-right", "right"];
-    case 6:
-      return ["bottom-left", "left", "top-left", "top-right", "right", "bottom-right"];
-    case 7:
-      return ["bottom-left", "left", "top-left", "top", "top-right", "right", "bottom-right"];
-    default:
-      // 8+ players - full circle
-      return ["bottom-left", "left", "top-left", "top", "top-right", "right", "bottom-right"];
-  }
+const POSITION_LAYOUTS: Record<number, Position[]> = {
+  // 2 players: Me at bottom, opponent at top
+  2: ["top"],
+  // 3 players: Me at bottom, others at left and right
+  3: ["left", "right"],
+  // 4 players: Me at bottom, others distributed evenly
+  4: ["left", "top", "right"],
+  // 5 players
+  5: ["left", "top-left", "top-right", "right"],
+  // 6 players
+  6: ["left", "top-left", "top", "top-right", "right"],
+  // 7 players
+  7: ["bottom-left", "left", "top-left", "top-right", "right", "bottom-right"],
+  // 8 players - full layout
+  8: ["bottom-left", "left", "top-left", "top", "top-right", "right", "bottom-right"],
+};
+
+/**
+ * Get positions for other players based on total player count
+ */
+const getPositionsForPlayerCount = (otherPlayersCount: number): Position[] => {
+  // Total players = otherPlayersCount + 1 (the local user)
+  const totalPlayers = otherPlayersCount + 1;
+
+  // Clamp to supported range (2-8)
+  const clampedTotal = Math.max(2, Math.min(8, totalPlayers));
+
+  const layout = POSITION_LAYOUTS[clampedTotal];
+
+  // If we have fewer "others" than positions in the layout, use first N positions
+  // If we have more, we'll cycle through (edge case for 8+ players)
+  return layout.slice(0, otherPlayersCount);
+};
+
+/**
+ * Rotate an array so that the element at the given index becomes the first element
+ * Used to make the local user's position the starting point
+ */
+const rotateArray = <T>(arr: T[], startIndex: number): T[] => {
+  if (arr.length === 0 || startIndex === 0) return [...arr];
+  const normalizedIndex = ((startIndex % arr.length) + arr.length) % arr.length;
+  return [...arr.slice(normalizedIndex), ...arr.slice(0, normalizedIndex)];
 };
 
 /**
  * Distribute players around the table relative to current player
- * Current player is always at "bottom" position
- * Other players are distributed evenly around the table
+ *
+ * This function:
+ * 1. Takes the playerOrder list from the backend (maintains turn order)
+ * 2. Rotates the list so the local user is at index 0 (bottom position)
+ * 3. Assigns positions to other players going clockwise from left
+ *
+ * The local user is always at "bottom" position, and other players
+ * are distributed clockwise starting from "left" based on player count.
  */
 export const distributePlayersAroundTable = (
   players: PlayerView[],
   myUserId: string
 ): { me: PlayerView | null; others: PositionedPlayer[] } => {
-  const me = players.find((p) => p.isMe) || null;
-  const others = players.filter((p) => !p.isMe);
-
-  const total = others.length;
-
-  if (total === 0) {
-    return { me, others: [] };
+  if (players.length === 0) {
+    return { me: null, others: [] };
   }
 
-  // Get position assignments based on player count
-  const positions = getPositionsForPlayerCount(total);
+  // Find the local user's index in the player order
+  const myIndex = players.findIndex((p) => p.id === myUserId);
 
-  const positionedOthers: PositionedPlayer[] = others.map((player, index) => {
-    const position = positions[index] || "top";
-    return { ...player, position };
-  });
+  if (myIndex === -1) {
+    // User not found in players - return first player as "me" fallback
+    const me = players[0] || null;
+    const others = players.slice(1);
+    const positions = getPositionsForPlayerCount(others.length);
+
+    const positionedOthers: PositionedPlayer[] = others.map((player, index) => ({
+      ...player,
+      position: positions[index] || "top",
+    }));
+
+    return { me, others: positionedOthers };
+  }
+
+  // Rotate the array so the local user is at index 0
+  const rotatedPlayers = rotateArray(players, myIndex);
+
+  // Local user is now at index 0
+  const me = rotatedPlayers[0];
+
+  // Other players are indices 1 to n (in clockwise turn order)
+  const others = rotatedPlayers.slice(1);
+
+  // Get position assignments based on how many other players there are
+  const positions = getPositionsForPlayerCount(others.length);
+
+  // Assign positions to other players
+  // Players are in turn order, positions go clockwise from left
+  const positionedOthers: PositionedPlayer[] = others.map((player, index) => ({
+    ...player,
+    position: positions[index] || "top",
+  }));
 
   return { me, others: positionedOthers };
 };

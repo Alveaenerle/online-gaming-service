@@ -120,9 +120,27 @@ public class MakaoGame implements Serializable {
         }
 
         if (!this.playersUsernames.isEmpty()) {
-            List<String> randomized = new ArrayList<>(this.playersUsernames.keySet());
-            Collections.shuffle(randomized);
-            this.playersOrderIds = randomized;
+            // Separate humans and bots
+            List<String> humans = new ArrayList<>();
+            List<String> bots = new ArrayList<>();
+            for (String playerId : this.playersUsernames.keySet()) {
+                if (playerId.startsWith("bot-")) {
+                    bots.add(playerId);
+                } else {
+                    humans.add(playerId);
+                }
+            }
+
+            // Shuffle both lists independently
+            Collections.shuffle(humans);
+            Collections.shuffle(bots);
+
+            // Build player order: humans first, then bots
+            // This ensures a human player always starts the game (index 0)
+            List<String> orderedPlayers = new ArrayList<>();
+            orderedPlayers.addAll(humans);
+            orderedPlayers.addAll(bots);
+            this.playersOrderIds = orderedPlayers;
         }
 
         this.status = RoomStatus.PLAYING;

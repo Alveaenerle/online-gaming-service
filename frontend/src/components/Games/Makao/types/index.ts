@@ -61,6 +61,8 @@ export interface GameStateMessage {
   makaoPlayerId?: string | null;
   // Bot thinking state - ID of bot currently "thinking"
   botThinkingPlayerId?: string | null;
+  // Player turn order - list of player IDs in their turn order (human always first)
+  playerOrder?: string[];
 }
 
 // Request to play a card
