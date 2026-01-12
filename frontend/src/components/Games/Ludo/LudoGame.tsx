@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { GameNotification } from "./GameNotification";
+import { motion } from "framer-motion";
+import { GameNotification, NotificationType } from "./GameNotification";
 import { SidebarHeader } from "./SidebarHeader";
 import { ChatSection } from "./ChatSection";
-import { motion } from "framer-motion";
 import { LudoBoard } from "./Board/LudoBoard";
 import { Color } from "./Board/constants";
 import { PlayerCard } from "./PlayerCard";
@@ -14,9 +14,13 @@ export function LudoArenaPage() {
   const [diceOpen, setDiceOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [showMessage, setShowMessage] = useState(true);
+
   const [notification, setNotification] = useState(
     "System online. Neural link established."
   );
+  const [notificationType, setNotificationType] =
+    useState<NotificationType>("INFO");
+  const [lastDiceValue, setLastDiceValue] = useState<number | null>(null);
 
   const mockPlayers = [
     {
@@ -74,10 +78,19 @@ export function LudoArenaPage() {
     },
   ];
 
+  const initiateRoll = () => {
+    setNotification("Calculating trajectory... Rolling dice.");
+    setNotificationType("ROLLING");
+    setShowMessage(true);
+    setDiceOpen(true);
+  };
+
   const handleRollComplete = (value: number) => {
+    setLastDiceValue(value);
     setNotification(
       `Dice Protocol: Value ${value} confirmed. Proceed to move.`
     );
+    setNotificationType("ROLLED");
     setShowMessage(true);
   };
 
@@ -87,6 +100,7 @@ export function LudoArenaPage() {
       setNotification(
         `Tactical Alert: Unit RED advanced to sector ${redPos + 1}.`
       );
+      setNotificationType("MOVING");
       setShowMessage(true);
     }
   };
@@ -97,6 +111,7 @@ export function LudoArenaPage() {
         <main className="flex-1 relative flex flex-col bg-[radial-gradient(circle_at_center,_#121018_0%,_transparent_150%)]">
           <GameNotification
             message={notification}
+            type={notificationType}
             isVisible={showMessage}
             onClose={() => setShowMessage(false)}
           />
@@ -127,7 +142,8 @@ export function LudoArenaPage() {
         <aside className="w-[420px] border-l border-white/5 bg-black/40 flex flex-col relative z-20 backdrop-blur-xl">
           <SidebarHeader />
           <ChatSection message={chatMessage} onMessageChange={setChatMessage} />
-          <SidebarFooter onDiceRoll={() => setDiceOpen(true)} />
+
+          <SidebarFooter onDiceRoll={initiateRoll} />
         </aside>
       </div>
 
