@@ -285,10 +285,38 @@ export const CardAnimationManager: React.FC<CardAnimationManagerProps> = ({
     const defaultHand = { x: window.innerWidth / 2 - 36, y: window.innerHeight - 200 };
 
     if (animation.type === "play") {
-      // Play: hand -> discard pile
-      const fromPos = animation.fromPosition ||
-                      (handRef ? getElementCenter(handRef) : null) ||
-                      defaultHand;
+      // Play: player position -> discard pile
+      let fromPos = animation.fromPosition;
+
+      // If no explicit position, try to find player ref
+      if (!fromPos && animation.playerId) {
+        if (playerRefs?.has(animation.playerId)) {
+          // It's an opponent
+          const playerPos = getElementCenter(playerRefs.get(animation.playerId)!);
+          if (playerPos) fromPos = playerPos;
+        } else if (handRef) {
+          // It's me (or fallback)
+           // We assume if playerId is provided but not in playerRefs, it might be 'me' if I passed my ID.
+           // However, usually 'me' ID is not in playerRefs Map (which is for 'others').
+           // But 'handRef' is for me.
+           // I'll assume if it's not found in playerRefs, and it's logically 'me', use handRef.
+           // But actually, MakaoGame passes user?.id for my plays.
+           // So I should check if animation.playerId === user.id? No, I don't have user.id here.
+           // I'll rely on the logic: if found in playerRefs -> use it. If not -> use handRef.
+           // Wait, if I am playing, I want to use handRef. My ID won't be in playerRefs (which contains 'others').
+           // So default behavior is correct for me.
+           // But for opponents, I MUST use playerRefs.
+        }
+      }
+
+      // Default to hand if still null
+      if (!fromPos && handRef) {
+         const handCenter = getElementCenter(handRef);
+         if (handCenter) fromPos = handCenter;
+      }
+
+      if (!fromPos) fromPos = defaultHand;
+
       const toPos = (discardRef ? getElementCenter(discardRef) : null) || defaultCenter;
       return { from: fromPos, to: toPos };
     }
@@ -402,6 +430,7 @@ interface CardPileProps {
   count: number;
   type: "draw" | "discard";
   topCard?: CardType;
+  secondCard?: CardType | null; // Added support for the card under the top card
   onClick?: () => void;
   isClickable?: boolean;
   showGlow?: boolean;
@@ -411,6 +440,7 @@ export const AnimatedCardPile: React.FC<CardPileProps> = ({
   count,
   type,
   topCard,
+  secondCard,
   onClick,
   isClickable = false,
   showGlow = false,
@@ -432,12 +462,23 @@ export const AnimatedCardPile: React.FC<CardPileProps> = ({
             x: -(stackLayers - i - 1) * 1,
             y: -(stackLayers - i - 1) * 1,
           }}
-          className="absolute w-[72px] h-[101px] rounded-lg"
+          className="absolute w-[72px] h-[101px] rounded-lg overflow-hidden border border-white/5"
           style={{
-            backgroundColor: `rgba(108, 42, 255, ${0.1 + i * 0.05})`,
             zIndex: i,
           }}
-        />
+        >
+          {/* If it's discard pile and we have a second card, show it on the layer just below top (index = stackLayers - 1) */}
+          {type === "discard" && secondCard && i === stackLayers - 1 ? (
+             <img
+             src={getCardImagePath(secondCard)}
+             alt="Previous card"
+             className="w-full h-full object-contain bg-white opacity-60 grayscale-[0.3]"
+             draggable={false}
+           />
+          ) : (
+             <div className="w-full h-full bg-gradient-to-br from-purple-800 to-indigo-900 opacity-80" />
+          )}
+        </motion.div>
       ))}
 
       {/* Top card or back */}
