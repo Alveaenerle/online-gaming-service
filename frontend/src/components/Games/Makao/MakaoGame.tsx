@@ -10,6 +10,7 @@ import GameOverModal from "./components/GameOverModal";
 import TimeoutModal from "./components/TimeoutModal";
 import SidebarNotifications from "./components/SidebarNotifications";
 import DiscardPile from "./components/DiscardPile";
+import { ChatWidget } from "../shared/ChatWidget";
 import { useCardAnimations, CardAnimationManager, AnimatedCardPile } from "./components/AnimatedCard";
 import { useMakaoSocket } from "./hooks/useMakaoSocket";
 import { useMakaoActions } from "./hooks/useMakaoActions";
@@ -876,6 +877,8 @@ const MakaoGame: React.FC = () => {
         </div>
       </main>
 
+      {/* Chat Widget - preserves chat history from lobby */}
+      <ChatWidget />
 
       {/* ============================================ */}
       {/* Modals */}
