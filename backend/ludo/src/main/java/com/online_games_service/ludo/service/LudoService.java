@@ -164,19 +164,15 @@ public class LudoService {
 
         log.debug("Player {} rolled {}", playerId, roll);
 
-        if (roll == 6) {
+        if (canPlayerMove(game, playerId, roll)) {
             game.setWaitingForMove(true);
         } else {
-            if (canPlayerMove(game, playerId, roll)) {
-                game.setWaitingForMove(true);
+            if (game.getRollsLeft() > 0) {
+                game.setDiceRolled(false);
+                game.setWaitingForMove(false);
             } else {
-                if (game.getRollsLeft() > 0) {
-                    game.setDiceRolled(false);
-                    game.setWaitingForMove(false);
-                } else {
-                    passTurnToNextPlayer(game);
-                    return;
-                }
+                passTurnToNextPlayer(game);
+                return;
             }
         }
 
@@ -212,11 +208,10 @@ public class LudoService {
 
             if (potentialSteps >= BOARD_SIZE) {
                 long inHomeCount = currentPlayer.getPawns().stream().filter(LudoPawn::isInHome).count();
-                if (inHomeCount >= 4) throw new IllegalStateException("Home is full");
 
                 pawn.setInHome(true);
-                pawn.setPosition((int) inHomeCount);
-                pawn.setStepsMoved(BOARD_SIZE + (int) inHomeCount);
+                pawn.setPosition(-2);
+                pawn.setStepsMoved(BOARD_SIZE + (4 - (int) inHomeCount));
             } else {
                 int nextPos = (pawn.getPosition() + roll) % BOARD_SIZE;
 
@@ -322,7 +317,7 @@ public class LudoService {
             
             log.info("Bot {} rolled {}", botId, roll);
 
-            boolean canMove = (roll == 6) || canBotMoveAnyPawn(game, bot, roll);
+            boolean canMove = (roll == 6) || canMoveAnyPawn(game, bot, roll);
 
             if (canMove) {
                 game.setWaitingForMove(true);
@@ -419,9 +414,9 @@ public class LudoService {
         }
     }
 
-    private boolean canBotMoveAnyPawn(LudoGame game, LudoPlayer bot, int roll) {
-        for (LudoPawn pawn : bot.getPawns()) {
-            if (canPawnMoveSimple(game, bot, pawn, roll)) {
+    private boolean canMoveAnyPawn(LudoGame game, LudoPlayer player, int roll) {
+        for (LudoPawn pawn : player.getPawns()) {
+            if (canPawnMoveSimple(game, player, pawn, roll)) {
                 return true;
             }
         }
@@ -521,7 +516,7 @@ public class LudoService {
     private boolean canPlayerMove(LudoGame game, String playerId, int roll) {
         LudoPlayer p = game.getPlayerById(playerId);
         if (p == null) return false;
-        return canBotMoveAnyPawn(game, p, roll);
+        return canMoveAnyPawn(game, p, roll);
     }
 
     private boolean isFieldOccupiedBySelf(LudoGame game, int pos, PlayerColor myColor) {
