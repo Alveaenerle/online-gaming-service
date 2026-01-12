@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.annotation.PreDestroy;
 
 @Service
@@ -49,11 +50,19 @@ public class MakaoGameService {
     private final TopicExchange gameEventsExchange;
     private final SimpMessagingTemplate messagingTemplate;
     private final Random random = new Random();
-    private final ScheduledExecutorService turnTimeoutScheduler = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService turnTimeoutScheduler = Executors.newScheduledThreadPool(2);
     private final Map<String, ScheduledFuture<?>> turnTimeouts = new ConcurrentHashMap<>();
+    private final Map<String, ScheduledFuture<?>> botMoveSchedules = new ConcurrentHashMap<>();
+    private final Map<String, AtomicBoolean> gameInProgress = new ConcurrentHashMap<>();
 
     @Value("${makao.turn-timeout-seconds:65}")
     private long turnTimeoutSeconds;
+
+    @Value("${makao.bot-delay-min-ms:1000}")
+    private long botDelayMinMs;
+
+    @Value("${makao.bot-delay-max-ms:3000}")
+    private long botDelayMaxMs;
 
     @Value("${makao.amqp.routing.finish:makao.finish}")
     private String finishRoutingKey;
@@ -105,6 +114,9 @@ public class MakaoGameService {
         game.setDrawnCard(drawn);
 
         boolean playable = isPlayable(game, drawn);
+        String playerName = getPlayerDisplayName(game, userId);
+        game.addMoveLog(String.format("%s drew a card", playerName));
+
         if (playable) {
             game.setActivePlayerPlayableCards(List.of(drawn));
             saveAndBroadcast(game);
@@ -112,6 +124,7 @@ public class MakaoGameService {
             return new DrawCardResponse(drawn, true);
         }
 
+        game.addMoveLog(String.format("%s skipped after drawing", playerName));
         game.setActivePlayerPlayableCards(new ArrayList<>());
         game.setDrawnCard(null);
         nextTurn(game);
@@ -257,6 +270,11 @@ public class MakaoGameService {
 
         hand.remove(playedCard);
 
+        // Generate move log for the played card
+        String playerName = getPlayerDisplayName(game, userId);
+        String moveLog = formatMoveLog(playerName, playedCard, request);
+        game.addMoveLog(moveLog);
+
         if (hand.isEmpty()) {
             endGame(game);
             return game;
@@ -309,6 +327,7 @@ public class MakaoGameService {
         game.setDemandedRank(null);
         game.setDemandedSuit(null);
         game.setSpecialEffectActive(false);
+        game.setEffectNotification(null);
 
         CardRank rank = card.getRank();
         if (rank == null) {
@@ -319,24 +338,30 @@ public class MakaoGameService {
             case TWO:
                 game.setSpecialEffectActive(true);
                 game.setPendingDrawCount(game.getPendingDrawCount() + 2);
+                game.setEffectNotification(String.format("Next player must draw %d cards or play a 2/3!", game.getPendingDrawCount()));
                 break;
             case THREE:
                 game.setSpecialEffectActive(true);
                 game.setPendingDrawCount(game.getPendingDrawCount() + 3);
+                game.setEffectNotification(String.format("Next player must draw %d cards or play a 2/3!", game.getPendingDrawCount()));
                 break;
             case FOUR:
                 game.setSpecialEffectActive(true);
                 game.setPendingSkipTurns(game.getPendingSkipTurns() + 1);
+                game.setEffectNotification(String.format("Next player will skip %d turn(s) or play a 4!", game.getPendingSkipTurns()));
                 break;
             case JACK:
                 game.setDemandedRank(request.getRequestRank());
+                game.setEffectNotification(String.format("Jack demands %s!", formatRankName(request.getRequestRank())));
                 break;
             case ACE:
                 game.setDemandedSuit(request.getRequestSuit());
+                game.setEffectNotification(String.format("Ace demands %s!", formatSuitName(request.getRequestSuit())));
                 break;
             case KING:
                 if (card.getSuit() == CardSuit.HEARTS || card.getSuit() == CardSuit.SPADES) {
                     game.setReverseMovement(!game.isReverseMovement());
+                    game.setEffectNotification("Play direction reversed!");
                 }
                 break;
             default:
@@ -373,6 +398,9 @@ public class MakaoGameService {
             int skipTurns = game.getPlayersSkipTurns().getOrDefault(candidate, 0);
 
             if (skipTurns > 0) {
+                String playerName = getPlayerDisplayName(game, candidate);
+                game.addMoveLog(String.format("%s skips a turn (remaining: %d)", playerName, skipTurns - 1));
+                game.setEffectNotification(String.format("%s skips a turn due to a 4", playerName));
                 game.getPlayersSkipTurns().put(candidate, skipTurns - 1);
                 saveAndBroadcast(game);
                 continue; // skip this player and look for the next one
@@ -383,15 +411,13 @@ public class MakaoGameService {
 
             if (playable.isEmpty() && game.isSpecialEffectActive()) {
                 applySpecialEffectPenalty(game, candidate);
-                saveAndBroadcast(game);
                 return;
             }
 
             if (isBot(candidate)) {
                 game.setActivePlayerId(candidate);
                 saveAndBroadcast(game);
-                handleBotTurn(game, candidate, playable);
-                nextTurn(game);
+                scheduleBotMove(game.getRoomId(), candidate, playable);
                 return;
             }
 
@@ -408,17 +434,24 @@ public class MakaoGameService {
             return;
         }
 
+        String playerName = getPlayerDisplayName(game, playerId);
+
         switch (current.getRank()) {
             case TWO:
             case THREE:
                 int drawCount = game.getPendingDrawCount();
                 if (drawCount > 0 && game.getDrawDeck() != null) {
+                    int actualDrawn = 0;
                     for (int i = 0; i < drawCount; i++) {
-                        Card drawn = game.getDrawDeck().draw();
+                        Card drawn = drawWithRecycle(game);
                         if (drawn != null) {
                             game.addCardToHand(playerId, drawn);
+                            actualDrawn++;
                         }
                     }
+                    String notification = String.format("%s draws %d card%s", playerName, actualDrawn, actualDrawn != 1 ? "s" : "");
+                    game.addMoveLog(notification);
+                    game.setEffectNotification(notification);
                 }
                 game.setPendingDrawCount(0);
                 break;
@@ -427,6 +460,9 @@ public class MakaoGameService {
                 if (skips > 0) {
                     int existing = game.getPlayersSkipTurns().getOrDefault(playerId, 0);
                     game.getPlayersSkipTurns().put(playerId, existing + skips);
+                    String notification = String.format("%s will skip %d turn%s due to a 4", playerName, skips, skips != 1 ? "s" : "");
+                    game.addMoveLog(notification);
+                    game.setEffectNotification(notification);
                 }
                 game.setPendingSkipTurns(0);
                 break;
@@ -435,6 +471,7 @@ public class MakaoGameService {
         }
 
         game.setSpecialEffectActive(false);
+        saveAndBroadcast(game);
         nextTurn(game);
     }
 
@@ -464,21 +501,25 @@ public class MakaoGameService {
 
         List<Card> playable = gatherPlayableCards(game, activePlayerId);
         game.setActivePlayerPlayableCards(playable);
+        game.addMoveLog("Game started!");
         saveAndBroadcast(game);
-        scheduleTurnTimeout(game);
 
         if (isBot(activePlayerId)) {
-            handleBotTurn(game, activePlayerId, playable);
-            nextTurn(game);
+            // Schedule bot move with delay instead of immediate execution
+            scheduleBotMove(game.getRoomId(), activePlayerId, playable);
+        } else {
+            scheduleTurnTimeout(game);
         }
     }
 
     private void endGame(MakaoGame game) {
         cancelTurnTimeout(game.getRoomId());
+        cancelBotMove(game.getRoomId());
         game.setStatus(RoomStatus.FINISHED);
         game.setSpecialEffectActive(false);
         game.setDrawnCard(null);
         game.setActivePlayerPlayableCards(new ArrayList<>());
+        game.addMoveLog("Game ended!");
 
         Map<String, List<Card>> hands = game.getPlayersHands();
         Map<String, Integer> ranking = new HashMap<>();
@@ -599,7 +640,10 @@ public class MakaoGameService {
                     game.getLosers() != null ? new ArrayList<>(game.getLosers()) : new ArrayList<>(),
                     game.getStatus(),
                     game.getDrawDeck() != null ? game.getDrawDeck().size() : 0,
-                    game.getDiscardDeck() != null ? game.getDiscardDeck().size() : 0
+                    game.getDiscardDeck() != null ? game.getDiscardDeck().size() : 0,
+                    game.getLastMoveLog(),
+                    game.getEffectNotification(),
+                    game.getMoveHistory() != null ? new ArrayList<>(game.getMoveHistory()) : new ArrayList<>()
             );
 
             messagingTemplate.convertAndSend("/topic/makao/" + playerId, message);
@@ -640,6 +684,8 @@ public class MakaoGameService {
     }
 
     private void handleBotTurn(MakaoGame game, String botId, List<Card> playableCards) {
+        String botName = getPlayerDisplayName(game, botId);
+
         if (playableCards != null && !playableCards.isEmpty()) {
             Card toPlay = playableCards.get(random.nextInt(playableCards.size()));
             CardRank reqRank = toPlay.getRank() == CardRank.JACK ? randomRankDemand() : null;
@@ -648,10 +694,12 @@ public class MakaoGameService {
             return;
         }
 
+        // Bot draws a card
         Card drawn = drawWithRecycle(game);
         if (drawn != null) {
             game.addCardToHand(botId, drawn);
             game.setDrawnCard(drawn);
+            game.addMoveLog(String.format("%s drew a card", botName));
 
             if (isPlayable(game, drawn)) {
                 CardRank reqRank = drawn.getRank() == CardRank.JACK ? randomRankDemand() : null;
@@ -661,6 +709,8 @@ public class MakaoGameService {
             }
         }
 
+        // Bot skips turn after drawing non-playable card
+        game.addMoveLog(String.format("%s skipped after drawing", botName));
         game.setDrawnCard(null);
         game.setActivePlayerPlayableCards(new ArrayList<>());
     }
@@ -684,6 +734,11 @@ public class MakaoGameService {
         }
 
         hand.remove(card);
+
+        // Generate move log for bot
+        String botName = getPlayerDisplayName(game, botId);
+        String moveLog = formatMoveLog(botName, card, req);
+        game.addMoveLog(moveLog);
 
         if (hand.isEmpty()) {
             endGame(game);
@@ -763,6 +818,11 @@ public class MakaoGameService {
 
     @PreDestroy
     public void shutdown() {
+        // Cancel all pending bot moves
+        botMoveSchedules.values().forEach(future -> future.cancel(false));
+        botMoveSchedules.clear();
+        gameInProgress.clear();
+
         if (turnTimeoutScheduler != null && !turnTimeoutScheduler.isShutdown()) {
             turnTimeoutScheduler.shutdown();
             log.info("MakaoGameService: Shut down turnTimeoutScheduler");
@@ -843,10 +903,172 @@ public class MakaoGameService {
             List<Card> playable = gatherPlayableCards(game, botId);
             game.setActivePlayerPlayableCards(playable);
 
+            // Add notification for player being replaced
+            game.addMoveLog(String.format("Player timed out and was replaced by %s", "Bot " + nextBot));
+
             handleBotTurn(game, botId, playable);
             nextTurn(game);
         } catch (Exception e) {
             log.error("Failed to handle turn timeout for room {} player {}", roomId, timedOutPlayer, e);
         }
+    }
+
+    /**
+     * Schedules a bot move with a random delay (1-3 seconds) to simulate human thinking.
+     */
+    private void scheduleBotMove(String roomId, String botId, List<Card> playableCards) {
+        if (roomId == null || botId == null) {
+            return;
+        }
+
+        // Cancel any existing scheduled bot move for this room
+        cancelBotMove(roomId);
+
+        // Calculate random delay between botDelayMinMs and botDelayMaxMs
+        long delay = botDelayMinMs + (long) (random.nextDouble() * (botDelayMaxMs - botDelayMinMs));
+
+        log.debug("Scheduling bot move for {} in room {} with delay {}ms", botId, roomId, delay);
+
+        ScheduledFuture<?> future = turnTimeoutScheduler.schedule(
+                () -> executeBotMove(roomId, botId, playableCards),
+                delay,
+                TimeUnit.MILLISECONDS);
+        botMoveSchedules.put(roomId, future);
+    }
+
+    private void cancelBotMove(String roomId) {
+        if (roomId == null) {
+            return;
+        }
+        ScheduledFuture<?> future = botMoveSchedules.remove(roomId);
+        if (future != null) {
+            future.cancel(false);
+        }
+    }
+
+    /**
+     * Executes the bot move after the delay.
+     * Reloads game state from Redis to ensure consistency.
+     */
+    private void executeBotMove(String roomId, String botId, List<Card> originalPlayableCards) {
+        try {
+            // Prevent concurrent bot moves for the same game
+            AtomicBoolean inProgress = gameInProgress.computeIfAbsent(roomId, k -> new AtomicBoolean(false));
+            if (!inProgress.compareAndSet(false, true)) {
+                log.debug("Bot move already in progress for room {}", roomId);
+                return;
+            }
+
+            try {
+                // Reload game state from Redis for consistency
+                MakaoGame game = gameRepository.findById(roomId).orElse(null);
+                if (game == null) {
+                    log.warn("Game not found for room {} when executing bot move", roomId);
+                    return;
+                }
+
+                if (game.getStatus() != RoomStatus.PLAYING) {
+                    log.debug("Game {} is not in PLAYING status, skipping bot move", roomId);
+                    return;
+                }
+
+                // Verify the bot is still the active player
+                if (!botId.equals(game.getActivePlayerId())) {
+                    log.debug("Bot {} is no longer active player in room {}", botId, roomId);
+                    return;
+                }
+
+                // Recalculate playable cards from fresh game state
+                List<Card> playableCards = gatherPlayableCards(game, botId);
+                game.setActivePlayerPlayableCards(playableCards);
+
+                // Execute the bot's turn
+                handleBotTurn(game, botId, playableCards);
+
+                // Move to next turn (this will save and broadcast)
+                nextTurn(game);
+            } finally {
+                inProgress.set(false);
+            }
+        } catch (Exception e) {
+            log.error("Failed to execute bot move for room {} bot {}", roomId, botId, e);
+            gameInProgress.computeIfPresent(roomId, (k, v) -> {
+                v.set(false);
+                return v;
+            });
+        }
+    }
+
+    /**
+     * Gets the display name for a player (username or bot name).
+     */
+    private String getPlayerDisplayName(MakaoGame game, String playerId) {
+        if (playerId == null) {
+            return "Unknown";
+        }
+        if (game.getPlayersUsernames() != null && game.getPlayersUsernames().containsKey(playerId)) {
+            return game.getPlayersUsernames().get(playerId);
+        }
+        return playerId;
+    }
+
+    /**
+     * Formats a move log message for a played card.
+     */
+    private String formatMoveLog(String playerName, Card card, PlayCardRequest request) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(playerName).append(" played ").append(formatCardName(card));
+
+        if (card.getRank() == CardRank.JACK && request != null && request.getRequestRank() != null) {
+            sb.append(" (demands ").append(formatRankName(request.getRequestRank())).append(")");
+        } else if (card.getRank() == CardRank.ACE && request != null && request.getRequestSuit() != null) {
+            sb.append(" (demands ").append(formatSuitName(request.getRequestSuit())).append(")");
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Formats a card name for display (e.g., "Ace of Hearts").
+     */
+    private String formatCardName(Card card) {
+        if (card == null) {
+            return "unknown card";
+        }
+        return formatRankName(card.getRank()) + " of " + formatSuitName(card.getSuit());
+    }
+
+    /**
+     * Formats a card rank for display.
+     */
+    private String formatRankName(CardRank rank) {
+        if (rank == null) {
+            return "unknown";
+        }
+        String name = rank.name();
+        // Convert from enum name to title case (e.g., "ACE" -> "Ace", "TWO" -> "2")
+        switch (rank) {
+            case TWO: return "2";
+            case THREE: return "3";
+            case FOUR: return "4";
+            case FIVE: return "5";
+            case SIX: return "6";
+            case SEVEN: return "7";
+            case EIGHT: return "8";
+            case NINE: return "9";
+            case TEN: return "10";
+            default: return name.charAt(0) + name.substring(1).toLowerCase();
+        }
+    }
+
+    /**
+     * Formats a card suit for display.
+     */
+    private String formatSuitName(CardSuit suit) {
+        if (suit == null) {
+            return "unknown";
+        }
+        String name = suit.name();
+        return name.charAt(0) + name.substring(1).toLowerCase();
     }
 }

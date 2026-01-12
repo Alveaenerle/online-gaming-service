@@ -29,4 +29,10 @@ public class GameStateMessage {
     private RoomStatus status;
     private int drawDeckCardsAmount;
     private int discardDeckCardsAmount;
+    // Move history log - describes the last action taken (e.g., "Player1 played Ace of Hearts")
+    private String lastMoveLog;
+    // Special effect notification - explicitly describes active effects (e.g., "Player 1 skips a turn due to a 4")
+    private String effectNotification;
+    // List of recent move logs for move history display
+    private List<String> moveHistory;
 }

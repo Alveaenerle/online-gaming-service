@@ -40,7 +40,7 @@ public class MakaoGame implements Serializable {
     private Map<String, Integer> playersSkipTurns = new HashMap<>();
     private Map<String, String> playersUsernames = new HashMap<>(); // playerId -> username
     private Map<String, List<Card>> playersHands = new HashMap<>();
-    
+
     private MakaoDeck drawDeck;
     private MakaoDeck discardDeck;
 
@@ -57,6 +57,31 @@ public class MakaoGame implements Serializable {
     private List<String> losers = new ArrayList<>();
 
     private int botCounter = 0;
+
+    // Move history and effect tracking for notifications
+    private String lastMoveLog;
+    private String effectNotification;
+    private List<String> moveHistory = new ArrayList<>();
+    private static final int MAX_MOVE_HISTORY = 20;
+
+    public void addMoveLog(String moveLog) {
+        this.lastMoveLog = moveLog;
+        if (moveLog != null && !moveLog.isBlank()) {
+            this.moveHistory.add(moveLog);
+            while (this.moveHistory.size() > MAX_MOVE_HISTORY) {
+                this.moveHistory.remove(0);
+            }
+        }
+    }
+
+    public void setEffectNotification(String notification) {
+        this.effectNotification = notification;
+    }
+
+    public void clearNotifications() {
+        this.lastMoveLog = null;
+        this.effectNotification = null;
+    }
 
     public MakaoGame(String roomId, Map<String, String> players, String hostUserId, int maxPlayers) {
         this.roomId = roomId;

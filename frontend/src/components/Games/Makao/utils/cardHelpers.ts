@@ -91,7 +91,6 @@ export const isSpecialCard = (card: Card): boolean => {
     "THREE",
     "FOUR",
     "JACK",
-    "KING",
     "ACE",
   ];
   return specialRanks.includes(card.rank);
