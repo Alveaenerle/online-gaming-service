@@ -7,15 +7,24 @@ export type LobbyPlayer = {
   isYou: boolean;
 };
 
+export type PlayerStateRaw = {
+  username: string;
+  ready: boolean;
+  avatarId: string;
+};
+
 export type LobbyInfoRaw = {
   id: string;
   gameType: string;
   maxPlayers: number;
   hostUserId: string;
-  players: Record<string, string>;
+  hostUsername?: string;
+  players: Record<string, PlayerStateRaw>;
   status: "WAITING" | "PLAYING";
   name: string;
   accessCode: string;
+  isPrivate?: boolean;
+  private?: boolean;
 };
 
 export type LobbyInfo = {
@@ -26,4 +35,5 @@ export type LobbyInfo = {
   gameStarted: boolean;
   name: string;
   accessCode: string;
+  isPrivate?: boolean;
 };

@@ -9,6 +9,11 @@ export default defineConfig({
   },
   server: {
     host: true,
+    watch: {
+      usePolling: true,
+      interval: 100,
+      binaryInterval: 300,
+    },
     proxy: {
       "/api/auth": {
         target: "http://authorization:8080",

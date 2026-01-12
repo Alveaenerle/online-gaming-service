@@ -71,14 +71,18 @@ export function BigPlayerCard({ player, onAvatarClick, onToggleReady }: Props) {
         </button>
 
         <div className="mt-6 space-y-2">
-          <div className="flex justify-center items-center gap-3">
-            {player.isHost && (
-              <Crown
-                className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]"
-                size={24}
-              />
-            )}
-            <span className="text-2xl font-black tracking-tight text-white drop-shadow-md">
+          <div className="flex flex-col justify-center items-center gap-1">
+            {/* Host Crown Indicator */}
+            <div className="h-6 flex items-center justify-center">
+              {player.isHost && (
+                <Crown
+                  className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)] animate-in fade-in zoom-in duration-300"
+                  size={24}
+                />
+              )}
+            </div>
+            
+            <span className="text-2xl font-black tracking-tight text-white drop-shadow-md truncate max-w-[250px]">
               {player.username}
             </span>
           </div>

@@ -2,9 +2,20 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { FriendsSidebar } from "./FriendsSidebar";
+import { useAuth } from "../../context/AuthContext";
+import { useSocial } from "../../context/SocialContext";
 
 export function SocialCenter() {
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuth();
+  const { pendingRequests } = useSocial();
+
+  // Don't render for guest users
+  if (user?.isGuest) {
+    return null;
+  }
+
+  const hasNotifications = pendingRequests.length > 0;
 
   return (
     <>
@@ -26,8 +37,14 @@ export function SocialCenter() {
             size={20}
             className="group-hover:text-purple-400 transition-colors"
           />
-          {/* Online status indicator dot */}
-          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#121018] animate-pulse" />
+          {/* Online status indicator dot (or notification badge) */}
+          {hasNotifications ? (
+             <div className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-red-500 rounded-full border-2 border-[#121018] flex items-center justify-center">
+                <span className="text-[9px] font-bold text-white">{pendingRequests.length}</span>
+             </div>
+          ) : (
+             <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#121018] animate-pulse" />
+          )}
         </div>
 
         <span className="hidden md:block">Social Center</span>

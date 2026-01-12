@@ -35,7 +35,8 @@ export const lobbyService = {
   createRoom(
     gameType: string,
     maxPlayers: number,
-    name?: string
+    name?: string,
+    isPrivate: boolean = false
   ): Promise<LobbyInfoRaw> {
     return request<LobbyInfoRaw>("/create", {
       method: "POST",
@@ -43,6 +44,7 @@ export const lobbyService = {
         gameType,
         maxPlayers,
         name: name || "Default Room Name",
+        isPrivate,
       }),
     });
   },
@@ -73,6 +75,13 @@ export const lobbyService = {
   toggleReady(): Promise<LobbyInfoRaw> {
     return request<LobbyInfoRaw>("/ready", {
       method: "POST",
+    });
+  },
+
+  updateAvatar(avatarId: string): Promise<LobbyInfoRaw> {
+    return request<LobbyInfoRaw>("/update-avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatarId }),
     });
   },
 

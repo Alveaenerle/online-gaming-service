@@ -8,7 +8,7 @@ type Props = {
 
 export function GameLobbyLayout({ children }: Props) {
   return (
-    <div className="relative bg-[#05060f] text-white overflow-hidden ">
+    <div className="relative min-h-screen bg-[#05060f] text-white overflow-hidden ">
       <Navbar />
       <BackgroundGradient />
       <motion.div

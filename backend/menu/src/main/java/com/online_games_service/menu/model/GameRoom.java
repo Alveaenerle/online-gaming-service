@@ -5,9 +5,7 @@ import com.online_games_service.common.enums.RoomStatus;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
@@ -30,7 +28,7 @@ public class GameRoom {
     private String hostUserId;
     private String hostUsername;
 
-    private Map<String, String> players = new LinkedHashMap<>(); // userId -> username
+    private Map<String, PlayerState> players = new LinkedHashMap<>(); // userId -> PlayerState
 
     private int maxPlayers;
 
@@ -51,7 +49,7 @@ public class GameRoom {
         this.maxPlayers = maxPlayers;
         this.isPrivate = isPrivate;
         this.status = RoomStatus.WAITING;
-        this.players.put(hostUserId, hostUsername);
+        this.players.put(hostUserId, PlayerState.createDefault(hostUsername));
 
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
@@ -67,7 +65,7 @@ public class GameRoom {
             throw new IllegalStateException("Cannot join room (Full or Game Started)");
         }
         if (!this.players.containsKey(userId)) {
-            this.players.put(userId, username);
+            this.players.put(userId, PlayerState.createDefault(username));
             this.updatedAt = LocalDateTime.now();
         }
 
@@ -77,9 +75,9 @@ public class GameRoom {
     }
 
     public void removePlayerById(String userId) {
-        String removedUsername = this.players.remove(userId);
+        PlayerState removed = this.players.remove(userId);
 
-        if (removedUsername != null) {
+        if (removed != null) {
             this.updatedAt = LocalDateTime.now();
 
             if (this.status == RoomStatus.FULL && this.players.size() < maxPlayers) {
@@ -87,10 +85,47 @@ public class GameRoom {
             }
 
             if (!this.players.isEmpty() && userId.equals(this.hostUserId)) {
-                Map.Entry<String, String> nextHost = this.players.entrySet().iterator().next();
+                Map.Entry<String, PlayerState> nextHost = this.players.entrySet().iterator().next();
                 this.hostUserId = nextHost.getKey();
-                this.hostUsername = nextHost.getValue();
+                this.hostUsername = nextHost.getValue().getUsername();
             }
         }
+    }
+
+    /**
+     * Toggle ready status for a player.
+     */
+    public void togglePlayerReady(String userId) {
+        PlayerState state = this.players.get(userId);
+        if (state != null) {
+            state.toggleReady();
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    /**
+     * Update avatar for a player.
+     */
+    public void updatePlayerAvatar(String userId, String avatarId) {
+        PlayerState state = this.players.get(userId);
+        if (state != null) {
+            state.setAvatarId(avatarId);
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    /**
+     * Check if all players are ready.
+     */
+    public boolean areAllPlayersReady() {
+        return this.players.values().stream().allMatch(PlayerState::isReady);
+    }
+
+    /**
+     * Get the username for a player.
+     */
+    public String getPlayerUsername(String userId) {
+        PlayerState state = this.players.get(userId);
+        return state != null ? state.getUsername() : null;
     }
 }

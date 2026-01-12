@@ -15,17 +15,32 @@ import java.time.LocalDateTime;
 @CompoundIndex(name = "unique_request", def = "{'requesterId': 1, 'addresseeId': 1}", unique = true)
 public class FriendRequest {
 
+    public enum Status {
+        PENDING,
+        ACCEPTED,
+        REJECTED
+    }
+
     @Id
     private String id;
 
     private String requesterId;
+    private String requesterUsername;
     private String addresseeId;
+    
+    private Status status = Status.PENDING;
 
     @CreatedDate
     private LocalDateTime createdAt;
 
-    public FriendRequest(String requesterId, String addresseeId) {
+    public FriendRequest(String requesterId, String requesterUsername, String addresseeId) {
         this.requesterId = requesterId;
+        this.requesterUsername = requesterUsername;
         this.addresseeId = addresseeId;
+        this.status = Status.PENDING;
+    }
+
+    public FriendRequest(String requesterId, String addresseeId) {
+        this(requesterId, null, addresseeId);
     }
 }

@@ -11,27 +11,33 @@ import { JoinLobbyPanel } from "../shared/JoinLobbyPanel";
 import { lobbyService } from "../../../services/lobbyService";
 import { BackgroundGradient } from "../../Shared/BackgroundGradient";
 import { FriendsSidebar } from "../../Shared/FriendsSidebar";
+import { useAuth } from "../../../context/AuthContext";
+import { useToast } from "../../../context/ToastContext";
 
 export function MakaoTitle() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const isGuest = user?.isGuest ?? false;
   const [playerCount, setPlayerCount] = useState(4);
   const [roomName, setRoomName] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
 
   const handleCreateLobby = async () => {
-    if (!roomName.trim()) return alert("Please enter a room name");
+    if (!roomName.trim()) return showToast("Please enter a room name", "error");
     try {
-      await lobbyService.createRoom("MAKAO", playerCount, roomName.trim());
+      await lobbyService.createRoom("MAKAO", playerCount, roomName.trim(), isPrivate);
       navigate("/lobby/makao");
     } catch (err: any) {
-      alert(err.message || "Failed to create room");
+      showToast(err.message || "Failed to create room", "error");
     }
   };
 
   const handleJoinLobby = async (isRandom = false) => {
     if (!isRandom && !roomCode.trim())
-      return alert("Please enter an access code");
+      return showToast("Please enter an access code", "error");
     try {
       await lobbyService.joinRoom(
         isRandom ? "" : roomCode,
@@ -41,7 +47,7 @@ export function MakaoTitle() {
       );
       navigate("/lobby/makao");
     } catch (err: any) {
-      alert(err.message || "Room not found");
+      showToast(err.message || "Room not found", "error");
     }
   };
 
@@ -96,6 +102,8 @@ export function MakaoTitle() {
               setRoomName={setRoomName}
               playerCount={playerCount}
               setPlayerCount={setPlayerCount}
+              isPrivate={isPrivate}
+              setIsPrivate={setIsPrivate}
               onCreate={handleCreateLobby}
             />
 
@@ -105,10 +113,13 @@ export function MakaoTitle() {
               onJoin={handleJoinLobby}
             />
           </motion.div>
-          <FriendsSidebar
-            isOpen={friendsOpen}
-            onClose={() => setFriendsOpen(false)}
-          />
+
+          {!isGuest && (
+            <FriendsSidebar
+              isOpen={friendsOpen}
+              onClose={() => setFriendsOpen(false)}
+            />
+          )}
         </div>
       </main>
     </div>

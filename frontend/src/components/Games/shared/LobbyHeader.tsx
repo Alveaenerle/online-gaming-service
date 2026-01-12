@@ -1,13 +1,14 @@
 import { motion } from "framer-motion";
-import { Hash, Copy, Check } from "lucide-react";
+import { Hash, Copy, Check, Lock, Globe } from "lucide-react";
 import { useState } from "react";
 
 type Props = {
   title: string;
   accessCode?: string;
+  isPrivate?: boolean;
 };
 
-export function LobbyHeader({ title, accessCode }: Props) {
+export function LobbyHeader({ title, accessCode, isPrivate }: Props) {
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = () => {
@@ -23,8 +24,23 @@ export function LobbyHeader({ title, accessCode }: Props) {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="px-3 py-1 rounded-full bg-purple-600/10 border border-purple-500/20 text-[10px] font-black uppercase tracking-[0.3em] text-purple-400 mb-1">
-        Waiting for players
+      <div className="flex items-center gap-2 mb-1">
+        <div className="px-3 py-1 rounded-full bg-purple-600/10 border border-purple-500/20 text-[10px] font-black uppercase tracking-[0.3em] text-purple-400">
+          Waiting for players
+        </div>
+
+        {isPrivate !== undefined && (
+          <div
+            className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 ${
+              isPrivate
+                ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+            }`}
+          >
+            {isPrivate ? <Lock size={12} /> : <Globe size={12} />}
+            {isPrivate ? "Private" : "Public"}
+          </div>
+        )}
       </div>
 
       <h1 className="text-5xl font-black tracking-tighter bg-purple-600 bg-clip-text text-transparent drop-shadow-sm uppercase m-5">

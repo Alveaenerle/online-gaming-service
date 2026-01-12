@@ -8,6 +8,7 @@ import com.online_games_service.menu.dto.JoinGameRequest;
 import com.online_games_service.menu.dto.KickPlayerRequest;
 import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.model.GameRoom;
+import com.online_games_service.menu.model.PlayerState;
 import com.online_games_service.menu.service.GameRoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -57,7 +58,7 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
                 .andExpect(jsonPath("$.id").value(response.getId()))
             .andExpect(jsonPath("$.hostUsername").value("host"))
             .andExpect(jsonPath("$.hostUserId").value("host-id"))
-            .andExpect(jsonPath("$.players.host-id").value("host"));
+            .andExpect(jsonPath("$.players.host-id.username").value("host"));
     }
 
     @Test
@@ -71,7 +72,11 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
         CreateRoomRequest request = sampleCreateRequest();
         GameRoom room = new GameRoom("Room", GameType.LUDO, "host-id", "host", 4, false);
         room.setId("room-1");
+        
+        RoomInfoResponse response = new RoomInfoResponse("room-1", "Room", GameType.LUDO, Map.of(), 4, false, "CODE", "host-id", "host", RoomStatus.WAITING);
+        
         when(gameRoomService.createRoom(any(CreateRoomRequest.class), eq("host-id"), eq("host"))).thenReturn(room);
+        when(gameRoomService.buildRoomInfoResponse(room)).thenReturn(response);
 
         mockMvc.perform(post("/create")
                 .requestAttr("userId", "host-id")
@@ -95,7 +100,11 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
         JoinGameRequest request = sampleJoinRequest();
         GameRoom room = new GameRoom("Room", GameType.LUDO, "host-id", "host", 4, false);
         room.setId("room-2");
+        
+        RoomInfoResponse response = new RoomInfoResponse("room-2", "Room", GameType.LUDO, Map.of(), 4, false, "CODE", "host-id", "host", RoomStatus.WAITING);
+
         when(gameRoomService.joinRoom(any(JoinGameRequest.class), eq("player-id"), eq("player"))).thenReturn(room);
+        when(gameRoomService.buildRoomInfoResponse(room)).thenReturn(response);
 
         mockMvc.perform(post("/join")
                 .requestAttr("userId", "player-id")
@@ -119,7 +128,11 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
         GameRoom room = new GameRoom("Room", GameType.LUDO, "host-id", "host", 4, false);
         room.setId("room-3");
         room.setStatus(RoomStatus.PLAYING);
+        
+        RoomInfoResponse response = new RoomInfoResponse("room-3", "Room", GameType.LUDO, Map.of(), 4, false, "CODE", "host-id", "host", RoomStatus.PLAYING);
+
         when(gameRoomService.startGame("host-id", "host")).thenReturn(room);
+        when(gameRoomService.buildRoomInfoResponse(room)).thenReturn(response);
 
         mockMvc.perform(post("/start").requestAttr("userId", "host-id").requestAttr("username", "host"))
                 .andExpect(status().isOk())
@@ -233,7 +246,7 @@ public class GameRoomControllerTest extends AbstractTestNGSpringContextTests {
                 "room-info",
                 "Room",
                 GameType.LUDO,
-                Map.of("host-id", "host"),
+                Map.of("host-id", PlayerState.createDefault("host")),
                 4,
                 false,
                 "CODE1",
