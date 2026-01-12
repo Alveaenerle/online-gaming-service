@@ -18,6 +18,15 @@ pipeline {
     }
 
     stages {
+        stage('Cleanup Docker') {
+            steps {
+                script {
+                    // Clean up unused Docker resources to free disk space
+                    sh 'docker system prune -af --volumes || true'
+                }
+            }
+        }
+
         stage('Run tests & Code Coverage') {
             when {
                 anyOf {
