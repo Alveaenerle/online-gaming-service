@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useLobby } from "../../context/LobbyContext";
 import { lobbyService } from "../../services/lobbyService";
+import { ConfirmationModal } from "./ConfirmationModal";
 
 export function LobbyIndicator() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export function LobbyIndicator() {
   const { currentLobby, isInLobby, clearLobby } = useLobby();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
 
   // Don't show if not in a lobby or if already on the lobby page
   const lobbyPath =
@@ -48,12 +50,6 @@ export function LobbyIndicator() {
   const handleLeave = async () => {
     if (isLeaving) return;
 
-    const confirmMessage = isPlaying
-      ? "Are you sure you want to leave the game? You may lose your progress."
-      : "Are you sure you want to leave the lobby?";
-
-    if (!window.confirm(confirmMessage)) return;
-
     setIsLeaving(true);
     try {
       await lobbyService.leaveRoom();
@@ -65,6 +61,10 @@ export function LobbyIndicator() {
     } finally {
       setIsLeaving(false);
     }
+  };
+
+  const handleLeaveClick = () => {
+    setShowLeaveModal(true);
   };
 
   return (
@@ -160,7 +160,7 @@ export function LobbyIndicator() {
                     Open
                   </button>
                   <button
-                    onClick={handleLeave}
+                    onClick={handleLeaveClick}
                     disabled={isLeaving}
                     className="flex items-center justify-center gap-3 px-6 py-4 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-400 text-base font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
                   >
@@ -173,6 +173,22 @@ export function LobbyIndicator() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Leave Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showLeaveModal}
+        onClose={() => setShowLeaveModal(false)}
+        onConfirm={handleLeave}
+        title={isPlaying ? "Leave Game?" : "Leave Lobby?"}
+        message={
+          isPlaying
+            ? "You're currently in a game. If you leave now, you may lose your progress and the game may be forfeited."
+            : "Are you sure you want to leave this lobby? You'll need to rejoin if you want to play."
+        }
+        confirmText="Leave"
+        variant={isPlaying ? "danger" : "warning"}
+        isLoading={isLeaving}
+      />
     </motion.div>
   );
 }

@@ -19,6 +19,7 @@ public class NotificationPayload {
     private String subType;
     private UserInfo from;
     private FriendInfo newFriend;
+    private GameInviteInfo gameInvite;
     
     @Data
     @NoArgsConstructor
@@ -39,6 +40,19 @@ public class NotificationPayload {
         private boolean isOnline;
     }
     
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class GameInviteInfo {
+        private String inviteId;
+        private String senderId;
+        private String senderUsername;
+        private String lobbyId;
+        private String lobbyName;
+        private String gameType;
+    }
+    
     public static NotificationPayload friendRequest(String fromId, String fromName) {
         return NotificationPayload.builder()
                 .type("NOTIFICATION")
@@ -52,6 +66,23 @@ public class NotificationPayload {
                 .type("NOTIFICATION")
                 .subType("REQUEST_ACCEPTED")
                 .newFriend(new FriendInfo(friendId, friendName, isOnline))
+                .build();
+    }
+    
+    public static NotificationPayload gameInvite(String senderId, String senderUsername, 
+                                                  String lobbyId, String lobbyName, 
+                                                  String gameType, String inviteId) {
+        return NotificationPayload.builder()
+                .type("NOTIFICATION")
+                .subType("GAME_INVITE")
+                .gameInvite(GameInviteInfo.builder()
+                        .inviteId(inviteId)
+                        .senderId(senderId)
+                        .senderUsername(senderUsername)
+                        .lobbyId(lobbyId)
+                        .lobbyName(lobbyName)
+                        .gameType(gameType)
+                        .build())
                 .build();
     }
 }

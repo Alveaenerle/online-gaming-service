@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, X, Check, Clock, UserMinus } from "lucide-react";
+import { Users, X, Check, Clock, UserMinus, Gamepad2 } from "lucide-react";
 import { useSocial } from "../../context/SocialContext";
+import { useNavigate } from "react-router-dom";
+import { ConfirmationModal } from "./ConfirmationModal";
+import { lobbyService } from "../../services/lobbyService";
+import { useToast } from "../../context/ToastContext";
 
 interface FriendsSidebarProps {
   isOpen: boolean;
@@ -12,7 +16,29 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { friends, pendingRequests, acceptFriendRequest, rejectFriendRequest, removeFriend } = useSocial();
+  const { friends, pendingRequests, gameInvites, acceptFriendRequest, rejectFriendRequest, removeFriend, acceptGameInvite, declineGameInvite } = useSocial();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+
+  // State for remove friend confirmation
+  const [friendToRemove, setFriendToRemove] = useState<{ id: string; username: string } | null>(null);
+
+  const handleAcceptGameInvite = async (inviteId: string) => {
+    try {
+      const invite = await acceptGameInvite(inviteId);
+      
+      // Join the lobby using the accessCode
+      if (invite.accessCode) {
+        await lobbyService.joinRoom(invite.accessCode, undefined, invite.gameType);
+      }
+      
+      // Navigate to the lobby
+      onClose();
+      navigate(`/lobby/${invite.gameType.toLowerCase()}`);
+    } catch (err: any) {
+      showToast(err.message || "Failed to join lobby", "error");
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -50,6 +76,58 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+              
+              {/* Game Invites Section */}
+              {gameInvites.length > 0 && (
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-cyan-400">
+                        <span className="flex items-center gap-2">
+                            <Gamepad2 size={14} />
+                            Game Invites
+                        </span>
+                        <span className="bg-cyan-500/20 px-2 py-0.5 rounded text-cyan-300 animate-pulse">
+                            {gameInvites.length}
+                        </span>
+                    </div>
+                    
+                    {gameInvites.map((invite) => (
+                        <motion.div 
+                            key={invite.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-gradient-to-br from-cyan-500/10 to-purple-500/10 p-3 rounded-xl border border-cyan-500/30 flex flex-col gap-2"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex flex-col min-w-0">
+                                    <span className="font-semibold text-sm truncate text-white">
+                                        {invite.senderUsername}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                        invites you to <span className="text-cyan-400 font-medium">{invite.lobbyName}</span>
+                                    </span>
+                                </div>
+                                <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-medium">
+                                    {invite.gameType}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => handleAcceptGameInvite(invite.id)}
+                                    className="flex-1 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white transition-colors text-xs font-medium flex items-center justify-center gap-1"
+                                >
+                                    <Check size={14} /> Join
+                                </button>
+                                <button 
+                                    onClick={() => declineGameInvite(invite.id)}
+                                    className="flex-1 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors text-xs font-medium flex items-center justify-center gap-1"
+                                >
+                                    <X size={14} /> Decline
+                                </button>
+                            </div>
+                        </motion.div>
+                    ))}
+                </div>
+              )}
               
               {/* Pending Requests Section */}
               {pendingRequests.length > 0 && (
@@ -128,7 +206,7 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                             <button 
-                                onClick={() => removeFriend(friend.id)}
+                                onClick={() => setFriendToRemove({ id: friend.id, username: friend.username })}
                                 className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 
                                          bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white 
                                          transition-all"
@@ -155,6 +233,21 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
               </span>
             </div>
           </motion.aside>
+
+          <ConfirmationModal
+            isOpen={!!friendToRemove}
+            onClose={() => setFriendToRemove(null)}
+            onConfirm={() => {
+              if (friendToRemove) {
+                removeFriend(friendToRemove.id);
+                setFriendToRemove(null);
+              }
+            }}
+            title="Remove Friend?"
+            message={`Are you sure you want to remove ${friendToRemove?.username} from your friends list? You'll need to send a new friend request to add them again.`}
+            confirmText="Remove"
+            variant="danger"
+          />
         </>
       )}
     </AnimatePresence>
