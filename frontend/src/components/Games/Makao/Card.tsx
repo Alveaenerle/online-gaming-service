@@ -48,11 +48,11 @@ const Card: React.FC<CardProps> = ({
       whileHover={isPlayable ? { scale: 1.08, y: -8 } : {}}
       onClick={isPlayable ? onClick : undefined}
       style={{ width: s.width, height: s.height }}
-      className={`rounded-lg overflow-hidden shadow-md relative ${
+      className={`rounded-lg overflow-hidden shadow-md relative transition-all duration-200 ${
         isPlayable
-          ? "ring-2 ring-purpleEnd cursor-pointer shadow-neon"
-          : "opacity-80"
-      } ${special && showEffect ? "ring-1 ring-yellow-400" : ""}`}
+          ? "cursor-pointer shadow-lg hover:shadow-xl"
+          : "opacity-90 grayscale-[0.2]"
+      } ${special ? "border border-white/10" : ""}`}
     >
       <img
         src={cardImage}
@@ -60,9 +60,6 @@ const Card: React.FC<CardProps> = ({
         className="w-full h-full object-contain bg-white"
         draggable={false}
       />
-      {special && showEffect && (
-        <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-400 rounded-full m-0.5" />
-      )}
     </motion.div>
   );
 };

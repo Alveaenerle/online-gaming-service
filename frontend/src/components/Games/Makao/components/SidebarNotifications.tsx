@@ -47,19 +47,19 @@ const SidebarNotifications: React.FC<SidebarNotificationsProps> = ({
     });
   };
 
-  // Watch for effect notifications
-  useEffect(() => {
-    if (effectNotification) {
-      addNotification(effectNotification, "effect");
-    }
-  }, [effectNotification]);
-
-  // Watch for move logs
+  // Watch for move logs (Game Action) - Priority 1
   useEffect(() => {
     if (lastMoveLog) {
       addNotification(lastMoveLog, "move");
     }
   }, [lastMoveLog]);
+
+  // Watch for effect notifications (Consequence) - Priority 2
+  useEffect(() => {
+    if (effectNotification) {
+      addNotification(effectNotification, "effect");
+    }
+  }, [effectNotification]);
 
   // Watch for active special effect state
   useEffect(() => {
@@ -134,16 +134,18 @@ const SidebarNotifications: React.FC<SidebarNotificationsProps> = ({
             <motion.div
               key={toast.id}
               layout
-              initial={{ opacity: 0, y: 20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 20, transition: { duration: 0.2 } }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className={`p-3 rounded-xl border text-sm backdrop-blur-sm shadow-sm ${getTypeStyles(toast.type)}`}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 100, transition: { duration: 0.2 } }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              className={`p-3 rounded-l-xl border-l-4 text-sm backdrop-blur-md shadow-lg mb-2 relative overflow-hidden ${getTypeStyles(toast.type)}`}
             >
-              <p>{toast.message}</p>
-              <p className="text-[10px] opacity-40 mt-1 text-right">
-                {new Date(toast.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
-              </p>
+              <div className="relative z-10 flex justify-between items-start gap-2">
+                 <span className="font-medium">{toast.message}</span>
+                 <span className="text-[10px] opacity-60 font-mono whitespace-nowrap mt-0.5">
+                   {new Date(toast.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit' })}
+                 </span>
+              </div>
             </motion.div>
           ))}
         </AnimatePresence>

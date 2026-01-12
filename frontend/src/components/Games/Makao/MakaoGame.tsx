@@ -452,18 +452,34 @@ const MakaoGame: React.FC = () => {
                 </div>
               </div>
 
-              {/* Accept Effect Button (centered above discard) */}
+              {/* Accept Effect HUD (Positioned lower) */}
               {hasSpecialEffect && isMyTurn && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-20">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => acceptEffect()}
-                    disabled={isLoading}
-                    className="px-6 py-3 rounded-xl bg-orange-500/80 hover:bg-orange-500 text-white font-bold shadow-lg animate-pulse z-50 pointer-events-auto"
+                <div className="absolute top-[65%] left-1/2 -translate-x-1/2 z-50">
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="flex flex-col items-center gap-3"
                   >
-                    Accept Effect
-                  </motion.button>
+                    {/* Penalty Indicator */}
+                    <div className={`px-6 py-2 rounded-full font-bold uppercase tracking-wider text-sm shadow-xl border ${
+                      gameState.effectNotification?.includes("draw")
+                        ? "bg-red-500/90 border-red-400 text-white"
+                        : "bg-amber-500/90 border-amber-400 text-black"
+                    }`}>
+                      {gameState.effectNotification || "Special Effect Active"}
+                    </div>
+
+                    {/* Accept Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => acceptEffect()}
+                      disabled={isLoading}
+                      className="px-8 py-3 rounded-xl bg-gray-900/90 hover:bg-gray-800 text-white font-bold border border-white/20 shadow-lg backdrop-blur mx-auto"
+                    >
+                      Accept & Continue
+                    </motion.button>
+                  </motion.div>
                 </div>
               )}
 
