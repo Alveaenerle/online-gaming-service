@@ -33,7 +33,7 @@ const Card: React.FC<CardProps> = ({
       <motion.div
         whileHover={onClick ? { scale: 1.05, y: -2 } : {}}
         style={{ width: s.width, height: s.height }}
-        className={`rounded-lg bg-gradient-to-br from-purpleStart to-purpleEnd shadow-md flex items-center justify-center ${onClick ? "cursor-pointer" : ""}`}
+        className={`rounded-s bg-gradient-to-br from-purpleStart to-purpleEnd shadow-md flex items-center justify-center ${onClick ? "cursor-pointer" : ""}`}
         onClick={onClick}
       >
         <span className="text-white/40 font-bold text-base">OG</span>
@@ -48,18 +48,26 @@ const Card: React.FC<CardProps> = ({
       whileHover={isPlayable ? { scale: 1.08, y: -8 } : {}}
       onClick={isPlayable ? onClick : undefined}
       style={{ width: s.width, height: s.height }}
-      className={`rounded-lg overflow-hidden shadow-md relative transition-all duration-200 ${
-        isPlayable
-          ? "cursor-pointer shadow-lg hover:shadow-xl"
-          : "opacity-90 grayscale-[0.2]"
-      } ${special ? "border border-white/10" : ""}`}
+      className={`
+        relative rounded-s overflow-hidden  border-white shadow-xl
+        flex items-center justify-center transition-all duration-200
+        ${isPlayable
+          ? "cursor-pointer hover:shadow-2xl hover:border-white"
+          : "opacity-90 grayscale-[0.2] border-gray-100"
+        }
+      `}
     >
       <img
         src={cardImage}
         alt={`${RANK_DISPLAY[card.rank]} of ${card.suit}`}
-        className="w-full h-full object-contain bg-white"
+        className="w-full h-full object-contain pointer-events-none"
         draggable={false}
       />
+
+      {/* Selection/Effect overlay */}
+      {showEffect && (
+        <div className="absolute inset-0 bg-purpleEnd/10 mix-blend-overlay pointer-events-none" />
+      )}
     </motion.div>
   );
 };

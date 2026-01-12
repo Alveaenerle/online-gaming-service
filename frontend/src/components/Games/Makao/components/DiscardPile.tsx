@@ -46,10 +46,10 @@ const DiscardPile: React.FC<DiscardPileProps> = ({
     <div className="relative w-[72px] h-[101px]">
       {/* Visual clutter for pile depth */}
       {count > 2 && (
-        <div className="absolute inset-0 bg-gray-800/50 rounded-lg transform translate-x-1 translate-y-1 -z-20 border border-white/5" />
+        <div className="absolute inset-0 rounded transform translate-x-1 translate-y-1 -z-20" />
       )}
       {count > 5 && (
-        <div className="absolute inset-0 bg-gray-800/50 rounded-lg transform -translate-x-1 translate-y-2 -z-30 border border-white/5" />
+        <div className="absolute inset-0 rounded transform -translate-x-1 translate-y-2 -z-30" />
       )}
 
       {/* Previous card (Second from top) */}
@@ -63,15 +63,15 @@ const DiscardPile: React.FC<DiscardPileProps> = ({
               scale: 1,
               x: -4,
               y: -4,
-              rotate: 0,
+              rotate: -2,
             }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 rounded-lg overflow-hidden shadow-md -z-10"
+            className="absolute inset-0 rounded overflow-hidden shadow-md -z-10"
           >
             <img
               src={getCardImagePath(secondCard)}
               alt="Previous card"
-              className="w-full h-full object-contain bg-white opacity-90 filter grayscale-[0.1]"
+              className="w-full h-full object-contain filter grayscale-[0.3] opacity-80"
               draggable={false}
             />
           </motion.div>
@@ -86,18 +86,18 @@ const DiscardPile: React.FC<DiscardPileProps> = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ scale: 0.9, opacity: 0 }} // Don't animate out too excessively
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="absolute inset-0 rounded-lg overflow-hidden shadow-xl ring-1 ring-white/10"
+            className="absolute inset-0 rounded overflow-hidden shadow-xl "
             style={{ zIndex: 10 }}
           >
             <img
               src={getCardImagePath(displayedTopCard)}
               alt={`${displayedTopCard.rank} of ${displayedTopCard.suit}`}
-              className="w-full h-full object-contain bg-white"
+              className="w-full h-full object-contain"
               draggable={false}
             />
           </motion.div>
         ) : (
-          <div className="absolute inset-0 bg-white/5 rounded-lg border-2 border-dashed border-white/10 flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/5 rounded  flex items-center justify-center">
             <span className="text-xs text-white/20">Empty</span>
           </div>
         )}

@@ -170,20 +170,20 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
           top: 0,
         }}
       >
-        <div className="w-full h-full rounded-lg overflow-hidden shadow-2xl ring-2 ring-purpleEnd">
+        <div className="w-full h-full rounded overflow-hidden shadow-2xl flex items-center justify-center">
           <img
             src={cardImage}
             alt={`${card.rank} of ${card.suit}`}
-            className="w-full h-full object-contain bg-white"
+            className="w-full h-full object-contain pointer-events-none"
             draggable={false}
           />
         </div>
-        {/* Glow effect */}
+        {/* Trailing glow effect */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 0.8, 0] }}
           transition={{ duration: 0.6 }}
-          className="absolute inset-0 rounded-lg bg-purpleEnd/40 blur-xl -z-10"
+          className="absolute inset-0 rounded bg-purpleEnd/40 blur-xl -z-10"
         />
       </motion.div>
     );
@@ -228,7 +228,7 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
       }}
     >
       <div
-        className="w-full h-full rounded-lg overflow-hidden shadow-2xl"
+        className="w-full h-full rounded overflow-hidden shadow-2xl flex items-center justify-center"
         style={{
           backfaceVisibility: "hidden",
           transform: showFront ? "rotateY(0deg)" : "rotateY(180deg)",
@@ -238,7 +238,7 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
         <img
           src={showFront ? cardImage : cardBack}
           alt={showFront ? `${card.rank} of ${card.suit}` : "Card back"}
-          className="w-full h-full object-contain bg-white"
+          className="w-full h-full object-contain pointer-events-none"
           draggable={false}
         />
       </div>
@@ -456,23 +456,21 @@ export const AnimatedCardPile: React.FC<CardPileProps> = ({
             x: -(stackLayers - i - 1) * 1,
             y: -(stackLayers - i - 1) * 1,
           }}
-          className="absolute w-[72px] h-[101px] rounded-lg overflow-hidden border border-white/5"
+          className="absolute w-[72px] h-[101px] rounded overflow-hidden "
           style={{
             zIndex: i,
           }}
-        >
-          <div className="w-full h-full bg-gradient-to-br from-purple-800 to-indigo-900 opacity-80" />
-        </motion.div>
+        />
       ))}
 
       {/* Top card back */}
       <motion.div
         whileHover={isClickable ? { scale: 1.05, y: -4 } : undefined}
         className={`
-          relative w-[72px] h-[101px] rounded-lg overflow-hidden shadow-lg
+          relative w-[72px] h-[101px] rounded overflow-hidden
           ${showGlow ? "ring-2 ring-purpleEnd animate-pulse" : ""}
           ${isClickable ? "group-hover:shadow-2xl" : ""}
-          transition-shadow
+          transition-all duration-200
         `}
         style={{ zIndex: stackLayers }}
       >
@@ -486,7 +484,7 @@ export const AnimatedCardPile: React.FC<CardPileProps> = ({
         initial={false}
         animate={{ scale: [1, 1.1, 1] }}
         transition={{ duration: 0.3 }}
-        className="absolute -bottom-2 -right-2 bg-gray-900 border border-white/20 rounded-full px-2 py-0.5 z-20"
+        className="absolute -bottom-2 -right-2  rounded px-2 py-0.5 z-20"
       >
         <span className="text-xs text-gray-300 font-mono">{count}</span>
       </motion.div>
