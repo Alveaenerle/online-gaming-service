@@ -16,7 +16,6 @@ const LandingPage: React.FC = () => {
         </div>
       </main>
       <Footer />
-      <SocialCenter />
     </div>
   );
 };
