@@ -60,7 +60,6 @@ export const PATH_MAP: [number, number][] = [
   [9, 3],
   [9, 2],
 
-  // domknięcie pętli
   [8, 2],
 ];
 
@@ -84,9 +83,9 @@ export const getPawnCoords = (
     return coords;
   }
   const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
-  if (position === -2 && stepsMoved > 52) {
+  if (position === -2 && stepsMoved > 43) {
     console.log("Stepping into home stretch");
-    const step = stepsMoved - 52;
+    const step = stepsMoved - 43;
     if (step >= 5) return { row: 8, col: 8 };
 
     const homeStretch = {
@@ -128,11 +127,6 @@ export const getPathCoords = (
     } else {
       currentPos++;
       stepsMoved++;
-    }
-
-    const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
-    if (currentPos >= 56 + offsets[color]) {
-      currentPos = 56 + offsets[color];
     }
 
     const coords = getPawnCoords(currentPos, stepsMoved, color, pawnIndex);
