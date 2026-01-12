@@ -1298,16 +1298,25 @@ public class MakaoGameService {
                 return;
             }
 
+            // Get old username before replacement for notification
+            Map<String, String> usernames = game.getPlayersUsernames() != null
+                    ? game.getPlayersUsernames()
+                    : new HashMap<>();
+            String oldUsername = usernames.getOrDefault(timedOutPlayer, "Player");
+
+            // Create bot and replace player (same logic as handlePlayerLeave)
             int nextBot = game.getBotCounter() + 1;
             String botId = "bot-" + nextBot;
             game.setBotCounter(nextBot);
 
+            // Transfer player's hand to the bot
             Map<String, List<Card>> hands = new HashMap<>(game.getPlayersHands());
             List<Card> timedOutHand = hands.getOrDefault(timedOutPlayer, new ArrayList<>());
             hands.remove(timedOutPlayer);
             hands.put(botId, timedOutHand);
             game.setPlayersHands(hands);
 
+            // Transfer skip turns
             Map<String, Integer> skipTurns = game.getPlayersSkipTurns() != null
                     ? new HashMap<>(game.getPlayersSkipTurns())
                     : new HashMap<>();
@@ -1316,13 +1325,21 @@ public class MakaoGameService {
             skipTurns.put(botId, pendingSkips);
             game.setPlayersSkipTurns(skipTurns);
 
-            Map<String, String> usernames = game.getPlayersUsernames() != null
-                    ? new HashMap<>(game.getPlayersUsernames())
-                    : new HashMap<>();
-            usernames.remove(timedOutPlayer);
-            usernames.put(botId, "Bot " + nextBot);
-            game.setPlayersUsernames(usernames);
+            // Update usernames
+            Map<String, String> updatedUsernames = new HashMap<>(usernames);
+            updatedUsernames.remove(timedOutPlayer);
+            updatedUsernames.put(botId, "Bot " + nextBot);
+            game.setPlayersUsernames(updatedUsernames);
 
+            // Update avatars - remove old player's avatar and set bot avatar
+            Map<String, String> avatars = game.getPlayersAvatars() != null
+                    ? new HashMap<>(game.getPlayersAvatars())
+                    : new HashMap<>();
+            avatars.remove(timedOutPlayer);
+            avatars.put(botId, "bot_avatar.png");
+            game.setPlayersAvatars(avatars);
+
+            // Update player order
             List<String> updatedOrder = game.getPlayersOrderIds() != null
                     ? new ArrayList<>(game.getPlayersOrderIds())
                     : new ArrayList<>();
@@ -1332,6 +1349,7 @@ public class MakaoGameService {
             }
             game.setPlayersOrderIds(updatedOrder);
 
+            // Add to losers list
             List<String> losers = game.getLosers() != null
                     ? new ArrayList<>(game.getLosers())
                     : new ArrayList<>();
@@ -1340,22 +1358,38 @@ public class MakaoGameService {
             }
             game.setLosers(losers);
 
+            // Clear MAKAO status if timed-out player had it
+            if (timedOutPlayer.equals(game.getMakaoPlayerId())) {
+                game.setMakaoPlayerId(null);
+            }
+
             // Clean up Redis mapping for timed-out player so they can join new games
             clearPlayerRoomMapping(timedOutPlayer);
 
-            game.setActivePlayerId(botId);
-
-            List<Card> playable = gatherPlayableCards(game, botId);
-            game.setActivePlayerPlayableCards(playable);
-
             // Add notification for player being replaced
-            game.addMoveLog(String.format("Player timed out and was replaced by %s", "Bot " + nextBot));
+            game.addMoveLog(String.format("%s timed out and was replaced by Bot %d", oldUsername, nextBot));
 
             // Send timeout notification directly to the kicked player
             notifyPlayerTimeout(timedOutPlayer, roomId, botId);
 
-            handleBotTurn(game, botId, playable);
-            nextTurn(game);
+            // Bot takes over the turn
+            game.setActivePlayerId(botId);
+            game.setDrawnCard(null);
+            game.setActivePlayerPlayableCards(new ArrayList<>());
+
+            List<Card> playable = gatherPlayableCards(game, botId);
+            game.setActivePlayerPlayableCards(playable);
+
+            // Check if bot needs to handle special effect
+            if (game.isSpecialEffectActive() && playable.isEmpty()) {
+                saveAndBroadcast(game);
+                applySpecialEffectPenalty(game, botId);
+                return;
+            }
+
+            // Save and broadcast, then schedule bot move
+            saveAndBroadcast(game);
+            scheduleBotMove(game.getRoomId(), botId, playable);
         } catch (Exception e) {
             log.error("Failed to handle turn timeout for room {} player {}", roomId, timedOutPlayer, e);
         }
