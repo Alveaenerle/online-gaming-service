@@ -168,6 +168,7 @@ services:
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
       - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - WEBSOCKET_ALLOWED_ORIGINS=http://localhost,https://ogs.yapyap.pl,https://demo.yapyap.pl
     networks:
       - gaming-net
     depends_on:
