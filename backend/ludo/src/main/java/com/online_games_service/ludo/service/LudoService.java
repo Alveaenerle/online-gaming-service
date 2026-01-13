@@ -2,6 +2,7 @@ package com.online_games_service.ludo.service;
 
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
+import com.online_games_service.common.messaging.PlayerLeaveMessage;
 import com.online_games_service.ludo.dto.LudoGameStateMessage;
 import com.online_games_service.ludo.dto.PlayerTimeoutMessage;
 import com.online_games_service.ludo.enums.PlayerColor;
@@ -47,6 +48,9 @@ public class LudoService {
 
     @Value("${ludo.amqp.routing.finish:ludo.finish}")
     private String finishRoutingKey;
+
+    @Value("${ludo.amqp.routing.leave:player.leave}")
+    private String leaveRoutingKey;
 
     @Value("${ludo.turn-timeout-seconds:60}")
     private long turnTimeoutSeconds;
@@ -173,14 +177,19 @@ public class LudoService {
 
         log.info("Player {} voluntarily leaving game {}", userId, game.getRoomId());
 
+        String roomId = game.getRoomId();
+        String oldId = player.getUserId();
+
         // Remove user-game mapping
         removeUserGameMapping(userId);
+
+        // Notify Menu service that player left
+        publishPlayerLeave(roomId, oldId, PlayerLeaveMessage.LeaveReason.VOLUNTARY);
 
         // Replace player with bot
         int nextBotNum = game.getBotCounter() + 1;
         game.setBotCounter(nextBotNum);
 
-        String oldId = player.getUserId();
         String botId = "bot-" + nextBotNum;
 
         player.setUserId(botId);
@@ -280,10 +289,6 @@ public class LudoService {
         }
 
         saveAndBroadcast(game, null);
-
-        if (game.getStatus() == RoomStatus.PLAYING && !isBot(game.getActivePlayerId())) {
-            scheduleTurnTimeout(game);
-        }
     }
 
     private String performMoveLogic(LudoGame game, LudoPlayer currentPlayer, LudoPawn pawn, int roll) {
@@ -338,17 +343,18 @@ public class LudoService {
             handleGameFinish(game, player);
         } else {
             if (roll == 6) {
+                // Player gets another turn - don't reset the timer, just allow another roll
                 game.setDiceRolled(false);
                 game.setWaitingForMove(false);
                 game.setRollsLeft(1);
 
                 saveAndBroadcast(game, capturedId);
 
-                if (!isBot(player.getUserId())) {
-                    scheduleTurnTimeout(game);
-                } else {
+                // If it's a bot, let it continue; if human, timer continues from original start
+                if (isBot(player.getUserId())) {
                     handleBotTurn(game, player.getUserId());
                 }
+                // For humans, the existing timeout continues - no need to reschedule
             } else {
                 if (capturedId != null) {
                     saveAndBroadcast(game, capturedId);
@@ -379,12 +385,20 @@ public class LudoService {
             game.setActivePlayerId(nextPlayer.getUserId());
             updateRollsCountForPlayer(game, nextPlayer);
 
-            saveAndBroadcast(game, null);
+            // Cancel any existing timeout
+            cancelTurnTimeout(game.getRoomId());
 
             if (isBot(nextPlayer.getUserId())) {
+                // Clear turn start time for bots (they don't have timers)
+                game.setTurnStartTime(null);
+                saveAndBroadcast(game, null);
                 handleBotTurn(game, nextPlayer.getUserId());
             } else {
-                scheduleTurnTimeout(game);
+                // Set turn start time BEFORE broadcasting so clients get accurate timer
+                game.setTurnStartTime(System.currentTimeMillis());
+                saveAndBroadcast(game, null);
+                // Schedule the timeout (turnStartTime already set)
+                scheduleTimeoutOnly(game);
             }
         }
     }
@@ -546,6 +560,10 @@ public class LudoService {
 
     // --- TIMEOUT ---
 
+    /**
+     * Schedules a turn timeout AND sets turnStartTime (used for game creation).
+     * For turn changes, use scheduleTimeoutOnly() after setting turnStartTime manually.
+     */
     private void scheduleTurnTimeout(LudoGame game) {
         if (game.getStatus() != RoomStatus.PLAYING) return;
         cancelTurnTimeout(game.getRoomId());
@@ -566,6 +584,21 @@ public class LudoService {
         turnTimeouts.put(game.getRoomId(), future);
     }
 
+    /**
+     * Schedules only the timeout task (turnStartTime must already be set).
+     * Use this after manually setting turnStartTime but before broadcasting.
+     */
+    private void scheduleTimeoutOnly(LudoGame game) {
+        if (game.getStatus() != RoomStatus.PLAYING) return;
+        if (isBot(game.getActivePlayerId())) return;
+
+        ScheduledFuture<?> future = turnTimeoutScheduler.schedule(() -> {
+            handleTurnTimeout(game.getRoomId(), game.getActivePlayerId());
+        }, turnTimeoutSeconds, TimeUnit.SECONDS);
+
+        turnTimeouts.put(game.getRoomId(), future);
+    }
+
     private void handleTurnTimeout(String roomId, String timedOutPlayerId) {
         // Remove the triggered timer so a new one can be scheduled without being cancelled
         turnTimeouts.remove(roomId);
@@ -578,12 +611,17 @@ public class LudoService {
 
             LudoPlayer player = game.getPlayerById(timedOutPlayerId);
             if (player != null) {
-                removeUserGameMapping(player.getUserId());
+                String oldId = player.getUserId();
+
+                // Remove user-game mapping
+                removeUserGameMapping(oldId);
+
+                // Notify Menu service that player timed out
+                publishPlayerLeave(roomId, oldId, PlayerLeaveMessage.LeaveReason.TIMEOUT);
 
                 int nextBotNum = game.getBotCounter() + 1;
                 game.setBotCounter(nextBotNum);
 
-                String oldId = player.getUserId();
                 String botId = "bot-" + nextBotNum;
 
                 player.setUserId(botId);
@@ -647,6 +685,23 @@ public class LudoService {
 
         log.info("Sending timeout notification to player {} in room {}", playerId, roomId);
         messagingTemplate.convertAndSend("/topic/ludo/" + playerId + "/timeout", timeoutMessage);
+    }
+
+    /**
+     * Publishes a message to notify the Menu service that a player has left the game.
+     * This allows the Menu service to update the GameRoom accordingly (remove player, reassign host).
+     */
+    private void publishPlayerLeave(String roomId, String playerId, PlayerLeaveMessage.LeaveReason reason) {
+        if (roomId == null || playerId == null || isBot(playerId)) {
+            return;
+        }
+        try {
+            PlayerLeaveMessage message = new PlayerLeaveMessage(roomId, playerId, reason);
+            rabbitTemplate.convertAndSend(exchangeName, leaveRoutingKey, message);
+            log.info("Published player leave message for player {} in room {} (reason: {})", playerId, roomId, reason);
+        } catch (Exception e) {
+            log.error("Failed to publish player leave message for player {} in room {}", playerId, roomId, e);
+        }
     }
 
     // --- HELPER FUNCTIONS ---

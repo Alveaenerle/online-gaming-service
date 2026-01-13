@@ -13,6 +13,15 @@ import { LudoGameStateMessage } from "../components/Games/Ludo/types";
 import { NotificationType } from "../components/Games/Ludo/GameNotification";
 import { useAuth } from "./AuthContext";
 
+/** Message sent by backend when player is kicked due to timeout */
+interface PlayerTimeoutMessage {
+  roomId: string;
+  playerId: string;
+  replacedByBotId: string;
+  message: string;
+  type: "PLAYER_TIMEOUT";
+}
+
 interface LudoContextType {
   gameState: LudoGameStateMessage | null;
   isLoading: boolean;
@@ -20,10 +29,14 @@ interface LudoContextType {
   isMyTurn: boolean;
   notification: string;
   notificationType: NotificationType;
+  wasKickedByTimeout: boolean;
+  timeoutMessage: string | null;
   setGameNotification: (message: string, type: NotificationType) => void;
   rollDice: () => Promise<void>;
   movePawn: (pawnId: number) => Promise<void>;
   refreshGameState: () => Promise<void>;
+  clearTimeoutStatus: () => void;
+  resetState: () => void;
 }
 
 const LudoContext = createContext<LudoContextType | undefined>(undefined);
@@ -35,12 +48,15 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
   const [gameState, setGameState] = useState<LudoGameStateMessage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
+  const [wasKickedByTimeout, setWasKickedByTimeout] = useState(false);
+  const [timeoutMessage, setTimeoutMessage] = useState<string | null>(null);
 
   const [notification, setNotification] = useState("Welcome to Ludo!");
   const [notificationType, setNotificationType] =
     useState<NotificationType>("INFO");
 
   const subscriptionRef = useRef<string | null>(null);
+  const timeoutSubscriptionRef = useRef<string | null>(null);
 
   const setGameNotification = useCallback(
     (message: string, type: NotificationType) => {
@@ -49,6 +65,16 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
     },
     []
   );
+
+  const clearTimeoutStatus = useCallback(() => {
+    setWasKickedByTimeout(false);
+    setTimeoutMessage(null);
+  }, []);
+
+  const resetState = useCallback(() => {
+    setGameState(null);
+    clearTimeoutStatus();
+  }, [clearTimeoutStatus]);
 
   const handleGameUpdate = useCallback(
     (data: LudoGameStateMessage) => {
@@ -103,22 +129,49 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   useEffect(() => {
-    const gameId = gameState?.gameId;
-    if (!gameId || !user?.id) return;
+    if (!user?.id) return;
 
-    const topic = `/topic/game/${gameId}`;
-    if (subscriptionRef.current === topic) return;
+    // Subscribe to personal topic (like Makao does)
+    const topic = `/topic/ludo/${user.id}`;
+    const timeoutTopic = `/topic/ludo/${user.id}/timeout`;
 
     const startSocket = async () => {
       try {
         await ludoSocketService.connect();
-        if (subscriptionRef.current) {
-          ludoSocketService.unsubscribe(subscriptionRef.current);
+
+        // Subscribe to game state updates
+        if (subscriptionRef.current !== topic) {
+          if (subscriptionRef.current) {
+            ludoSocketService.unsubscribe(subscriptionRef.current);
+          }
+          ludoSocketService.subscribe(topic, handleGameUpdate);
+          subscriptionRef.current = topic;
+          console.log("[LudoGameContext] Subscribed to game state:", topic);
         }
-        ludoSocketService.subscribe(topic, handleGameUpdate);
-        subscriptionRef.current = topic;
+
+        // Subscribe to timeout notifications
+        if (timeoutSubscriptionRef.current !== timeoutTopic) {
+          if (timeoutSubscriptionRef.current) {
+            ludoSocketService.unsubscribe(timeoutSubscriptionRef.current);
+          }
+          ludoSocketService.subscribe(timeoutTopic, (data: PlayerTimeoutMessage) => {
+            console.log("[LudoGameContext] Received timeout notification:", data);
+            setWasKickedByTimeout(true);
+            setTimeoutMessage(data.message);
+          });
+          timeoutSubscriptionRef.current = timeoutTopic;
+          console.log("[LudoGameContext] Subscribed to timeout:", timeoutTopic);
+        }
+
+        // Request initial state
+        try {
+          await ludoService.requestState();
+          console.log("[LudoGameContext] Requested initial state");
+        } catch (err) {
+          console.warn("[LudoGameContext] Initial state request failed, will get via WebSocket");
+        }
       } catch (err) {
-        setGameNotification("Reconnecting...", "ERROR");
+        setGameNotification("Connection failed. Reconnecting...", "ERROR");
       }
     };
 
@@ -127,16 +180,17 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
     // Cleanup: unsubscribe when component unmounts or dependencies change
     return () => {
       if (subscriptionRef.current) {
-        console.log("[LudoGameContext] Cleaning up subscription:", subscriptionRef.current);
+        console.log("[LudoGameContext] Cleaning up game state subscription");
         ludoSocketService.unsubscribe(subscriptionRef.current);
         subscriptionRef.current = null;
       }
+      if (timeoutSubscriptionRef.current) {
+        console.log("[LudoGameContext] Cleaning up timeout subscription");
+        ludoSocketService.unsubscribe(timeoutSubscriptionRef.current);
+        timeoutSubscriptionRef.current = null;
+      }
     };
-  }, [gameState?.gameId, user?.id, handleGameUpdate, setGameNotification]);
-
-  useEffect(() => {
-    refreshGameState();
-  }, [refreshGameState]);
+  }, [user?.id, handleGameUpdate, setGameNotification]);
 
   return (
     <LudoContext.Provider
@@ -146,11 +200,15 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
         isRolling,
         notification,
         notificationType,
+        wasKickedByTimeout,
+        timeoutMessage,
         setGameNotification,
         isMyTurn: gameState?.currentPlayerId === user?.id,
         rollDice,
         movePawn,
         refreshGameState,
+        clearTimeoutStatus,
+        resetState,
       }}
     >
       {children}

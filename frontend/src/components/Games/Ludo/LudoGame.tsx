@@ -22,7 +22,6 @@ import {
 
 // Hooks
 import { useTurnTimer } from "./hooks/useTurnTimer";
-import { useLudoSocket } from "./hooks/useLudoSocket";
 
 // Context & Services
 import { useLudo } from "../../../context/LudoGameContext";
@@ -97,14 +96,10 @@ export function LudoArenaPage() {
     isRolling,
     notification,
     notificationType,
-  } = useLudo();
-
-  // WebSocket hook for timeout notifications (runs alongside context)
-  const {
     wasKickedByTimeout,
     clearTimeoutStatus,
-    resetState: resetSocketState,
-  } = useLudoSocket();
+    resetState,
+  } = useLudo();
 
   // Determine if current user is the host
   const isHost = currentLobby?.hostUserId === user?.id;
@@ -199,10 +194,10 @@ export function LudoArenaPage() {
       console.error("[LudoGame] Failed to notify backend of leave:", err);
       // Continue with navigation even if API call fails
     }
-    resetSocketState();
+    resetState();
     clearLobby();
     navigate("/ludo");
-  }, [resetSocketState, clearLobby, navigate]);
+  }, [resetState, clearLobby, navigate]);
 
   // Handle play again
   const handlePlayAgain = useCallback(() => {
@@ -607,7 +602,7 @@ export function LudoArenaPage() {
         onReturnToLobby={() => {
           setShowTimeoutModal(false);
           clearTimeoutStatus();
-          resetSocketState();
+          resetState();
           clearLobby();
           navigate("/home");
         }}

@@ -61,6 +61,7 @@ public class LudoServiceTest {
 
         ReflectionTestUtils.setField(ludoService, "exchangeName", "game.events");
         ReflectionTestUtils.setField(ludoService, "finishRoutingKey", "ludo.finish");
+        ReflectionTestUtils.setField(ludoService, "leaveRoutingKey", "player.leave");
     }
 
     @AfterMethod
