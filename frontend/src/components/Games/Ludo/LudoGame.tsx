@@ -609,7 +609,7 @@ export function LudoArenaPage() {
           clearTimeoutStatus();
           resetSocketState();
           clearLobby();
-          navigate("/ludo");
+          navigate("/home");
         }}
       />
 

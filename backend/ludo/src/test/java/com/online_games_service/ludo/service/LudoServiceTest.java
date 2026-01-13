@@ -97,7 +97,7 @@ public class LudoServiceTest {
         when(gameRepository.createGameIfAbsent(any(LudoGame.class))).thenReturn(true);
 
         // When
-        ludoService.createGame(roomId, List.of("p1", "p2"), "p1", Map.of("p1", "A", "p2", "B"), Map.of());
+        ludoService.createGame(roomId, List.of("p1", "p2"), "p1", Map.of("p1", "A", "p2", "B"), Map.of(), 2);
 
         // Then
         verify(gameRepository).createGameIfAbsent(argThat(g ->
@@ -109,7 +109,9 @@ public class LudoServiceTest {
         verify(stringValueOperations).set(eq(USER_GAME_PREFIX + "p1"), eq(roomId), any());
         verify(stringValueOperations).set(eq(USER_GAME_PREFIX + "p2"), eq(roomId), any());
 
-        verify(messagingTemplate).convertAndSend(eq("/topic/game/r1"), any(Object.class));
+        // Verify that state is sent to each human player's personal topic
+        verify(messagingTemplate).convertAndSend(eq("/topic/ludo/p1"), any(Object.class));
+        verify(messagingTemplate).convertAndSend(eq("/topic/ludo/p2"), any(Object.class));
         verify(scheduler).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
     }
 
@@ -119,7 +121,7 @@ public class LudoServiceTest {
         when(gameRepository.createGameIfAbsent(any(LudoGame.class))).thenReturn(false);
 
         // When
-        ludoService.createGame("r1", List.of("p1"), "p1", null, null);
+        ludoService.createGame("r1", List.of("p1"), "p1", null, null, 2);
 
         // Then
         verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
@@ -129,11 +131,27 @@ public class LudoServiceTest {
     @Test
     public void createGame_shouldNotFailIfPlayerListIsEmpty() {
         // Given & When
-        ludoService.createGame("r1", Collections.emptyList(), "host", null, null);
-        ludoService.createGame("r1", null, "host", null, null);
+        ludoService.createGame("r1", Collections.emptyList(), "host", null, null, 2);
+        ludoService.createGame("r1", null, "host", null, null, 2);
 
         // Then
         verify(gameRepository, never()).createGameIfAbsent(any());
+    }
+
+    @Test
+    public void createGame_shouldFillBotsWhenFewerHumansThanMaxPlayers() {
+        // Given
+        String roomId = "r1";
+        when(gameRepository.createGameIfAbsent(any(LudoGame.class))).thenReturn(true);
+
+        // When
+        ludoService.createGame(roomId, List.of("p1"), "p1", Map.of("p1", "Player1"), Map.of(), 4);
+
+        // Then
+        verify(gameRepository).createGameIfAbsent(argThat(g ->
+            g.getPlayers().size() == 4 &&
+            g.getPlayers().stream().filter(LudoPlayer::isBot).count() == 3
+        ));
     }
 
     @Test
@@ -626,6 +644,188 @@ public class LudoServiceTest {
         Assert.assertTrue(pawn.isInHome());
         Assert.assertEquals(pawn.getPosition(), -2);
         Assert.assertEquals(pawn.getStepsMoved(), 47);
+    }
+
+    @Test
+    public void handleTurnTimeout_shouldSendTimeoutNotification() {
+        // Given
+        LudoGame game = createGame("r1", "p1", "p2");
+        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+        when(gameRepository.save(any(LudoGame.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "handleTurnTimeout", "r1", "p1");
+
+        // Then
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/ludo/p1/timeout"),
+                any(Object.class)
+        );
+    }
+
+    @Test
+    public void notifyPlayerTimeout_shouldNotSendForBots() {
+        // Given - bot player
+        String botId = "bot-1";
+
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "notifyPlayerTimeout", botId, "r1", "bot-2");
+
+        // Then - should not send any message for bot
+        verify(messagingTemplate, never()).convertAndSend(contains("/timeout"), any(Object.class));
+    }
+
+    @Test
+    public void notifyPlayerTimeout_shouldNotSendForNullPlayerId() {
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "notifyPlayerTimeout", (String) null, "r1", "bot-1");
+
+        // Then
+        verify(messagingTemplate, never()).convertAndSend(contains("/timeout"), any(Object.class));
+    }
+
+    @Test
+    public void handleTurnTimeout_shouldSkipIfGameNotFound() {
+        // Given
+        when(gameRepository.findById("nonexistent")).thenReturn(Optional.empty());
+
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "handleTurnTimeout", "nonexistent", "p1");
+
+        // Then
+        verify(gameRepository, never()).save(any());
+        verify(messagingTemplate, never()).convertAndSend(contains("/timeout"), any(Object.class));
+    }
+
+    @Test
+    public void handleTurnTimeout_shouldSkipIfGameNotPlaying() {
+        // Given
+        LudoGame game = createGame("r1", "p1", "p2");
+        game.setStatus(RoomStatus.FINISHED);
+        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "handleTurnTimeout", "r1", "p1");
+
+        // Then
+        verify(gameRepository, never()).save(any());
+    }
+
+    @Test
+    public void handleTurnTimeout_shouldSkipIfDifferentActivePlayer() {
+        // Given
+        LudoGame game = createGame("r1", "p1", "p2");
+        game.setActivePlayerId("p2"); // Different player
+        when(gameRepository.findById("r1")).thenReturn(Optional.of(game));
+
+        // When
+        ReflectionTestUtils.invokeMethod(ludoService, "handleTurnTimeout", "r1", "p1");
+
+        // Then
+        verify(gameRepository, never()).save(any());
+    }
+
+    @Test
+    public void handlePlayerLeave_shouldReplaceWithBot() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+        when(gameRepository.save(any(LudoGame.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // When
+        ludoService.handlePlayerLeave(userId);
+
+        // Then
+        LudoPlayer replacedPlayer = game.getPlayers().get(0);
+        Assert.assertTrue(replacedPlayer.isBot());
+        Assert.assertTrue(replacedPlayer.getUserId().startsWith("bot-"));
+
+        verify(stringRedisTemplate).delete(USER_GAME_PREFIX + userId);
+    }
+
+    @Test
+    public void handlePlayerLeave_shouldNotProcessBots() {
+        // Given
+        String botId = "bot-1";
+
+        // When
+        ludoService.handlePlayerLeave(botId);
+
+        // Then
+        verify(gameRepository, never()).findById(anyString());
+    }
+
+    @Test
+    public void handlePlayerLeave_shouldHandlePlayerNotInGame() {
+        // Given
+        String userId = "unknown";
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(null);
+
+        // When
+        ludoService.handlePlayerLeave(userId);
+
+        // Then
+        verify(gameRepository, never()).findById(anyString());
+    }
+
+    @Test
+    public void handlePlayerLeave_shouldTriggerBotTurnIfActivePlayer() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+        game.setActivePlayerId(userId); // The leaving player is active
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+        when(gameRepository.save(any(LudoGame.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // When
+        ludoService.handlePlayerLeave(userId);
+
+        // Then
+        // Bot turn should be scheduled
+        verify(scheduler, atLeastOnce()).schedule(any(Runnable.class), anyLong(), any(TimeUnit.class));
+    }
+
+    @Test
+    public void getGameState_shouldReturnMappedDTO() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        var state = ludoService.getGameState(userId);
+
+        // Then
+        Assert.assertNotNull(state);
+        Assert.assertEquals(state.getGameId(), roomId);
+    }
+
+    @Test
+    public void requestStateForUser_shouldBroadcastState() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        ludoService.requestStateForUser(userId);
+
+        // Then - state is sent to each human player's personal topic
+        verify(messagingTemplate).convertAndSend(eq("/topic/ludo/" + userId), any(Object.class));
+        verify(messagingTemplate).convertAndSend(eq("/topic/ludo/p2"), any(Object.class));
     }
 
     private LudoGame createGame(String roomId, String p1, String p2) {

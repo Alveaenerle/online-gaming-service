@@ -112,7 +112,7 @@ const TimeoutModal: React.FC<TimeoutModalProps> = ({
                 onClick={onReturnToLobby}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-black uppercase tracking-widest shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-shadow"
               >
-                Return to Lobby
+                Exit
               </motion.button>
             </div>
           </motion.div>

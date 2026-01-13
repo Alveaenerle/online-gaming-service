@@ -3,6 +3,7 @@ package com.online_games_service.ludo.service;
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
 import com.online_games_service.ludo.dto.LudoGameStateMessage;
+import com.online_games_service.ludo.dto.PlayerTimeoutMessage;
 import com.online_games_service.ludo.enums.PlayerColor;
 import com.online_games_service.ludo.exception.GameLogicException;
 import com.online_games_service.ludo.exception.InvalidMoveException;
@@ -55,13 +56,14 @@ public class LudoService {
 
     // --- API FUNCTIONS ---
 
-    public void createGame(String roomId, List<String> playerIds, String hostUserId, Map<String, String> usernames, Map<String, String> avatars) {
+    public void createGame(String roomId, List<String> playerIds, String hostUserId, Map<String, String> usernames, Map<String, String> avatars, int maxPlayers) {
         if (playerIds == null || playerIds.isEmpty()) {
             log.warn("Cannot create Ludo game for room {}: playerIds is null or empty", roomId);
             return;
         }
 
-        LudoGame game = new LudoGame(roomId, playerIds, hostUserId, usernames);
+        // Use the new constructor with maxPlayers for bot filling
+        LudoGame game = new LudoGame(roomId, playerIds, hostUserId, usernames, maxPlayers);
 
         // Initialize avatars from lobby
         if (avatars != null && !avatars.isEmpty()) {
@@ -565,6 +567,8 @@ public class LudoService {
     }
 
     private void handleTurnTimeout(String roomId, String timedOutPlayerId) {
+        // Remove the triggered timer so a new one can be scheduled without being cancelled
+        turnTimeouts.remove(roomId);
         try {
             LudoGame game = gameRepository.findById(roomId).orElse(null);
             if (game == null || game.getStatus() != RoomStatus.PLAYING) return;
@@ -600,6 +604,9 @@ public class LudoService {
 
                 game.setActivePlayerId(botId);
 
+                // Notify the timed-out player before checking for humans
+                notifyPlayerTimeout(oldId, roomId, botId);
+
                 if (checkAndAbortIfNoHumans(game)) {
                     return;
                 }
@@ -619,6 +626,27 @@ public class LudoService {
         } catch (Exception e) {
             log.error("Error handling timeout", e);
         }
+    }
+
+    /**
+     * Sends a timeout notification to a player who was kicked due to inactivity.
+     * This message is sent directly to the player's personal topic so they receive it
+     * even though they are no longer in the game.
+     */
+    private void notifyPlayerTimeout(String playerId, String roomId, String replacedByBotId) {
+        if (playerId == null || isBot(playerId)) {
+            return;
+        }
+
+        PlayerTimeoutMessage timeoutMessage = new PlayerTimeoutMessage(
+                roomId,
+                playerId,
+                replacedByBotId,
+                "You have been replaced by a bot due to inactivity. You did not make a move within the time limit."
+        );
+
+        log.info("Sending timeout notification to player {} in room {}", playerId, roomId);
+        messagingTemplate.convertAndSend("/topic/ludo/" + playerId + "/timeout", timeoutMessage);
     }
 
     // --- HELPER FUNCTIONS ---
@@ -688,7 +716,12 @@ public class LudoService {
     private void saveAndBroadcast(LudoGame game, String capturedUserId) {
         gameRepository.save(game);
         LudoGameStateMessage msg = mapToDTO(game, capturedUserId);
-        messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
+        // Send to each human player's personal topic (like Makao does)
+        for (LudoPlayer player : game.getPlayers()) {
+            if (!player.isBot()) {
+                messagingTemplate.convertAndSend("/topic/ludo/" + player.getUserId(), msg);
+            }
+        }
     }
 
     private LudoGameStateMessage mapToDTO(LudoGame game, String capturedUserId) {

@@ -51,7 +51,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
     @Test
     public void shouldPersistGameInRedisAfterCreation() {
         // Given & When
-        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of());
+        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of(), 2);
 
         // Then
         Optional<LudoGame> gameOpt = redisRepository.findById(ROOM_ID);
@@ -67,7 +67,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
     @Test
     public void fullGameFlow_HappyPath() {
         // Given
-        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of());
+        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of(), 2);
 
         LudoGame game = redisRepository.findById(ROOM_ID).get();
         game.setDiceRolled(true);
@@ -89,7 +89,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
     @Test
     public void shouldSaveResultToMongoOnFinish() {
         // Given
-        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of());
+        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of(), 2);
 
         LudoGame game = redisRepository.findById(ROOM_ID).get();
         LudoPlayer winner = game.getPlayers().get(0);

@@ -26,39 +26,41 @@ const TurnTimerRing: React.FC<TurnTimerRingProps> = ({
   const isCritical = remainingSeconds <= 5;
 
   return (
-    <svg
-      className="absolute inset-0 -rotate-90"
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-    >
-      {/* Background ring */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="rgba(255,255,255,0.1)"
-        strokeWidth={4}
-      />
-      {/* Progress ring */}
-      <motion.circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6"}
-        strokeWidth={4}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        initial={{ strokeDashoffset: 0 }}
-        animate={{
-          strokeDashoffset,
-          stroke: isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6",
-        }}
-        transition={{ duration: 0.5, ease: "linear" }}
-      />
-    </svg>
+    <div className="absolute inset-0 flex items-center justify-center">
+      <svg
+        className="-rotate-90"
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+      >
+        {/* Background ring */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth={4}
+        />
+        {/* Progress ring */}
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6"}
+          strokeWidth={4}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: 0 }}
+          animate={{
+            strokeDashoffset,
+            stroke: isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6",
+          }}
+          transition={{ duration: 0.5, ease: "linear" }}
+        />
+      </svg>
+    </div>
   );
 };
 
@@ -244,10 +246,10 @@ export const CornerPlayerCard: React.FC<CornerPlayerCardProps> = ({
 
           {/* Avatar with Timer Ring */}
           <div
-            className="relative cursor-pointer"
+            className="relative w-[76px] h-[76px] cursor-pointer"
             onClick={handleClick}
           >
-            {/* Timer Ring */}
+            {/* Timer Ring - centered over avatar */}
             {showTimer && (
               <TurnTimerRing
                 remainingSeconds={turnRemainingSeconds!}
@@ -255,26 +257,28 @@ export const CornerPlayerCard: React.FC<CornerPlayerCardProps> = ({
               />
             )}
 
-            {/* Avatar Container */}
-            <div
-              className={`
-                w-[68px] h-[68px] rounded-full overflow-hidden
-                border-3 ${isActive ? styles.border : "border-white/20"}
-                ${isLowTime ? "animate-pulse" : ""}
-                transition-all duration-300
-              `}
-            >
-              <img
-                src={avatarUrl || `/avatars/avatar_1.png`}
-                alt={username}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = isBot
-                    ? "/avatars/bot_avatar.svg"
-                    : "/avatars/avatar_1.png";
-                }}
-              />
+            {/* Avatar Container - centered */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div
+                className={`
+                  w-[60px] h-[60px] rounded-full overflow-hidden
+                  border-3 ${isActive ? styles.border : "border-white/20"}
+                  ${isLowTime ? "animate-pulse" : ""}
+                  transition-all duration-300
+                `}
+              >
+                <img
+                  src={avatarUrl || `/avatars/avatar_1.png`}
+                  alt={username}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = isBot
+                      ? "/avatars/bot_avatar.svg"
+                      : "/avatars/avatar_1.png";
+                  }}
+                />
+              </div>
             </div>
 
             {/* Active Pulse Indicator */}
@@ -331,33 +335,6 @@ export const CornerPlayerCard: React.FC<CornerPlayerCardProps> = ({
             <span>•</span>
             <span>{pawnsOnBoard} ⚔️</span>
           </div>
-
-          {/* Timer Display (when active) */}
-          {showTimer && (
-            <motion.div
-              animate={
-                isCriticalTime
-                  ? { opacity: [1, 0.3, 1], scale: [1, 1.1, 1] }
-                  : isLowTime
-                  ? { opacity: [1, 0.5, 1] }
-                  : {}
-              }
-              transition={{ duration: 0.5, repeat: Infinity }}
-              className={`
-                absolute bottom-1 right-1 px-2 py-0.5 rounded-lg
-                text-xs font-mono font-black
-                ${
-                  isCriticalTime
-                    ? "bg-red-500/30 text-red-400 border border-red-500/50"
-                    : isLowTime
-                    ? "bg-orange-500/30 text-orange-400 border border-orange-500/50"
-                    : "bg-purple-500/30 text-purple-400 border border-purple-500/50"
-                }
-              `}
-            >
-              {turnRemainingSeconds}s
-            </motion.div>
-          )}
         </div>
       </motion.div>
     </motion.div>

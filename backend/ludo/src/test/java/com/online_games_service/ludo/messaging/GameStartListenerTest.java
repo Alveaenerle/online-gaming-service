@@ -45,7 +45,7 @@ public class GameStartListenerTest {
                 "room-1", "Room", GameType.LUDO,
                 Map.of("p1", "P1", "p2", "P2"),
                 Map.of("p1", "avatar_1.png", "p2", "avatar_2.png"),
-                2, "p1", "P1"
+                4, "p1", "P1"
         );
 
         when(repository.existsById("room-1")).thenReturn(false);
@@ -59,7 +59,8 @@ public class GameStartListenerTest {
                 any(),
                 eq("p1"),
                 any(),
-                any()
+                any(),
+                eq(4)
         );
     }
 
@@ -73,7 +74,7 @@ public class GameStartListenerTest {
         listener.handleGameStart(msg);
 
         // Then
-        verify(ludoService, never()).createGame(anyString(), any(), anyString(), any(), any());
+        verify(ludoService, never()).createGame(anyString(), any(), anyString(), any(), any(), anyInt());
     }
 
     @Test
@@ -83,5 +84,31 @@ public class GameStartListenerTest {
 
         // Then
         verify(repository, never()).existsById(anyString());
+    }
+
+    @Test
+    public void shouldPassMaxPlayersFromMessage() {
+        // Given
+        GameStartMessage msg = new GameStartMessage(
+                "room-2", "Room 2", GameType.LUDO,
+                Map.of("p1", "P1"),
+                Map.of("p1", "avatar_1.png"),
+                4, "p1", "P1"
+        );
+
+        when(repository.existsById("room-2")).thenReturn(false);
+
+        // When
+        listener.handleGameStart(msg);
+
+        // Then
+        verify(ludoService).createGame(
+                eq("room-2"),
+                any(),
+                eq("p1"),
+                any(),
+                any(),
+                eq(4)  // maxPlayers should be passed
+        );
     }
 }

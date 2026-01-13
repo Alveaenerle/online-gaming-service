@@ -24,39 +24,41 @@ const TurnTimerRing: React.FC<TurnTimerRingProps> = ({
   const isCritical = remainingSeconds <= 5;
 
   return (
-    <svg
-      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90"
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-    >
-      {/* Background ring */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={(size - 4) / 2}
-        fill="none"
-        stroke="rgba(255,255,255,0.1)"
-        strokeWidth={3}
-      />
-      {/* Progress ring */}
-      <motion.circle
-        cx={size / 2}
-        cy={size / 2}
-        r={(size - 4) / 2}
-        fill="none"
-        stroke={isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6"}
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={strokeDashoffset}
-        animate={{
-          strokeDashoffset,
-          stroke: isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6",
-        }}
-        transition={{ duration: 0.3, ease: "linear" }}
-      />
-    </svg>
+    <div className="absolute inset-0 flex items-center justify-center">
+      <svg
+        className="-rotate-90"
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+      >
+        {/* Background ring */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={(size - 4) / 2}
+          fill="none"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth={3}
+        />
+        {/* Progress ring */}
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={(size - 4) / 2}
+          fill="none"
+          stroke={isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6"}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          animate={{
+            strokeDashoffset,
+            stroke: isCritical ? "#ef4444" : isLow ? "#f97316" : "#8b5cf6",
+          }}
+          transition={{ duration: 0.3, ease: "linear" }}
+        />
+      </svg>
+    </div>
   );
 };
 
@@ -145,24 +147,26 @@ const Player = forwardRef<HTMLDivElement, PlayerProps>(
       >
         {/* Avatar with timer ring */}
         <div
-          className="relative cursor-pointer flex-shrink-0"
+          className="relative w-[52px] h-[52px] cursor-pointer flex-shrink-0"
           onClick={handleAvatarClick}
         >
           {showTimer && <TurnTimerRing remainingSeconds={turnRemainingSeconds!} size={52} />}
-          <div
-            className={`w-10 h-10 rounded-full overflow-hidden border-2 ${
-              player.isActive ? styles.border : "border-white/20"
-            } ${isLowTime ? "animate-pulse" : ""}`}
-          >
-            <img
-              src={player.avatarUrl || `/avatars/avatar_${Math.floor(Math.random() * 4) + 1}.png`}
-              alt={player.username}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = player.isBot ? "/avatars/bot_avatar.svg" : "/avatars/avatar_1.png";
-              }}
-            />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className={`w-10 h-10 rounded-full overflow-hidden border-2 ${
+                player.isActive ? styles.border : "border-white/20"
+              } ${isLowTime ? "animate-pulse" : ""}`}
+            >
+              <img
+                src={player.avatarUrl || `/avatars/avatar_${Math.floor(Math.random() * 4) + 1}.png`}
+                alt={player.username}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = player.isBot ? "/avatars/bot_avatar.svg" : "/avatars/avatar_1.png";
+                }}
+              />
+            </div>
           </div>
 
           {/* Active indicator */}
@@ -193,23 +197,6 @@ const Player = forwardRef<HTMLDivElement, PlayerProps>(
             <span>{player.pawnsInHome}/4 home</span>
           </div>
         </div>
-
-        {/* Timer display */}
-        {showTimer && (
-          <motion.div
-            animate={isLowTime ? { opacity: [1, 0.5, 1] } : {}}
-            transition={{ duration: 0.5, repeat: Infinity }}
-            className={`text-sm font-mono font-bold ${
-              turnRemainingSeconds! <= 5
-                ? "text-red-400"
-                : turnRemainingSeconds! <= 10
-                ? "text-orange-400"
-                : "text-gray-400"
-            }`}
-          >
-            {turnRemainingSeconds}s
-          </motion.div>
-        )}
       </motion.div>
     );
   }

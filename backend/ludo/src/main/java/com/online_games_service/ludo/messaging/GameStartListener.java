@@ -41,7 +41,8 @@ public class GameStartListener {
                 playerIds,
                 message.hostUserId(),
                 message.players(),
-                message.playerAvatars()
+                message.playerAvatars(),
+                message.maxPlayers()
         );
 
         log.info("Created Ludo game {}", roomId);
