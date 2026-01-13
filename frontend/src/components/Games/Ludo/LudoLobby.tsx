@@ -123,7 +123,7 @@ export function LudoLobby() {
 
       <LobbyPlayersSection
         players={lobby.players}
-        maxPlayers={4}
+        maxPlayers={lobby.maxPlayers}
         onAvatarSelect={setAvatarSelectFor}
         onToggleReady={handleToggleReady}
         isHost={isHost}

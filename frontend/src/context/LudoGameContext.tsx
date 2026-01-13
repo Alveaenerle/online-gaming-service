@@ -123,6 +123,15 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     startSocket();
+
+    // Cleanup: unsubscribe when component unmounts or dependencies change
+    return () => {
+      if (subscriptionRef.current) {
+        console.log("[LudoGameContext] Cleaning up subscription:", subscriptionRef.current);
+        ludoSocketService.unsubscribe(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+    };
   }, [gameState?.gameId, user?.id, handleGameUpdate, setGameNotification]);
 
   useEffect(() => {

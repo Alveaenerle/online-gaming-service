@@ -123,7 +123,7 @@ export function LudoArenaPage() {
 
   // Game status flags
   const isGameOver = gameState?.status === RoomStatus.FINISHED || !!gameState?.winnerId;
-  const isGamePlaying = gameState?.status === RoomStatus.IN_GAME;
+  const isGamePlaying = gameState?.status === RoomStatus.PLAYING;
 
   // Determine if active player is a bot
   const activePlayer = gameState?.players.find(p => p.userId === gameState?.currentPlayerId);
@@ -435,7 +435,11 @@ export function LudoArenaPage() {
                     }`}
                   >
                     <img
-                      src={`/avatars/avatar_${(gameState.players.findIndex(p => p.userId === gameState.currentPlayerId) % 4) + 1}.png`}
+                      src={getAvatarUrl(
+                        gameState.playersAvatars?.[gameState.currentPlayerId],
+                        gameState.currentPlayerId,
+                        isActivePlayerBot
+                      )}
                       alt="Active Player"
                       className="w-full h-full object-cover"
                       onError={(e) => {

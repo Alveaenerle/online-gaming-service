@@ -2,7 +2,8 @@ import { Color } from "./Board/constants";
 
 export enum RoomStatus {
   WAITING = "WAITING",
-  IN_GAME = "IN_GAME",
+  FULL = "FULL",
+  PLAYING = "PLAYING",
   FINISHED = "FINISHED",
 }
 

@@ -182,7 +182,7 @@ export function Pawn({
             <motion.div
               initial={{ opacity: 0, y: 0 }}
               animate={{ opacity: 1, y: -35 }}
-              className="absolute whitespace-nowrap bg-white text-slate-900 text-[10px] px-2 py-0.5 rounded-md font-black shadow-xl border border-white"
+              className="absolute whitespace-nowrap bg-white text-slate-900 text-[10px] px-2 py-0.5 rounded-md font-black shadow-xl border border-white z-[200]"
             >
               {diceValue}
             </motion.div>
