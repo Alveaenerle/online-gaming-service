@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -92,7 +92,7 @@ const InfoRow: React.FC<InfoRowProps> = ({ icon: Icon, label, value }) => (
 );
 
 const Dashboard: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const { showToast } = useToast();
   const isGuest = user?.isGuest ?? false;
 
@@ -102,6 +102,22 @@ const Dashboard: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Fetch user email on mount
+  useEffect(() => {
+    const fetchEmail = async () => {
+      if (!isGuest && user) {
+        try {
+          const email = await authService.getUserEmail();
+          setUserEmail(email);
+        } catch (error) {
+          console.error("Failed to fetch email:", error);
+        }
+      }
+    };
+    fetchEmail();
+  }, [isGuest, user]);
 
   const handleUpdateUsername = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,10 +162,15 @@ const Dashboard: React.FC = () => {
     setIsUpdatingPassword(true);
     try {
       await authService.updatePassword(currentPassword, newPassword);
-      showToast("Password updated successfully!", "success");
+      showToast("Password updated successfully! Logging out...", "success");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+
+      // Log out after successful password change
+      setTimeout(async () => {
+        await logout();
+      }, 3000);
     } catch (error: any) {
       showToast(error.message || "Failed to update password", "error");
     } finally {
@@ -243,7 +264,7 @@ const Dashboard: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <InfoRow icon={Mail} label="Email" value="(Hidden for privacy)" />
+                  <InfoRow icon={Mail} label="Email" value={userEmail || "Loading..."} />
                   <InfoRow icon={Calendar} label="Member Since" value={joiningDate} />
                 </>
               )}

@@ -93,4 +93,10 @@ public class AuthService {
         account.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         accountRepository.save(account);
     }
+
+    public String getUserEmail(String userId) {
+        Account account = accountRepository.findByUserId(userId)
+            .orElseThrow(() -> new InvalidCredentialsException("Account not found"));
+        return account.getEmail();
+    }
 }

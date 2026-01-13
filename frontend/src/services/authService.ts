@@ -163,4 +163,18 @@ export const authService = {
       throw new Error(errorMessage);
     }
   },
+
+  async getUserEmail(): Promise<string> {
+    const response = await fetch(`${API_BASE_URL}/email`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response, 'Failed to retrieve email.');
+      throw new Error(errorMessage);
+    }
+
+    return response.text();
+  },
 };

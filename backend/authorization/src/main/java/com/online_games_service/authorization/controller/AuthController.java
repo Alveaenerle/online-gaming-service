@@ -157,4 +157,29 @@ public class AuthController {
             return ResponseEntity.internalServerError().body("An unexpected error occurred");
         }
     }
+
+    @GetMapping("/email")
+    public ResponseEntity<?> getUserEmail(HttpServletRequest request) {
+        User user = sessionService.getUserFromCookie(request);
+        if (user == null) {
+            log.debug("No active session found for /email request");
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        if (user.isGuest()) {
+            log.debug("Guest user requested email");
+            return ResponseEntity.status(403).body("Guest accounts do not have email");
+        }
+
+        try {
+            String email = authService.getUserEmail(user.getId());
+            return ResponseEntity.ok(email);
+        } catch (InvalidCredentialsException e) {
+            log.warn("Email retrieval failed for user {}: {}", user.getId(), e.getMessage());
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during email retrieval", e);
+            return ResponseEntity.internalServerError().body("An unexpected error occurred");
+        }
+    }
 }
