@@ -18,6 +18,7 @@ import PrivacyPage from "./components/Pages/PrivacyPage";
 import TermsPage from "./components/Pages/TermsPage";
 import SupportPage from "./components/Pages/SupportPage";
 import GamesLibrary from "./components/Games/GamesLibrary";
+import Dashboard from "./components/Dashboard/Dashboard";
 
 import { SocialProvider } from "./context/SocialContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -47,6 +48,14 @@ const App: React.FC = () => {
               element={
                 <RequireAuth>
                   <Home />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireAuth>
+                  <Dashboard />
                 </RequireAuth>
               }
             />
