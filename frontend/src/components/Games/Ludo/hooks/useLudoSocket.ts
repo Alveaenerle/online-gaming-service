@@ -104,8 +104,10 @@ export const useLudoSocket = (): UseLudoSocketReturn => {
     const timeoutTopic = `/topic/ludo/${user.id}/timeout`;
 
     try {
-      console.log("[Ludo WS] Creating SockJS connection...");
-      const socket = new SockJS("http://localhost/api/ludo/ws");
+      // Build WebSocket URL - use env var or current origin for production
+      const wsUrl = import.meta.env.VITE_LUDO_WS_URL || `${window.location.origin}/api/ludo/ws`;
+      console.log(`[Ludo WS] Creating SockJS connection to ${wsUrl}...`);
+      const socket = new SockJS(wsUrl);
       const client = StompJs.over(socket);
 
       // Disable verbose STOMP debug logs but keep our custom ones

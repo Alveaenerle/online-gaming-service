@@ -1,6 +1,14 @@
 import SockJS from "sockjs-client";
 import * as StompJs from "stompjs";
 
+// Build WebSocket URL - use env var or current origin to ensure correct protocol (http/https)
+const getWsUrl = () => {
+  if (import.meta.env.VITE_LUDO_WS_URL) {
+    return import.meta.env.VITE_LUDO_WS_URL;
+  }
+  return `${window.location.origin}/api/ludo/ws`;
+};
+
 class LudoSocketService {
   private client: StompJs.Client | null = null;
   private subscriptions: Map<string, StompJs.Subscription> = new Map();
@@ -9,7 +17,7 @@ class LudoSocketService {
     return new Promise((resolve, reject) => {
       if (this.client?.connected) return resolve();
 
-      const socket = new SockJS("http://localhost/api/ludo/ws");
+      const socket = new SockJS(getWsUrl());
       this.client = StompJs.over(socket);
       this.client.debug = () => {};
 
