@@ -6,6 +6,7 @@ import com.online_games_service.authorization.dto.UpdateUsernameRequest;
 import com.online_games_service.authorization.dto.UpdatePasswordRequest;
 import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
 import com.online_games_service.authorization.exception.InvalidCredentialsException;
+import com.online_games_service.authorization.exception.UsernameAlreadyExistsException;
 import com.online_games_service.authorization.model.Account;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.repository.AccountRepository;
@@ -179,6 +180,7 @@ public class AuthServiceTest {
         Account account = new Account("test@test.com", "hash", userId, "oldUser");
 
         when(accountRepository.findByUserId(userId)).thenReturn(Optional.of(account));
+        when(accountRepository.existsByUsername(newUsername)).thenReturn(false);
         when(accountRepository.save(any(Account.class))).thenReturn(account);
 
         // When
@@ -193,6 +195,43 @@ public class AuthServiceTest {
         ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
         verify(accountRepository).save(accountCaptor.capture());
         Assert.assertEquals(accountCaptor.getValue().getUsername(), newUsername);
+    }
+
+    @Test
+    public void shouldAllowKeepingSameUsername() {
+        // Given
+        String userId = "user-123";
+        String sameUsername = "existingUser";
+        UpdateUsernameRequest request = new UpdateUsernameRequest(sameUsername);
+        Account account = new Account("test@test.com", "hash", userId, sameUsername);
+
+        when(accountRepository.findByUserId(userId)).thenReturn(Optional.of(account));
+        when(accountRepository.save(any(Account.class))).thenReturn(account);
+
+        // When - should NOT throw even if existsByUsername would return true (because it's the same user)
+        User result = authService.updateUsername(userId, request);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertEquals(result.getUsername(), sameUsername);
+        verify(accountRepository, never()).existsByUsername(sameUsername);
+    }
+
+    @Test(expectedExceptions = UsernameAlreadyExistsException.class)
+    public void shouldThrowExceptionWhenUsernameAlreadyTaken() {
+        // Given
+        String userId = "user-123";
+        String takenUsername = "takenUser";
+        UpdateUsernameRequest request = new UpdateUsernameRequest(takenUsername);
+        Account account = new Account("test@test.com", "hash", userId, "oldUser");
+
+        when(accountRepository.findByUserId(userId)).thenReturn(Optional.of(account));
+        when(accountRepository.existsByUsername(takenUsername)).thenReturn(true);
+
+        // When
+        authService.updateUsername(userId, request);
+
+        // Then - expects exception
     }
 
     @Test(expectedExceptions = InvalidCredentialsException.class)

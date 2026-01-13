@@ -175,6 +175,7 @@ export const authService = {
       throw new Error(errorMessage);
     }
 
-    return response.text();
+    const data = await response.json();
+    return data.email;
   },
 };

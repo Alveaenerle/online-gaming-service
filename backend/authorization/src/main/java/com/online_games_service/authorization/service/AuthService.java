@@ -6,6 +6,7 @@ import com.online_games_service.authorization.dto.UpdateUsernameRequest;
 import com.online_games_service.authorization.dto.UpdatePasswordRequest;
 import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
 import com.online_games_service.authorization.exception.InvalidCredentialsException;
+import com.online_games_service.authorization.exception.UsernameAlreadyExistsException;
 import com.online_games_service.authorization.model.Account;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.repository.AccountRepository;
@@ -71,7 +72,13 @@ public class AuthService {
         Account account = accountRepository.findByUserId(userId)
             .orElseThrow(() -> new InvalidCredentialsException("Account not found"));
 
-        account.setUsername(request.getNewUsername());
+        // Check if the new username is already taken by another user
+        String newUsername = request.getNewUsername();
+        if (!account.getUsername().equals(newUsername) && accountRepository.existsByUsername(newUsername)) {
+            throw new UsernameAlreadyExistsException("Username is already taken");
+        }
+
+        account.setUsername(newUsername);
         accountRepository.save(account);
 
         return new User(

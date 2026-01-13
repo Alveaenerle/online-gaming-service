@@ -4,8 +4,10 @@ import com.online_games_service.authorization.dto.LoginRequest;
 import com.online_games_service.authorization.dto.RegisterRequest;
 import com.online_games_service.authorization.dto.UpdateUsernameRequest;
 import com.online_games_service.authorization.dto.UpdatePasswordRequest;
+import com.online_games_service.authorization.dto.EmailResponse;
 import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
 import com.online_games_service.authorization.exception.InvalidCredentialsException;
+import com.online_games_service.authorization.exception.UsernameAlreadyExistsException;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.service.AuthService;
 import com.online_games_service.authorization.service.SessionService;
@@ -122,6 +124,9 @@ public class AuthController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
                     .body(updatedUser);
+        } catch (UsernameAlreadyExistsException e) {
+            log.warn("Username update failed for user {}: username already taken", user.getId());
+            return ResponseEntity.status(409).body("{\"error\": \"Username is already taken\"}");
         } catch (InvalidCredentialsException e) {
             log.warn("Username update failed for user {}: {}", user.getId(), e.getMessage());
             return ResponseEntity.status(404).body(e.getMessage());
@@ -147,8 +152,15 @@ public class AuthController {
         log.info("Attempting to update password for user: {}", user.getId());
         try {
             authService.updatePassword(user.getId(), updateRequest);
+
+            // Invalidate current session after password change for security
+            sessionService.deleteSession(request);
+            ResponseCookie cleanCookie = sessionService.getCleanSessionCookie();
+
             log.info("Password updated successfully for user: {}", user.getId());
-            return ResponseEntity.ok("Password updated successfully");
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
+                    .body("Password updated successfully");
         } catch (InvalidCredentialsException e) {
             log.warn("Password update failed for user {}: {}", user.getId(), e.getMessage());
             return ResponseEntity.status(400).body(e.getMessage());
@@ -173,7 +185,7 @@ public class AuthController {
 
         try {
             String email = authService.getUserEmail(user.getId());
-            return ResponseEntity.ok(email);
+            return ResponseEntity.ok(new EmailResponse(email));
         } catch (InvalidCredentialsException e) {
             log.warn("Email retrieval failed for user {}: {}", user.getId(), e.getMessage());
             return ResponseEntity.status(404).body(e.getMessage());

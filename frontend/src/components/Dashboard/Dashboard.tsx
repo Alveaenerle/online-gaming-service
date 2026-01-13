@@ -352,6 +352,7 @@ const Dashboard: React.FC = () => {
                         onChange={(e) => setNewUsername(e.target.value)}
                         placeholder="Enter new username"
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
                         minLength={3}
                         maxLength={20}
                       />
@@ -392,6 +393,7 @@ const Dashboard: React.FC = () => {
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="Enter current password"
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
                       />
                     </div>
                     <div>
@@ -404,6 +406,7 @@ const Dashboard: React.FC = () => {
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Enter new password"
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
                         minLength={6}
                       />
                     </div>
@@ -417,6 +420,7 @@ const Dashboard: React.FC = () => {
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Confirm new password"
                         className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        required
                         minLength={6}
                       />
                     </div>
