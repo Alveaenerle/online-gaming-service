@@ -11,6 +11,7 @@ interface PlayerResult {
   pawnsInHome: number;
   isWinner: boolean;
   isMe: boolean;
+  avatarUrl: string;
 }
 
 interface GameOverModalProps {
@@ -62,13 +63,14 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
   onExitToMenu,
 }) => {
   // Build player results with ranking info
-  const playerResults: PlayerResult[] = players.map((player) => ({
+  const playerResults: PlayerResult[] = players.map((player, index) => ({
     id: player.userId,
     username: usernames[player.userId] || "Unknown",
     color: player.color,
     pawnsInHome: player.pawns.filter((p) => p.inHome).length,
     isWinner: player.userId === winnerId,
     isMe: player.userId === myUserId,
+    avatarUrl: `/avatars/avatar_${(index % 4) + 1}.png`,
   }));
 
   // Sort by winner first, then by pawns in home
@@ -179,6 +181,20 @@ const GameOverModal: React.FC<GameOverModalProps> = ({
             >
               <div className="flex items-center gap-3">
                 <span className="text-xl w-8">{getPlacementEmoji(index)}</span>
+
+                {/* Avatar */}
+                <div className={`w-10 h-10 rounded-full overflow-hidden border-2 ${colorStyles[player.color].border}`}>
+                  <img
+                    src={player.avatarUrl}
+                    alt={player.username}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "/avatars/avatar_1.png";
+                    }}
+                  />
+                </div>
+
                 <div className="flex flex-col">
                   <span className={`font-bold ${colorStyles[player.color].text}`}>
                     {player.username}

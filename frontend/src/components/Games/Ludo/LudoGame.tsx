@@ -16,9 +16,8 @@ import {
   TimeoutModal,
   GameOverModal,
   DiceWidget,
-  Player,
-  LudoPlayerViewProps,
-  PlayerPosition
+  CornerPlayerCard,
+  CornerPlayerCardProps,
 } from "./components";
 
 // Hooks
@@ -39,45 +38,29 @@ import { RoomStatus, LudoPlayer } from "./types";
 // ============================================
 
 /**
- * Distributes players around the game table based on count
- * Similar to Makao's distributePlayersAroundTable
+ * Builds player views for corner positioning based on player color
+ * Red = top-left, Blue = top-right, Yellow = bottom-right, Green = bottom-left
  */
-function distributePlayersAroundTable(
+function buildCornerPlayers(
   players: LudoPlayer[],
   usernames: Record<string, string>,
   currentUserId: string,
-  currentPlayerId: string
-): { me: LudoPlayerViewProps | null; others: Array<LudoPlayerViewProps & { position: PlayerPosition }> } {
-  const playerViews: LudoPlayerViewProps[] = players.map((p) => ({
+  currentPlayerId: string,
+  hostUserId?: string
+): CornerPlayerCardProps[] {
+  return players.map((p, index) => ({
     id: p.userId,
     username: usernames[p.userId] || "Unknown",
     color: p.color,
     isActive: p.userId === currentPlayerId,
     isBot: p.isBot,
+    isHost: p.userId === hostUserId,
+    isMe: p.userId === currentUserId,
     pawnsInBase: p.pawns.filter((pawn) => pawn.inBase).length,
     pawnsOnBoard: p.pawns.filter((pawn) => !pawn.inBase && !pawn.inHome).length,
     pawnsInHome: p.pawns.filter((pawn) => pawn.inHome).length,
-    avatarUrl: `/avatars/avatar_${(players.indexOf(p) % 4) + 1}.png`,
+    avatarUrl: `/avatars/avatar_${(index % 4) + 1}.png`,
   }));
-
-  const me = playerViews.find((p) => p.id === currentUserId) || null;
-  const othersRaw = playerViews.filter((p) => p.id !== currentUserId);
-
-  // Position mapping based on player count
-  const positionMaps: Record<number, PlayerPosition[]> = {
-    1: ["top"],
-    2: ["top-left", "top-right"],
-    3: ["top-left", "top", "top-right"],
-  };
-
-  const positions = positionMaps[othersRaw.length] || ["top-left", "top", "top-right"];
-
-  const others = othersRaw.map((player, index) => ({
-    ...player,
-    position: positions[index % positions.length],
-  }));
-
-  return { me, others };
 }
 
 // ============================================
@@ -129,18 +112,24 @@ export function LudoArenaPage() {
     isGamePlaying,
   });
 
-  // Build player views for positioning around the table
-  const { me, others } = useMemo(() => {
+  // Build corner player views (positioned by color)
+  const cornerPlayers = useMemo(() => {
     if (!gameState || !user?.id) {
-      return { me: null, others: [] };
+      return [];
     }
-    return distributePlayersAroundTable(
+    return buildCornerPlayers(
       gameState.players,
       gameState.usernames,
       user.id,
-      gameState.currentPlayerId
+      gameState.currentPlayerId,
+      currentLobby?.hostUserId
     );
-  }, [gameState, user?.id]);
+  }, [gameState, user?.id, currentLobby?.hostUserId]);
+
+  // Get current user's player data
+  const myPlayer = useMemo(() => {
+    return cornerPlayers.find((p) => p.isMe) || null;
+  }, [cornerPlayers]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -292,60 +281,18 @@ export function LudoArenaPage() {
                 onClose={() => setShowMessage(false)}
               />
 
-              {/* Other Players - Positioned around the top of the table */}
-              {/* Top Position */}
-              {others.filter((p) => p.position === "top").length > 0 && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-3 z-20">
-                  {others
-                    .filter((p) => p.position === "top")
-                    .map((player) => (
-                      <Player
-                        key={player.id}
-                        player={player}
-                        position={player.position}
-                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
-                        onPlayerClick={handlePlayerClick}
-                      />
-                    ))}
-                </div>
-              )}
-
-              {/* Top-Left Position */}
-              {others.filter((p) => p.position === "top-left").length > 0 && (
-                <div className="absolute top-4 left-4 flex gap-2 z-20">
-                  {others
-                    .filter((p) => p.position === "top-left")
-                    .map((player) => (
-                      <Player
-                        key={player.id}
-                        player={player}
-                        position={player.position}
-                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
-                        onPlayerClick={handlePlayerClick}
-                      />
-                    ))}
-                </div>
-              )}
-
-              {/* Top-Right Position */}
-              {others.filter((p) => p.position === "top-right").length > 0 && (
-                <div className="absolute top-4 right-4 flex gap-2 z-20">
-                  {others
-                    .filter((p) => p.position === "top-right")
-                    .map((player) => (
-                      <Player
-                        key={player.id}
-                        player={player}
-                        position={player.position}
-                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
-                        onPlayerClick={handlePlayerClick}
-                      />
-                    ))}
-                </div>
-              )}
+              {/* Corner Player Cards - Positioned by Color */}
+              {cornerPlayers.map((player) => (
+                <CornerPlayerCard
+                  key={player.id}
+                  {...player}
+                  turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                  onPlayerClick={handlePlayerClick}
+                />
+              ))}
 
               {/* Center - Ludo Board */}
-              <div className="absolute inset-0 flex items-center justify-center p-12">
+              <div className="absolute inset-0 flex items-center justify-center p-16">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -364,66 +311,6 @@ export function LudoArenaPage() {
                   />
                 </motion.div>
               </div>
-
-              {/* My Player Dashboard - Bottom */}
-              {me && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-                  <motion.div
-                    layout
-                    className={`px-6 py-3 rounded-2xl transition-all duration-300 ${
-                      isMyTurn
-                        ? "bg-purple-500/20 border-2 border-purple-500 shadow-lg shadow-purple-500/30"
-                        : "bg-black/60 border border-white/10"
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* Avatar */}
-                      <div className={`w-12 h-12 rounded-full border-2 overflow-hidden ${
-                        isMyTurn ? "border-purple-500" : "border-white/20"
-                      }`}>
-                        <img
-                          src={me.avatarUrl || "/avatars/avatar_1.png"}
-                          alt={me.username}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      {/* Info */}
-                      <div>
-                        <p className={`font-bold ${me.isActive ? "text-purple-400" : "text-white"}`}>
-                          {me.username}
-                          <span className="text-xs text-gray-500 ml-2">(You)</span>
-                        </p>
-                        <div className="flex items-center gap-3 text-xs text-gray-400">
-                          <span className={`font-bold ${
-                            me.color === "RED" ? "text-red-400" :
-                            me.color === "BLUE" ? "text-blue-400" :
-                            me.color === "YELLOW" ? "text-yellow-400" :
-                            "text-green-400"
-                          }`}>
-                            {me.color}
-                          </span>
-                          <span>•</span>
-                          <span>{me.pawnsInHome}/4 Home</span>
-                          <span>•</span>
-                          <span>{me.pawnsOnBoard} Active</span>
-                        </div>
-                      </div>
-
-                      {/* Turn indicator */}
-                      {isMyTurn && (
-                        <motion.div
-                          animate={{ scale: [1, 1.2, 1] }}
-                          transition={{ repeat: Infinity, duration: 1.5 }}
-                          className="ml-4 px-3 py-1 bg-purple-500 rounded-full text-xs font-bold text-white"
-                        >
-                          YOUR TURN
-                        </motion.div>
-                      )}
-                    </div>
-                  </motion.div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -480,14 +367,18 @@ export function LudoArenaPage() {
                         cy={18}
                         r={16}
                         fill="none"
-                        stroke={turnRemainingSeconds <= 5 ? "#ef4444" : turnRemainingSeconds <= 10 ? "#f97316" : "#8b5cf6"}
+                        stroke={turnRemainingSeconds <= 5 ? "#ef4444" : turnRemainingSeconds <= 10 ? "#f97316" :
+                          gameState.currentPlayerColor === "RED" ? "#ef4444" :
+                          gameState.currentPlayerColor === "BLUE" ? "#3b82f6" :
+                          gameState.currentPlayerColor === "YELLOW" ? "#eab308" :
+                          gameState.currentPlayerColor === "GREEN" ? "#22c55e" : "#8b5cf6"
+                        }
                         strokeWidth={2.5}
                         strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 16}
                         strokeDashoffset={(2 * Math.PI * 16) * (1 - Math.max(0, Math.min(1, turnRemainingSeconds / 60)))}
                         animate={{
                           strokeDashoffset: (2 * Math.PI * 16) * (1 - Math.max(0, Math.min(1, turnRemainingSeconds / 60))),
-                          stroke: turnRemainingSeconds <= 5 ? "#ef4444" : turnRemainingSeconds <= 10 ? "#f97316" : "#8b5cf6",
                         }}
                         transition={{ duration: 0.3, ease: "linear" }}
                       />
@@ -499,7 +390,10 @@ export function LudoArenaPage() {
                         ? "border-red-500"
                         : isActivePlayerBot
                         ? "border-cyan-500"
-                        : "border-purple-500"
+                        : gameState.currentPlayerColor === "RED" ? "border-red-500" :
+                          gameState.currentPlayerColor === "BLUE" ? "border-blue-500" :
+                          gameState.currentPlayerColor === "YELLOW" ? "border-yellow-500" :
+                          gameState.currentPlayerColor === "GREEN" ? "border-green-500" : "border-purple-500"
                     }`}
                   >
                     <img
@@ -516,14 +410,29 @@ export function LudoArenaPage() {
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">
+                  <p className={`text-sm font-medium truncate ${
+                    isMyTurn ? "text-white" :
+                    gameState.currentPlayerColor === "RED" ? "text-red-400" :
+                    gameState.currentPlayerColor === "BLUE" ? "text-blue-400" :
+                    gameState.currentPlayerColor === "YELLOW" ? "text-yellow-400" :
+                    gameState.currentPlayerColor === "GREEN" ? "text-green-400" : "text-white"
+                  }`}>
                     {isMyTurn
                       ? "Your Turn"
                       : gameState.usernames[gameState.currentPlayerId] || "Unknown"}
                   </p>
-                  <p className="text-[10px] text-gray-500">
-                    {isMyTurn ? "Roll dice or move pawn" : isActivePlayerBot ? "Bot thinking..." : "Waiting..."}
-                  </p>
+                  <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                    <span className={`font-bold ${
+                      gameState.currentPlayerColor === "RED" ? "text-red-400" :
+                      gameState.currentPlayerColor === "BLUE" ? "text-blue-400" :
+                      gameState.currentPlayerColor === "YELLOW" ? "text-yellow-400" :
+                      gameState.currentPlayerColor === "GREEN" ? "text-green-400" : "text-gray-400"
+                    }`}>
+                      {gameState.currentPlayerColor}
+                    </span>
+                    <span>•</span>
+                    <span>{isMyTurn ? "Roll dice or move pawn" : isActivePlayerBot ? "Bot thinking..." : "Waiting..."}</span>
+                  </div>
                 </div>
                 {/* Timer display */}
                 {turnRemainingSeconds != null && !isActivePlayerBot ? (
