@@ -9,7 +9,7 @@ def buildAndDeploy(imageName, contextDir, moduleName = null) {
     }
 
     sh """
-        docker build \
+        DOCKER_BUILDKIT=1 docker build \
         -t ${fullImageName}:${gitCommit} \
         -t ${fullImageName}:latest \
         --target production \
