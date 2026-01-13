@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -9,7 +10,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, loginAsGuest } = useAuth();
+  const { login, loginAsGuest, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,6 +39,23 @@ const Login: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credential: string) => {
+    setError("");
+    setIsLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      navigate("/home");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google login failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError("Google login failed. Please try again.");
   };
 
   return (
@@ -130,6 +148,21 @@ const Login: React.FC = () => {
             {isLoading ? "Logging in..." : "Log in"}
           </motion.button>
         </form>
+
+        <div className="mt-6 flex items-center gap-4">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-gray-400 text-sm">or continue with</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+
+        <div className="mt-4">
+          <GoogleSignInButton
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            text="signin"
+            disabled={isLoading}
+          />
+        </div>
 
         <motion.button
           onClick={handleGuestLogin}

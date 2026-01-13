@@ -1,13 +1,16 @@
 package com.online_games_service.authorization.service;
 
+import com.online_games_service.authorization.dto.GoogleUserInfo;
 import com.online_games_service.authorization.dto.LoginRequest;
 import com.online_games_service.authorization.dto.RegisterRequest;
 import com.online_games_service.authorization.dto.UpdateUsernameRequest;
 import com.online_games_service.authorization.dto.UpdatePasswordRequest;
 import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
 import com.online_games_service.authorization.exception.InvalidCredentialsException;
+import com.online_games_service.authorization.exception.OAuthAccountException;
 import com.online_games_service.authorization.exception.UsernameAlreadyExistsException;
 import com.online_games_service.authorization.model.Account;
+import com.online_games_service.authorization.model.AuthProvider;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.repository.AccountRepository;
 import org.mockito.ArgumentCaptor;
@@ -378,5 +381,334 @@ public class AuthServiceTest {
         } catch (RuntimeException e) {
             Assert.assertEquals(e.getMessage(), "DB Error");
         }
+    }
+
+    // OAUTH LOGIN TESTS
+
+    @Test(expectedExceptions = OAuthAccountException.class)
+    public void shouldThrowExceptionWhenOAuthUserTriesToLoginWithPassword() {
+        // Given
+        LoginRequest request = new LoginRequest("oauth@gmail.com", "password");
+        Account oauthAccount = new Account(
+            "oauth@gmail.com",
+            "user-id",
+            "oauthUser",
+            AuthProvider.GOOGLE,
+            "google-123",
+            null
+        );
+
+        when(accountRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(oauthAccount));
+
+        // When
+        authService.login(request);
+    }
+
+    @Test
+    public void shouldLoginWithGoogleWhenAccountExistsByGoogleId() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("test@gmail.com")
+            .emailVerified(true)
+            .name("John Doe")
+            .pictureUrl("https://example.com/photo.jpg")
+            .build();
+
+        Account existingAccount = new Account(
+            "test@gmail.com",
+            "user-id-123",
+            "existingUser",
+            AuthProvider.GOOGLE,
+            "google-123",
+            "https://example.com/old-photo.jpg"
+        );
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.of(existingAccount));
+        when(accountRepository.save(any(Account.class))).thenReturn(existingAccount);
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertEquals(result.getId(), "user-id-123");
+        Assert.assertEquals(result.getUsername(), "existingUser");
+        Assert.assertFalse(result.isGuest());
+    }
+
+    @Test
+    public void shouldUpdatePictureUrlWhenLoginWithGoogle() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("test@gmail.com")
+            .emailVerified(true)
+            .name("John Doe")
+            .pictureUrl("https://example.com/new-photo.jpg")
+            .build();
+
+        Account existingAccount = new Account(
+            "test@gmail.com",
+            "user-id-123",
+            "existingUser",
+            AuthProvider.GOOGLE,
+            "google-123",
+            "https://example.com/old-photo.jpg"
+        );
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.of(existingAccount));
+        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Assert.assertEquals(accountCaptor.getValue().getPictureUrl(), "https://example.com/new-photo.jpg");
+    }
+
+    @Test
+    public void shouldLinkGoogleAccountToExistingLocalAccount() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("existing@test.com")
+            .emailVerified(true)
+            .name("John Doe")
+            .pictureUrl("https://example.com/photo.jpg")
+            .build();
+
+        Account localAccount = new Account("existing@test.com", "hashedPassword", "user-id-123", "localUser");
+        // Local account has AuthProvider.LOCAL by default
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("existing@test.com")).thenReturn(Optional.of(localAccount));
+        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertEquals(result.getId(), "user-id-123");
+
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Account savedAccount = accountCaptor.getValue();
+        Assert.assertEquals(savedAccount.getGoogleId(), "google-123");
+        Assert.assertEquals(savedAccount.getAuthProvider(), AuthProvider.GOOGLE);
+    }
+
+    @Test
+    public void shouldCreateNewAccountWhenGoogleUserDoesNotExist() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-new-123")
+            .email("newuser@gmail.com")
+            .emailVerified(true)
+            .name("New User")
+            .pictureUrl("https://example.com/photo.jpg")
+            .build();
+
+        when(accountRepository.findByGoogleId("google-new-123")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("newuser@gmail.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("NewUser")).thenReturn(false);
+        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertFalse(result.isGuest());
+
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountRepository).save(accountCaptor.capture());
+        Account savedAccount = accountCaptor.getValue();
+        Assert.assertEquals(savedAccount.getEmail(), "newuser@gmail.com");
+        Assert.assertEquals(savedAccount.getGoogleId(), "google-new-123");
+        Assert.assertEquals(savedAccount.getAuthProvider(), AuthProvider.GOOGLE);
+        Assert.assertNull(savedAccount.getPasswordHash());
+    }
+
+    @Test
+    public void shouldGenerateUniqueUsernameWhenNameTaken() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("test@gmail.com")
+            .emailVerified(true)
+            .name("John")
+            .pictureUrl(null)
+            .build();
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("test@gmail.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("John")).thenReturn(true);
+        when(accountRepository.existsByUsername(argThat(name -> name != null && name.startsWith("John_")))).thenReturn(false);
+        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.getUsername().startsWith("John_") || result.getUsername().startsWith("User_"));
+    }
+
+    @Test
+    public void shouldUseEmailPrefixWhenGoogleNameIsNull() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("testuser@gmail.com")
+            .emailVerified(true)
+            .name(null)
+            .pictureUrl(null)
+            .build();
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("testuser@gmail.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("testuser")).thenReturn(false);
+        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertEquals(result.getUsername(), "testuser");
+    }
+
+    @Test
+    public void shouldUseEmailPrefixWhenGoogleNameIsBlank() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("testuser@gmail.com")
+            .emailVerified(true)
+            .name("   ")
+            .pictureUrl(null)
+            .build();
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("testuser@gmail.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername("testuser")).thenReturn(false);
+        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertEquals(result.getUsername(), "testuser");
+    }
+
+    @Test
+    public void shouldHandleLongGoogleNames() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("test@gmail.com")
+            .emailVerified(true)
+            .name("ThisIsAVeryLongNameThatExceedsFifteenCharacters")
+            .pictureUrl(null)
+            .build();
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("test@gmail.com")).thenReturn(Optional.empty());
+        when(accountRepository.existsByUsername(anyString())).thenReturn(false);
+        when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertTrue(result.getUsername().length() <= 20); // max username length
+    }
+
+    @Test
+    public void shouldNotUpdatePictureWhenSameUrl() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("test@gmail.com")
+            .emailVerified(true)
+            .name("John")
+            .pictureUrl("https://example.com/same-photo.jpg")
+            .build();
+
+        Account existingAccount = new Account(
+            "test@gmail.com",
+            "user-id-123",
+            "existingUser",
+            AuthProvider.GOOGLE,
+            "google-123",
+            "https://example.com/same-photo.jpg"
+        );
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.of(existingAccount));
+
+        // When
+        authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        verify(accountRepository, never()).save(any());
+    }
+
+    @Test(expectedExceptions = OAuthAccountException.class)
+    public void shouldThrowExceptionWhenOAuthAccountTriesToUpdatePassword() {
+        // Given
+        String userId = "user-123";
+        UpdatePasswordRequest request = new UpdatePasswordRequest("current", "new");
+        Account oauthAccount = new Account(
+            "oauth@gmail.com",
+            userId,
+            "oauthUser",
+            AuthProvider.GOOGLE,
+            "google-123",
+            null
+        );
+
+        when(accountRepository.findByUserId(userId)).thenReturn(Optional.of(oauthAccount));
+
+        // When
+        authService.updatePassword(userId, request);
+    }
+
+    @Test
+    public void shouldLoginExistingGoogleAccountByEmail() {
+        // Given
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+            .googleId("google-123")
+            .email("test@gmail.com")
+            .emailVerified(true)
+            .name("John")
+            .pictureUrl(null)
+            .build();
+
+        Account existingGoogleAccount = new Account(
+            "test@gmail.com",
+            "user-id-123",
+            "existingGoogleUser",
+            AuthProvider.GOOGLE,
+            "google-123",
+            null
+        );
+
+        when(accountRepository.findByGoogleId("google-123")).thenReturn(Optional.empty());
+        when(accountRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(existingGoogleAccount));
+
+        // When
+        User result = authService.loginWithGoogle(googleUserInfo);
+
+        // Then
+        Assert.assertNotNull(result);
+        Assert.assertEquals(result.getId(), "user-id-123");
+        Assert.assertEquals(result.getUsername(), "existingGoogleUser");
+        verify(accountRepository, never()).save(any());
     }
 }

@@ -52,17 +52,23 @@ public class AccountValidationTest {
     }
 
     @Test
-    public void testPasswordHashIsBlank() {
-        // Given
-        String userId = "123";
-        String username = "validUser";
-        Account account = new Account("valid@email.com", "", userId, username); 
+    public void testPasswordHashCanBeBlankForOAuthAccounts() {
+        // Given - OAuth accounts don't require password hash
+        Account account = new Account(
+            "valid@email.com", 
+            "user-id-123", 
+            "validUser",
+            AuthProvider.GOOGLE,
+            "google-123",
+            null
+        );
 
         // When
         Set<ConstraintViolation<Account>> violations = validator.validate(account);
 
         // Then
-        Assert.assertFalse(violations.isEmpty(), "Blank password hash should trigger error");
+        Assert.assertTrue(violations.isEmpty(), "OAuth account without password should be valid");
+        Assert.assertNull(account.getPasswordHash());
     }
 
     @Test

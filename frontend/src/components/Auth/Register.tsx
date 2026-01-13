@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -15,7 +16,7 @@ const Register: React.FC = () => {
   const [shakeKey, setShakeKey] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,6 +53,26 @@ const Register: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credential: string) => {
+    setError("");
+    setIsLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      setSuccessMessage("Account created successfully! Redirecting...");
+      timeoutRef.current = setTimeout(() => {
+        navigate("/home");
+      }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-up failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError("Google sign-up failed. Please try again.");
   };
 
   return (
@@ -215,6 +236,21 @@ const Register: React.FC = () => {
             {isLoading ? "Creating account..." : "Create account"}
           </motion.button>
         </form>
+
+        <div className="mt-6 flex items-center gap-4">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-gray-400 text-sm">or sign up with</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+
+        <div className="mt-4">
+          <GoogleSignInButton
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            text="signup"
+            disabled={isLoading}
+          />
+        </div>
 
         <div className="mt-6 text-center text-sm text-gray-400">
           Already have an account?{" "}
