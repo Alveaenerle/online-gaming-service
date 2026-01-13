@@ -21,7 +21,7 @@ import { SocialCenter } from "../Shared/SocialCenter";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { authService } from "../../services/authService";
-import { statisticsService, PlayerStatisticsDto } from "../../services/statisticsService";
+import { statisticsService, PlayerStatistics } from "../../services/statisticsService";
 
 interface GameStats {
   gamesPlayed: number;
