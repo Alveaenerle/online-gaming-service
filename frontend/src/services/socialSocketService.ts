@@ -3,9 +3,17 @@ import * as StompJs from "stompjs";
 
 // Build WebSocket URL - use env var or current origin to ensure correct protocol (http/https)
 const getWsUrl = () => {
-  if (import.meta.env.VITE_API_SOCIAL_WS_URL) {
-    return import.meta.env.VITE_API_SOCIAL_WS_URL;
+  // Bezpieczne sprawdzenie czy import.meta oraz import.meta.env istnieją
+  const envUrl =
+    typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env.VITE_API_SOCIAL_WS_URL
+      : null;
+
+  if (envUrl) {
+    return envUrl;
   }
+
+  // Fallback do window.location
   return `${window.location.origin}/api/social/ws/presence`;
 };
 const WS_URL = getWsUrl();
