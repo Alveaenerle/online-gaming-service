@@ -5,6 +5,7 @@ import com.online_games_service.common.enums.CardSuit;
 import com.online_games_service.common.model.Card;
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
+import com.online_games_service.common.messaging.GameResultMessage;
 import com.online_games_service.common.messaging.PlayerLeaveMessage;
 import com.online_games_service.makao.dto.PlayCardRequest;
 import com.online_games_service.makao.dto.PlayerCardView;
@@ -68,6 +69,9 @@ public class MakaoGameService {
 
     @Value("${makao.amqp.routing.finish:makao.finish}")
     private String finishRoutingKey;
+
+    @Value("${makao.amqp.routing.game-result:makao.game.result}")
+    private String gameResultRoutingKey;
 
     @Value("${makao.amqp.routing.leave:player.leave}")
     private String leaveRoutingKey;
@@ -866,6 +870,24 @@ public class MakaoGameService {
         game.setPlacement(placement);
 
         persistGameResult(game);
+
+        // Determine the winner (player with placement 1)
+        String winnerId = placement.entrySet().stream()
+                .filter(e -> e.getValue() == 1)
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
+
+        // Publish game result message for statistics tracking
+        GameResultMessage gameResultMessage = new GameResultMessage(
+                game.getRoomId(),
+                "MAKAO",
+                game.getPlayersUsernames() != null ? new HashMap<>(game.getPlayersUsernames()) : new HashMap<>(),
+                placement,
+                winnerId
+        );
+        rabbitTemplate.convertAndSend(gameEventsExchange.getName(), gameResultRoutingKey, gameResultMessage);
+        log.info("Published game result message for room {}, winner: {}", game.getRoomId(), winnerId);
 
         GameFinishMessage message = new GameFinishMessage(
                 game.getRoomId(),

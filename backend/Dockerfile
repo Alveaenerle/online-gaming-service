@@ -8,6 +8,7 @@ COPY ludo/pom.xml ludo/
 COPY makao/pom.xml makao/
 COPY social/pom.xml social/
 COPY menu/pom.xml menu/
+COPY statistical/pom.xml statistical/
 COPY common/pom.xml common/
 COPY common-test-support/pom.xml common-test-support/
 COPY coverage-report/pom.xml coverage-report/

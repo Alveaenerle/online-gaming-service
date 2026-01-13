@@ -51,9 +51,9 @@ const Navbar: React.FC = () => {
         <Link to="/games" className="hover:text-purple-300 transition-colors duration-300">
           Games
         </Link>
-        <a className="hover:text-purple-300 transition-colors duration-300">
+        <Link to="/rankings" className="hover:text-purple-300 transition-colors duration-300">
           Rankings
-        </a>
+        </Link>
 
         {isAuthenticated && user ? (
           <div className="relative" ref={dropdownRef}>
