@@ -1,10 +1,14 @@
 import SockJS from "sockjs-client";
 import * as StompJs from "stompjs";
 
-const WS_URL =
-  typeof import.meta !== "undefined" && import.meta.env
-    ? import.meta.env.VITE_MENU_WS_URL || "/api/menu/ws"
-    : "/api/menu/ws";
+// Build WebSocket URL - use env var or current origin to ensure correct protocol (http/https)
+const getWsUrl = () => {
+  if (import.meta.env.VITE_MENU_WS_URL) {
+    return import.meta.env.VITE_MENU_WS_URL;
+  }
+  return `${window.location.origin}/api/menu/ws`;
+};
+const WS_URL = getWsUrl();
 
 interface StompSubscription {
   topic: string;

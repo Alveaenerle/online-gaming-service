@@ -66,7 +66,7 @@ pipeline {
                     echo 'Logging into Nexus...'
                     sh "echo ${NEXUS_CREDS_PSW} | docker login ${NEXUS_URL} -u ${NEXUS_CREDS_USR} --password-stdin"
 
-                    def backendModules = ['social', 'menu', 'makao', 'ludo', 'authorization']
+                    def backendModules = ['social', 'menu', 'makao', 'ludo', 'authorization', 'statistical']
                     def builds = [:]
 
                     backendModules.each { module ->
@@ -76,7 +76,7 @@ pipeline {
                     }
 
                     builds['frontend'] = {
-                        deployService('online-gaming-frontend', './frontend')
+                        deployService("online-gaming-frontend", './frontend')
                     }
 
                     parallel builds

@@ -49,6 +49,17 @@ services:
     depends_on:
       - rabbitmq
 
+  statistical:
+    build:
+      context: ./backend
+      target: production
+      args:
+        MODULE_NAME: statistical
+    environment:
+      - SERVER_PORT=8080
+    depends_on:
+      - rabbitmq
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: og-rabbitmq
@@ -79,6 +90,7 @@ services:
       - social
       - makao
       - ludo
+      - statistical
 
 volumes:
   rabbitmq_data:

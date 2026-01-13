@@ -1,4 +1,4 @@
-def call(String status) {
+def call(status) {
     if (!env.CHANGE_ID) {
         return
     }

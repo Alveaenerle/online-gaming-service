@@ -21,19 +21,13 @@ import { SocialCenter } from "../Shared/SocialCenter";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { authService } from "../../services/authService";
+import { statisticsService, PlayerStatistics } from "../../services/statisticsService";
 
-// Mock statistics data (to be replaced with real API later)
-const mockStatsMakao = {
-  gamesPlayed: 28,
-  gamesWon: 15,
-  winRatio: "54%",
-};
-
-const mockStatsLudo = {
-  gamesPlayed: 14,
-  gamesWon: 6,
-  winRatio: "43%",
-};
+interface GameStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  winRatio: string;
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -111,6 +105,62 @@ const Dashboard: React.FC = () => {
   const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Statistics state
+  const [statsMakao, setStatsMakao] = useState<GameStats>({
+    gamesPlayed: 0,
+    gamesWon: 0,
+    winRatio: "0%",
+  });
+  const [statsLudo, setStatsLudo] = useState<GameStats>({
+    gamesPlayed: 0,
+    gamesWon: 0,
+    winRatio: "0%",
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Calculate win ratio helper
+  const calculateWinRatio = (played: number, won: number): string => {
+    if (played === 0) return "0%";
+    return `${Math.round((won / played) * 100)}%`;
+  };
+
+  // Fetch statistics on mount
+  useEffect(() => {
+    const fetchStatistics = async () => {
+      if (!user) return;
+      
+      setStatsLoading(true);
+      try {
+        const [makaoStats, ludoStats] = await Promise.all([
+          statisticsService.getMyStatistics("MAKAO").catch(() => null),
+          statisticsService.getMyStatistics("LUDO").catch(() => null),
+        ]);
+
+        if (makaoStats) {
+          setStatsMakao({
+            gamesPlayed: makaoStats.gamesPlayed,
+            gamesWon: makaoStats.gamesWon,
+            winRatio: calculateWinRatio(makaoStats.gamesPlayed, makaoStats.gamesWon),
+          });
+        }
+
+        if (ludoStats) {
+          setStatsLudo({
+            gamesPlayed: ludoStats.gamesPlayed,
+            gamesWon: ludoStats.gamesWon,
+            winRatio: calculateWinRatio(ludoStats.gamesPlayed, ludoStats.gamesWon),
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch statistics:", error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStatistics();
+  }, [user]);
 
   // Fetch user email on mount
   useEffect(() => {
@@ -246,19 +296,19 @@ const Dashboard: React.FC = () => {
                 <StatCard
                   icon={Gamepad2}
                   label="Games Played"
-                  value={mockStatsMakao.gamesPlayed}
+                  value={statsLoading ? "..." : statsMakao.gamesPlayed}
                   color="bg-gradient-to-br from-purple-600 to-fuchsia-500"
                 />
                 <StatCard
                   icon={Trophy}
                   label="Games Won"
-                  value={mockStatsMakao.gamesWon}
+                  value={statsLoading ? "..." : statsMakao.gamesWon}
                   color="bg-gradient-to-br from-purple-600 to-fuchsia-500"
                 />
                 <StatCard
                   icon={Percent}
                   label="Win Ratio"
-                  value={mockStatsMakao.winRatio}
+                  value={statsLoading ? "..." : statsMakao.winRatio}
                   color="bg-gradient-to-br from-purple-600 to-fuchsia-500"
                 />
               </div>
@@ -274,19 +324,19 @@ const Dashboard: React.FC = () => {
                 <StatCard
                   icon={Gamepad2}
                   label="Games Played"
-                  value={mockStatsLudo.gamesPlayed}
+                  value={statsLoading ? "..." : statsLudo.gamesPlayed}
                   color="bg-gradient-to-br from-blue-600 to-cyan-500"
                 />
                 <StatCard
                   icon={Trophy}
                   label="Games Won"
-                  value={mockStatsLudo.gamesWon}
+                  value={statsLoading ? "..." : statsLudo.gamesWon}
                   color="bg-gradient-to-br from-blue-600 to-cyan-500"
                 />
                 <StatCard
                   icon={Percent}
                   label="Win Ratio"
-                  value={mockStatsLudo.winRatio}
+                  value={statsLoading ? "..." : statsLudo.winRatio}
                   color="bg-gradient-to-br from-blue-600 to-cyan-500"
                 />
               </div>

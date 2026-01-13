@@ -185,6 +185,42 @@ services:
           cpus: '0.10'
           memory: 256M
 
+  statistical:
+    image: ${NEXUS_URL}/online-gaming-statistical:${TAG}
+    container_name: og-statistical
+    restart: always
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATA_MONGODB_HOST=mongodb
+      - SPRING_DATA_MONGODB_PORT=27017
+      - SPRING_DATA_MONGODB_DATABASE=statistical_db
+      - SPRING_DATA_MONGODB_USERNAME=${MONGO_ROOT_USER}
+      - SPRING_DATA_MONGODB_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - SPRING_DATA_MONGODB_AUTHENTICATION_DATABASE=admin
+      - SPRING_DATA_MONGODB_AUTO_INDEX_CREATION=true
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=redis
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+    networks:
+      - gaming-net
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+    logging: *production-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 256M
+
   frontend:
     image: ${NEXUS_URL}/online-gaming-frontend:${TAG}
     container_name: og-frontend
@@ -208,6 +244,7 @@ services:
       - social
       - makao
       - ludo
+      - statistical
   
   mongodb:
     image: mongo:7.0

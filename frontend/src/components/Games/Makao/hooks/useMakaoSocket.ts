@@ -102,10 +102,20 @@ export const useMakaoSocket = (): UseMakaoSocketReturn => {
 
     const topic = `/topic/makao/${user.id}`;
     const timeoutTopic = `/topic/makao/${user.id}/timeout`;
+    
+    // Build WebSocket URL - use current origin for production, env var, or fallback to relative path
+    const getWsUrl = () => {
+      if (import.meta.env.VITE_MAKAO_WS_URL) {
+        return import.meta.env.VITE_MAKAO_WS_URL;
+      }
+      // Use current origin to ensure correct protocol (http/https)
+      return `${window.location.origin}/api/makao/ws`;
+    };
+    const wsUrl = getWsUrl();
 
     try {
       console.log("[Makao WS] Creating SockJS connection...");
-      const socket = new SockJS("http://localhost/api/makao/ws");
+      const socket = new SockJS(wsUrl);
       const client = StompJs.over(socket);
 
       // Disable verbose STOMP debug logs but keep our custom ones
