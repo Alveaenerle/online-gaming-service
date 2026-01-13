@@ -1,15 +1,19 @@
 package com.online_games_service.authorization.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.online_games_service.authorization.dto.GoogleOAuthRequest;
+import com.online_games_service.authorization.dto.GoogleUserInfo;
 import com.online_games_service.authorization.dto.LoginRequest;
 import com.online_games_service.authorization.dto.RegisterRequest;
 import com.online_games_service.authorization.dto.UpdateUsernameRequest;
 import com.online_games_service.authorization.dto.UpdatePasswordRequest;
 import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
 import com.online_games_service.authorization.exception.InvalidCredentialsException;
+import com.online_games_service.authorization.exception.OAuthAccountException;
 import com.online_games_service.authorization.exception.UsernameAlreadyExistsException;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.service.AuthService;
+import com.online_games_service.authorization.service.GoogleTokenVerifierService;
 import com.online_games_service.authorization.service.SessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -46,6 +50,9 @@ public class AuthControllerTest extends AbstractTestNGSpringContextTests {
 
     @MockBean
     private SessionService sessionService;
+
+    @MockBean
+    private GoogleTokenVerifierService googleTokenVerifierService;
 
     // REGSITER TESTS
 
@@ -530,5 +537,148 @@ public class AuthControllerTest extends AbstractTestNGSpringContextTests {
         mockMvc.perform(get("/email"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().string("An unexpected error occurred"));
+    }
+
+    // GOOGLE OAUTH TESTS
+
+    @Test
+    public void shouldLoginWithGoogleSuccessfully() throws Exception {
+        // Given
+        GoogleOAuthRequest request = new GoogleOAuthRequest("valid-google-id-token");
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+                .googleId("google-123")
+                .email("test@gmail.com")
+                .emailVerified(true)
+                .name("Test User")
+                .pictureUrl("https://example.com/photo.jpg")
+                .build();
+        User mockUser = new User("user-id-123", "testuser", false);
+        ResponseCookie mockCookie = ResponseCookie.from("ogs_session", "session-id").build();
+
+        given(googleTokenVerifierService.isConfigured()).willReturn(true);
+        given(googleTokenVerifierService.verifyToken("valid-google-id-token")).willReturn(googleUserInfo);
+        given(authService.loginWithGoogle(any(GoogleUserInfo.class))).willReturn(mockUser);
+        given(sessionService.createSessionCookie(mockUser)).willReturn(mockCookie);
+
+        // When & Then
+        mockMvc.perform(post("/oauth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, mockCookie.toString()))
+                .andExpect(content().string("Login successful"));
+    }
+
+    @Test
+    public void shouldReturn503WhenGoogleOAuthNotConfigured() throws Exception {
+        // Given
+        GoogleOAuthRequest request = new GoogleOAuthRequest("any-token");
+        given(googleTokenVerifierService.isConfigured()).willReturn(false);
+
+        // When & Then
+        mockMvc.perform(post("/oauth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().string("Google Sign-In is not available"));
+    }
+
+    @Test
+    public void shouldReturn401WhenGoogleTokenIsInvalid() throws Exception {
+        // Given
+        GoogleOAuthRequest request = new GoogleOAuthRequest("invalid-token");
+        given(googleTokenVerifierService.isConfigured()).willReturn(true);
+        given(googleTokenVerifierService.verifyToken("invalid-token"))
+                .willThrow(new InvalidCredentialsException("Invalid Google ID token"));
+
+        // When & Then
+        mockMvc.perform(post("/oauth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string("Google Sign-In failed: Invalid Google ID token"));
+    }
+
+    @Test
+    public void shouldReturnInternalServerErrorOnUnexpectedGoogleOAuthError() throws Exception {
+        // Given
+        GoogleOAuthRequest request = new GoogleOAuthRequest("token");
+        given(googleTokenVerifierService.isConfigured()).willReturn(true);
+        given(googleTokenVerifierService.verifyToken("token"))
+                .willThrow(new RuntimeException("Unexpected error"));
+
+        // When & Then
+        mockMvc.perform(post("/oauth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().string("An unexpected error occurred"));
+    }
+
+    @Test
+    public void shouldReturnBadRequestWhenGoogleOAuthRequestIsInvalid() throws Exception {
+        // Given
+        GoogleOAuthRequest request = new GoogleOAuthRequest("");
+
+        // When & Then
+        mockMvc.perform(post("/oauth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void shouldReturnGoogleOAuthConfiguredStatus() throws Exception {
+        // Given
+        given(googleTokenVerifierService.isConfigured()).willReturn(true);
+
+        // When & Then
+        mockMvc.perform(get("/oauth/google/configured"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.configured").value(true));
+    }
+
+    @Test
+    public void shouldReturnGoogleOAuthNotConfiguredStatus() throws Exception {
+        // Given
+        given(googleTokenVerifierService.isConfigured()).willReturn(false);
+
+        // When & Then
+        mockMvc.perform(get("/oauth/google/configured"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.configured").value(false));
+    }
+
+    @Test
+    public void shouldReturnBadRequestWhenOAuthAccountTriesToLoginWithPassword() throws Exception {
+        // Given
+        LoginRequest loginRequest = new LoginRequest("oauth@gmail.com", "password");
+        given(authService.login(any(LoginRequest.class)))
+                .willThrow(new OAuthAccountException("This account uses GOOGLE sign-in"));
+
+        // When & Then
+        mockMvc.perform(post("/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("This account uses GOOGLE sign-in"));
+    }
+
+    @Test
+    public void shouldReturnBadRequestWhenOAuthAccountTriesToUpdatePassword() throws Exception {
+        // Given
+        User mockUser = new User("user-123", "oauthuser", false);
+        UpdatePasswordRequest updateRequest = new UpdatePasswordRequest("currentPassword", "newPassword123");
+
+        given(sessionService.getUserFromCookie(any())).willReturn(mockUser);
+        doThrow(new OAuthAccountException("OAuth accounts cannot update password"))
+                .when(authService).updatePassword(eq("user-123"), any(UpdatePasswordRequest.class));
+
+        // When & Then
+        mockMvc.perform(put("/update-password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("OAuth accounts cannot update password"));
     }
 }

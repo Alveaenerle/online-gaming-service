@@ -13,6 +13,7 @@ import { MakaoLobby } from "./components/Games/Makao/MakaoLobby";
 import { MakaoTitle } from "./components/Games/Makao/MakaoTitle";
 import { LudoTitle } from "./components/Games/Ludo/LudoTitle";
 import { LudoLobby } from "./components/Games/Ludo/LudoLobby";
+import { LudoArenaPage } from "./components/Games/Ludo/LudoGame";
 import AboutPage from "./components/Pages/AboutPage";
 import PrivacyPage from "./components/Pages/PrivacyPage";
 import TermsPage from "./components/Pages/TermsPage";
@@ -23,6 +24,7 @@ import Dashboard from "./components/Dashboard/Dashboard";
 
 import { SocialProvider } from "./context/SocialContext";
 import { ToastProvider } from "./context/ToastContext";
+import { LudoProvider } from "./context/LudoGameContext";
 
 const App: React.FC = () => {
   return (
@@ -93,6 +95,16 @@ const App: React.FC = () => {
                 </RequireAuth>
               }
             />
+            <Route
+                  path="/ludo/game"
+                  element={
+                    <RequireAuth>
+                      <LudoProvider>
+                        <LudoArenaPage />
+                      </LudoProvider>
+                    </RequireAuth>
+                  }
+                />
             <Route
               path="/lobby/ludo"
               element={

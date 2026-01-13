@@ -26,9 +26,9 @@ public class GameStartListener {
             log.warn("Received null msg");
             return;
         }
-        
+
         String roomId = message.roomId();
-        
+
         if (gameRedisRepository.existsById(roomId)) {
             log.info("Game {} already exists", roomId);
             return;
@@ -37,12 +37,14 @@ public class GameStartListener {
         List<String> playerIds = buildPlayerOrder(message.hostUserId(), message.players());
 
         ludoService.createGame(
-                roomId, 
-                playerIds, 
-                message.hostUserId(), 
-                message.players() 
+                roomId,
+                playerIds,
+                message.hostUserId(),
+                message.players(),
+                message.playerAvatars(),
+                message.maxPlayers()
         );
-        
+
         log.info("Created Ludo game {}", roomId);
     }
 

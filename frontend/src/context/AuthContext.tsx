@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   loginAsGuest: () => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -48,6 +49,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(userData);
   };
 
+  const loginWithGoogle = async (idToken: string) => {
+    const userData = await authService.loginWithGoogle(idToken);
+    setUser(userData);
+  };
+
   const logout = async () => {
     try {
       // Attempt to leave any active lobby before destroying the session
@@ -73,6 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         register,
         loginAsGuest,
+        loginWithGoogle,
         logout,
       }}
     >

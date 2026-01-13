@@ -3,9 +3,15 @@ const API_BASE_URL =
     ? import.meta.env.VITE_API_URL || "/api/auth"
     : "/api/auth";
 
+export const GOOGLE_CLIENT_ID = '67980051947-h1ngp505qo2ad20fr9it2m15inp6otff.apps.googleusercontent.com';
+
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface GoogleLoginRequest {
+  idToken: string;
 }
 
 export interface RegisterRequest {
@@ -122,6 +128,22 @@ export const authService = {
         response,
         "Guest login failed. Please try again."
       );
+      throw new Error(errorMessage);
+    }
+
+    return this.getCurrentUser();
+  },
+
+  async loginWithGoogle(idToken: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/oauth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ idToken }),
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response, 'Google login failed. Please try again.');
       throw new Error(errorMessage);
     }
 
