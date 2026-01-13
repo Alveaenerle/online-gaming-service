@@ -48,9 +48,9 @@ const Navbar: React.FC = () => {
       </motion.div>
 
       <nav className="hidden md:flex gap-6 items-center opacity-90">
-        <a className="hover:text-purple-300 transition-colors duration-300">
+        <Link to="/games" className="hover:text-purple-300 transition-colors duration-300">
           Games
-        </a>
+        </Link>
         <a className="hover:text-purple-300 transition-colors duration-300">
           Rankings
         </a>
