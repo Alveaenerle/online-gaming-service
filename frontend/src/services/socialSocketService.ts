@@ -1,7 +1,14 @@
 import SockJS from "sockjs-client";
 import * as StompJs from "stompjs";
 
-const WS_URL = import.meta.env.VITE_API_SOCIAL_WS_URL || "/api/social/ws/presence";
+// Build WebSocket URL - use env var or current origin to ensure correct protocol (http/https)
+const getWsUrl = () => {
+  if (import.meta.env.VITE_API_SOCIAL_WS_URL) {
+    return import.meta.env.VITE_API_SOCIAL_WS_URL;
+  }
+  return `${window.location.origin}/api/social/ws/presence`;
+};
+const WS_URL = getWsUrl();
 const HEARTBEAT_INTERVAL_MS = 25000; // 25 seconds (TTL is 35s)
 
 class SocialSocketService {
