@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { UserPlus, UserMinus } from "lucide-react";
 import Navbar from "../../Shared/Navbar";
+import { SocialCenter } from "../../Shared/SocialCenter";
 import { ConfirmationModal } from "../../Shared/ConfirmationModal";
 import Card from "./Card";
 import Player from "./components/Player";
@@ -135,32 +136,6 @@ const MakaoGame: React.FC = () => {
     }
   }, [user?.id, navigate]);
 
-  // Handle browser close/refresh - notify backend to clean up player state
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // Use fetch with keepalive for reliable delivery during page unload
-      // keepalive allows the request to outlive the page
-      try {
-        fetch("/api/makao/leave-game", {
-          method: "POST",
-          credentials: "include",
-          keepalive: true,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-      } catch {
-        // Ignore errors during unload
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, []);
-
   // Handle Game State Changes (Animations, Sound)
   useEffect(() => {
     if (!gameState) return;
@@ -197,9 +172,14 @@ const MakaoGame: React.FC = () => {
     }
     wasMyTurnRef.current = isNowMyTurn;
 
-    // 3. Detect Makao
-    if (gameState.makaoPlayerId) {
+    // 3. Detect Makao - play sound when any player has exactly 1 card
+    // Check if any player just reached 1 card by comparing with previous state
+    if (gameState.playersCardsAmount) {
+      const hasPlayerWithOneCard = Object.values(gameState.playersCardsAmount).some(count => count === 1);
+      if (hasPlayerWithOneCard && gameState.makaoPlayerId) {
+        // Only play sound when backend signals a new MAKAO event
         playMakaoSound();
+      }
     }
 
     // 4. Detect if user was replaced by a bot (kicked due to timeout) - fallback detection
@@ -246,9 +226,6 @@ const MakaoGame: React.FC = () => {
 
   // Get bot thinking player ID from game state
   const botThinkingPlayerId = gameState?.botThinkingPlayerId || null;
-
-  // Get MAKAO player ID from game state
-  const makaoPlayerId = gameState?.makaoPlayerId || null;
 
   // Determine if active player is a bot
   const isActivePlayerBot = gameState?.activePlayerId ? isBot(gameState.activePlayerId) : false;
@@ -551,7 +528,7 @@ const MakaoGame: React.FC = () => {
                         player={player}
                         isBot={isBot(player.id)}
                         isBotThinking={botThinkingPlayerId === player.id}
-                        hasMakao={makaoPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
                         onPlayerClick={handlePlayerClick}
                       />
@@ -571,7 +548,7 @@ const MakaoGame: React.FC = () => {
                         player={player}
                         isBot={isBot(player.id)}
                         isBotThinking={botThinkingPlayerId === player.id}
-                        hasMakao={makaoPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
                         onPlayerClick={handlePlayerClick}
                       />
@@ -591,7 +568,7 @@ const MakaoGame: React.FC = () => {
                         player={player}
                         isBot={isBot(player.id)}
                         isBotThinking={botThinkingPlayerId === player.id}
-                        hasMakao={makaoPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
                         onPlayerClick={handlePlayerClick}
                       />
@@ -611,7 +588,7 @@ const MakaoGame: React.FC = () => {
                         player={player}
                         isBot={isBot(player.id)}
                         isBotThinking={botThinkingPlayerId === player.id}
-                        hasMakao={makaoPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
                         onPlayerClick={handlePlayerClick}
                       />
@@ -631,7 +608,7 @@ const MakaoGame: React.FC = () => {
                         player={player}
                         isBot={isBot(player.id)}
                         isBotThinking={botThinkingPlayerId === player.id}
-                        hasMakao={makaoPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
                         onPlayerClick={handlePlayerClick}
                       />
@@ -651,7 +628,7 @@ const MakaoGame: React.FC = () => {
                         player={player}
                         isBot={isBot(player.id)}
                         isBotThinking={botThinkingPlayerId === player.id}
-                        hasMakao={makaoPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
                         onPlayerClick={handlePlayerClick}
                       />
@@ -671,7 +648,7 @@ const MakaoGame: React.FC = () => {
                         player={player}
                         isBot={isBot(player.id)}
                         isBotThinking={botThinkingPlayerId === player.id}
-                        hasMakao={makaoPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
                         onPlayerClick={handlePlayerClick}
                       />
@@ -756,20 +733,32 @@ const MakaoGame: React.FC = () => {
                     } transition-all duration-300`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-gray-400">
-                        {isMyTurn ? (
-                          <span className="flex items-center gap-1.5">
-                            <motion.span
-                              animate={{ scale: [1, 1.2, 1] }}
-                              transition={{ duration: 1, repeat: Infinity }}
-                              className="w-2 h-2 rounded-full bg-green-500"
-                            />
-                            Your turn!
-                          </span>
-                        ) : (
-                          "Waiting for your turn..."
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-400">
+                          {isMyTurn ? (
+                            <span className="flex items-center gap-1.5">
+                              <motion.span
+                                animate={{ scale: [1, 1.2, 1] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                className="w-2 h-2 rounded-full bg-green-500"
+                              />
+                              Your turn!
+                            </span>
+                          ) : (
+                            "Waiting for your turn..."
+                          )}
+                        </p>
+                        {/* MAKAO Badge for current user */}
+                        {gameState.myCards.length === 1 && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs font-bold rounded-full shadow-lg"
+                          >
+                            MAKAO!
+                          </motion.span>
                         )}
-                      </p>
+                      </div>
                       <p className="text-xs text-gray-500">
                         {gameState.myCards.length} cards
                       </p>
@@ -1081,6 +1070,9 @@ const MakaoGame: React.FC = () => {
         cancelText="Stay"
         variant="danger"
       />
+
+      {/* Social Center - Friends Drawer */}
+      <SocialCenter />
     </div>
   );
 };

@@ -239,4 +239,29 @@ public class FriendNotificationService {
             }
         }
     }
+
+    /**
+     * Notifies a user that they have been removed from someone's friend list.
+     * The removed user will see the friend disappear from their friends list in real-time.
+     *
+     * @param removedUserId The user who was removed (will receive the notification)
+     * @param removedByUserId The user who performed the removal
+     */
+    public void sendFriendRemovedNotification(String removedUserId, String removedByUserId) {
+        try {
+            java.util.Map<String, Object> notification = java.util.Map.of(
+                    "type", "NOTIFICATION_RECEIVED",
+                    "subType", "FRIEND_REMOVED",
+                    "removedByUserId", removedByUserId
+            );
+            messagingTemplate.convertAndSendToUser(
+                    removedUserId,
+                    "/queue/notifications",
+                    notification
+            );
+            logger.info("Sent friend removed notification to user {} (removed by {})", removedUserId, removedByUserId);
+        } catch (Exception e) {
+            logger.warn("Failed to send friend removed notification to user {}: {}", removedUserId, e.getMessage());
+        }
+    }
 }

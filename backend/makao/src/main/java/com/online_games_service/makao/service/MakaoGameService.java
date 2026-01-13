@@ -353,8 +353,8 @@ public class MakaoGameService {
 
         if (playable) {
             game.setActivePlayerPlayableCards(List.of(drawn));
-            saveAndBroadcast(game);
             scheduleTurnTimeout(game);
+            saveAndBroadcast(game);
             return new DrawCardResponse(drawn, true);
         }
 
@@ -716,8 +716,8 @@ public class MakaoGameService {
             game.setActivePlayerId(candidate);
             // Clear bot thinking state - human player's turn
             game.setBotThinkingPlayerId(null);
-            saveAndBroadcast(game);
             scheduleTurnTimeout(game);
+            saveAndBroadcast(game);
             return;
         }
     }
@@ -806,13 +806,16 @@ public class MakaoGameService {
         game.addMoveLog("Game started!");
 
         log.info("Broadcasting initial game state for room {}", roomId);
-        saveAndBroadcast(game);
 
         if (isBot(activePlayerId)) {
+            // Bot's turn - no timer needed
+            saveAndBroadcast(game);
             // Schedule bot move with delay instead of immediate execution
             scheduleBotMove(game.getRoomId(), activePlayerId, playable);
         } else {
+            // Human player's turn - set timer before saving so it's persisted in Redis
             scheduleTurnTimeout(game);
+            saveAndBroadcast(game);
         }
     }
 
@@ -908,6 +911,12 @@ public class MakaoGameService {
         }
         gameRepository.save(game);
         broadcastPlayerStates(game);
+        
+        // Clear makaoPlayerId after broadcasting so it only shows for one broadcast cycle
+        if (game.getMakaoPlayerId() != null) {
+            game.setMakaoPlayerId(null);
+            gameRepository.save(game);
+        }
     }
 
     private void broadcastPlayerStates(MakaoGame game) {

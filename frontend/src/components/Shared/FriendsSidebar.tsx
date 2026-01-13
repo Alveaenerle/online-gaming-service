@@ -29,7 +29,7 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
       
       // Join the lobby using the accessCode
       if (invite.accessCode) {
-        await lobbyService.joinRoom(invite.accessCode, undefined, invite.gameType);
+        await lobbyService.joinRoom(invite.accessCode, invite.gameType, false);
       }
       
       // Navigate to the lobby

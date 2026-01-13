@@ -340,6 +340,9 @@ public class FriendRequestService {
             friendRequestRepository.deleteByRequesterIdAndAddresseeIdAndStatus(currentUserId, friendId, Status.ACCEPTED);
             friendRequestRepository.deleteByRequesterIdAndAddresseeIdAndStatus(friendId, currentUserId, Status.ACCEPTED);
 
+            // Notify the removed friend via WebSocket so they see the friend removed in real-time
+            friendNotificationService.sendFriendRemovedNotification(friendId, currentUserId);
+
             logger.info("Friend {} removed from user {}'s friend list", friendId, currentUserId);
         } catch (DataAccessException e) {
             logger.error("Database error while removing friend: {}", e.getMessage(), e);
