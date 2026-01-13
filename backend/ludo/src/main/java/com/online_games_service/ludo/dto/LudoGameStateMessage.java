@@ -18,13 +18,22 @@ public class LudoGameStateMessage {
     private RoomStatus status;
     private PlayerColor currentPlayerColor;
     private String currentPlayerId;
-    
+
     private int lastDiceRoll;
     private boolean diceRolled;
     private boolean waitingForMove;
     private int rollsLeft;
-    
-    private List<LudoPlayer> players; 
+
+    private List<LudoPlayer> players;
     private Map<String, String> usernames;
     private String winnerId;
+
+    private String capturedUserId;
+
+    // Turn timer - remaining seconds for current player's turn (null for bots)
+    private Integer turnRemainingSeconds;
+    // Turn start time in milliseconds (for accurate client-side timer calculation)
+    private Long turnStartTime;
+    // Player avatars - playerId -> avatarId (e.g., "avatar_1.png" or "bot_avatar.svg")
+    private Map<String, String> playersAvatars;
 }

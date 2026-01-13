@@ -49,60 +49,59 @@ public class LudoControllerTest {
     @Test
     public void getGame_shouldReturnGameState() throws Exception {
         // Given
-        String gameId = "game-1";
+        String userId = "user-1";
         LudoGameStateMessage state = new LudoGameStateMessage();
-        state.setGameId(gameId);
+        state.setGameId("game-1");
         
-        when(ludoService.getGameState(gameId)).thenReturn(state);
+        when(ludoService.getGameState(userId)).thenReturn(state);
 
         // When & Then
-        mockMvc.perform(get("/{gameId}", gameId))
+        mockMvc.perform(get("/game-state")
+                        .requestAttr("userId", userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.gameId").value(gameId));
+                .andExpect(jsonPath("$.gameId").value("game-1"));
         
-        verify(ludoService).getGameState(gameId);
+        verify(ludoService).getGameState(userId);
     }
 
     @Test
     public void rollDice_successfulCall() throws Exception {
         // Given
-        String gameId = "game-1";
         String userId = "user-1";
 
         // When & Then
-        mockMvc.perform(post("/{gameId}/roll", gameId)
+        mockMvc.perform(post("/roll")
                         .requestAttr("userId", userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Dice rolled"));
 
-        verify(ludoService).rollDice(gameId, userId);
+        verify(ludoService).rollDice(userId);
     }
 
     @Test
     public void movePawn_successfulCall() throws Exception {
         // Given
-        String gameId = "game-1";
         String userId = "user-1";
         int pawnIndex = 2;
 
         // When & Then
-        mockMvc.perform(post("/{gameId}/move", gameId)
+        mockMvc.perform(post("/move")
                         .param("pawnIndex", String.valueOf(pawnIndex))
                         .requestAttr("userId", userId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Move accepted"));
 
-        verify(ludoService).movePawn(gameId, userId, pawnIndex);
+        verify(ludoService).movePawn(userId, pawnIndex);
     }
 
     @Test
     public void handleIllegalStateException_shouldReturnConflict() throws Exception {
         // Given
         doThrow(new IllegalStateException("Game is full"))
-                .when(ludoService).rollDice(anyString(), anyString());
+                .when(ludoService).rollDice(anyString());
 
         // When & Then
-        mockMvc.perform(post("/{gameId}/roll", "game-1")
+        mockMvc.perform(post("/roll")
                         .requestAttr("userId", "user-1"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("Game Error"))
@@ -116,7 +115,8 @@ public class LudoControllerTest {
                 .when(ludoService).getGameState(anyString());
 
         // When & Then
-        mockMvc.perform(get("/{gameId}", "game-1"))
+        mockMvc.perform(get("/game-state")
+                        .requestAttr("userId", "user-1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation Error"))
                 .andExpect(jsonPath("$.message").value("Bad input"));
@@ -126,10 +126,10 @@ public class LudoControllerTest {
     public void handleGameLogicException_shouldReturnConflict() throws Exception {
         // Given
         doThrow(new GameLogicException("Not your turn"))
-                .when(ludoService).rollDice(anyString(), anyString());
+                .when(ludoService).rollDice(anyString());
 
         // When & Then
-        mockMvc.perform(post("/{gameId}/roll", "game-1")
+        mockMvc.perform(post("/roll")
                         .requestAttr("userId", "user-1"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("Game Logic Error"))
@@ -140,10 +140,10 @@ public class LudoControllerTest {
     public void handleInvalidMoveException_shouldReturnBadRequest() throws Exception {
         // Given
         doThrow(new InvalidMoveException("Invalid move"))
-                .when(ludoService).movePawn(anyString(), anyString(), anyInt());
+                .when(ludoService).movePawn(anyString(), anyInt());
 
         // When & Then
-        mockMvc.perform(post("/{gameId}/move", "game-1")
+        mockMvc.perform(post("/move")
                         .param("pawnIndex", "0")
                         .requestAttr("userId", "user-1"))
                 .andExpect(status().isBadRequest())
