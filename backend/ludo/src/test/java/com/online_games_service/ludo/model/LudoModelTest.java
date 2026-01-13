@@ -23,7 +23,7 @@ public class LudoModelTest {
 
         // When
         LudoGameResult result = new LudoGameResult(gameId, maxPlayers, players, winnerId, placement);
-        
+
         // Then
         Assert.assertEquals(result.getGameId(), gameId);
         Assert.assertEquals(result.getMaxPlayers(), maxPlayers);
@@ -47,9 +47,9 @@ public class LudoModelTest {
         msg.setPlayers(new ArrayList<>());
         msg.setUsernames(new HashMap<>());
         msg.setWinnerId(null);
-        msg.setCapturedUserId("p2"); 
+        msg.setCapturedUserId("p2");
 
-        // Then 
+        // Then
         Assert.assertEquals(msg.getGameId(), "g1");
         Assert.assertEquals(msg.getStatus(), RoomStatus.PLAYING);
         Assert.assertEquals(msg.getCurrentPlayerColor(), PlayerColor.RED);
@@ -68,8 +68,8 @@ public class LudoModelTest {
     public void testLudoPawnModel() {
         // Given
         LudoPawn pawn = new LudoPawn(1, 13, PlayerColor.BLUE, 0, false, false);
-        
-        // When & Then 
+
+        // When & Then
         pawn.setPosition(18);
         pawn.setStepsMoved(5);
         pawn.setInHome(true);
@@ -80,7 +80,7 @@ public class LudoModelTest {
         Assert.assertEquals(pawn.getColor(), PlayerColor.BLUE);
         Assert.assertTrue(pawn.isInHome());
         Assert.assertFalse(pawn.isInBase());
-        
+
         LudoPawn pawn2 = new LudoPawn(1, 18, PlayerColor.BLUE, 5, false, true);
         Assert.assertEquals(pawn, pawn2);
         Assert.assertEquals(pawn.hashCode(), pawn2.hashCode());
@@ -91,17 +91,17 @@ public class LudoModelTest {
     public void testLudoPlayerModel() {
         // Given
         LudoPlayer player = new LudoPlayer("u1", PlayerColor.GREEN);
-        
+
         // When
         player.setBot(true);
-        
+
         // Then
         Assert.assertEquals(player.getUserId(), "u1");
         Assert.assertEquals(player.getColor(), PlayerColor.GREEN);
         Assert.assertTrue(player.isBot());
         Assert.assertEquals(player.getPawns().size(), 4);
         Assert.assertFalse(player.hasAllPawnsInHome());
-        
+
         LudoPlayer player2 = new LudoPlayer("u1", PlayerColor.GREEN);
         player2.setBot(true);
         Assert.assertNotNull(player.toString());
@@ -127,8 +127,9 @@ public class LudoModelTest {
     public void testLudoGameStateMessageDTO() {
         // Given
         LudoGameStateMessage msg = new LudoGameStateMessage(
-                "r1", RoomStatus.PLAYING, PlayerColor.RED, "p1", 
-                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null, null
+                "r1", RoomStatus.PLAYING, PlayerColor.RED, "p1",
+                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null, null,
+                null, null, null
         );
 
         // When
@@ -138,9 +139,9 @@ public class LudoModelTest {
         Assert.assertEquals(msg.getGameId(), "r1");
         Assert.assertEquals(msg.getRollsLeft(), 3);
         Assert.assertNotNull(msg.toString());
-        
+
         LudoGameStateMessage msg2 = new LudoGameStateMessage();
         msg2.setGameId("r1");
-        Assert.assertNotEquals(msg, new Object()); 
+        Assert.assertNotEquals(msg, new Object());
     }
 }

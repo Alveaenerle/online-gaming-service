@@ -52,11 +52,10 @@ export function LudoLobby() {
     }
   }, [currentLobby, refreshLobbyStatus, navigate]);
 
-  // Navigation effects based on lobby state
+  // Navigation effects based on lobby state - immediately transition to game
   useEffect(() => {
     if (currentLobby?.status === "PLAYING") {
-      // NOTE: Redirecting to home as LudoGame does not seem to exist yet
-      navigate("/home");
+      navigate("/ludo/game");
     }
   }, [currentLobby?.status, navigate]);
 
@@ -145,7 +144,7 @@ export function LudoLobby() {
       />
 
       <SocialCenter />
-      
+
       <ChatWidget isHost={isHost} />
 
       {avatarSelectFor && (

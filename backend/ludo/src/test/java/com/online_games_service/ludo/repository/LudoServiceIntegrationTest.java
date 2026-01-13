@@ -51,12 +51,12 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
     @Test
     public void shouldPersistGameInRedisAfterCreation() {
         // Given & When
-        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"));
+        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of());
 
         // Then
         Optional<LudoGame> gameOpt = redisRepository.findById(ROOM_ID);
         Assert.assertTrue(gameOpt.isPresent());
-        
+
         LudoGame game = gameOpt.get();
         Assert.assertEquals(game.getStatus(), RoomStatus.PLAYING);
         Assert.assertEquals(game.getPlayers().size(), 2);
@@ -67,13 +67,13 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
     @Test
     public void fullGameFlow_HappyPath() {
         // Given
-        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"));
-        
+        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of());
+
         LudoGame game = redisRepository.findById(ROOM_ID).get();
         game.setDiceRolled(true);
-        game.setLastDiceRoll(6); 
+        game.setLastDiceRoll(6);
         game.setWaitingForMove(true);
-        redisRepository.save(game); 
+        redisRepository.save(game);
 
         // When
         ludoService.movePawn(P1_ID, 0);
@@ -81,7 +81,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         // Then
         LudoGame updatedGame = redisRepository.findById(ROOM_ID).get();
         LudoPawn pawn = updatedGame.getPlayers().get(0).getPawns().get(0);
-        
+
         Assert.assertFalse(pawn.isInBase());
         Assert.assertEquals(updatedGame.getRollsLeft(), 1);
     }
@@ -89,21 +89,21 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
     @Test
     public void shouldSaveResultToMongoOnFinish() {
         // Given
-        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"));
-        
+        ludoService.createGame(ROOM_ID, List.of(P1_ID, P2_ID), P1_ID, Map.of(P1_ID, "Alice", P2_ID, "Bob"), Map.of());
+
         LudoGame game = redisRepository.findById(ROOM_ID).get();
         LudoPlayer winner = game.getPlayers().get(0);
-        
+
         winner.getPawns().forEach(p -> { p.setInBase(false); p.setInHome(true); });
-        
-        
+
+
         LudoPawn lastPawn = winner.getPawns().get(3);
         lastPawn.setInHome(false);
-        lastPawn.setStepsMoved(43); 
-        lastPawn.setPosition(43);   
-        
+        lastPawn.setStepsMoved(43);
+        lastPawn.setPosition(43);
+
         game.setDiceRolled(true);
-        game.setLastDiceRoll(1); 
+        game.setLastDiceRoll(1);
         game.setWaitingForMove(true);
         redisRepository.save(game);
 
@@ -113,7 +113,7 @@ public class LudoServiceIntegrationTest extends BaseIntegrationTest {
         // Then
         Assert.assertFalse(redisRepository.existsById(ROOM_ID));
         Assert.assertEquals(mongoRepository.count(), 1);
-        
+
         var result = mongoRepository.findAll().get(0);
         Assert.assertEquals(result.getWinnerId(), P1_ID);
     }

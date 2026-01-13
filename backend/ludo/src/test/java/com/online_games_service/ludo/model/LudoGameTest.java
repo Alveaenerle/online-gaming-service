@@ -27,10 +27,10 @@ public class LudoGameTest {
         Assert.assertEquals(game.getRoomId(), roomId);
         Assert.assertEquals(game.getStatus(), RoomStatus.PLAYING);
         Assert.assertEquals(game.getPlayers().size(), 2);
-        
+
         Assert.assertEquals(game.getPlayers().get(0).getColor(), PlayerColor.RED);
         Assert.assertEquals(game.getPlayers().get(1).getColor(), PlayerColor.BLUE);
-        
+
         Assert.assertEquals(game.getCurrentPlayerColor(), PlayerColor.RED);
         Assert.assertEquals(game.getActivePlayerId(), "p1");
     }
@@ -39,7 +39,7 @@ public class LudoGameTest {
     public void shouldInitializePawnsForPlayer() {
         // Given
         LudoGame game = new LudoGame("r1", List.of("p1"), "p1", Map.of("p1", "P1"));
-        
+
         // When
         LudoPlayer player = game.getPlayers().get(0);
 
@@ -53,7 +53,7 @@ public class LudoGameTest {
     public void shouldGetPlayerById() {
         // Given
         LudoGame game = new LudoGame("r1", List.of("p1", "p2"), "p1", null);
-        
+
         // When
         LudoPlayer found = game.getPlayerById("p2");
 
@@ -62,12 +62,12 @@ public class LudoGameTest {
         Assert.assertEquals(found.getUserId(), "p2");
         Assert.assertEquals(found.getColor(), PlayerColor.BLUE);
     }
-    
+
     @Test
     public void shouldReturnNullForUnknownPlayer() {
         // Given
         LudoGame game = new LudoGame("r1", List.of("p1"), "p1", null);
-        
+
         // When & Then
         Assert.assertNull(game.getPlayerById("unknown"));
     }
@@ -76,10 +76,10 @@ public class LudoGameTest {
     public void shouldGetPlayerByColor() {
         // Given
         LudoGame game = new LudoGame("r1", List.of("p1", "p2"), "p1", null);
-        
+
         // When
         LudoPlayer red = game.getPlayerByColor(PlayerColor.RED);
-        
+
         // Then
         Assert.assertNotNull(red);
         Assert.assertEquals(red.getUserId(), "p1");
@@ -98,10 +98,10 @@ public class LudoGameTest {
     public void shouldDetectWinCondition() {
         // Given
         LudoPlayer player = new LudoPlayer("p1", PlayerColor.RED);
-        
+
         // When
         player.getPawns().forEach(p -> p.setInHome(true));
-        
+
         // Then
         Assert.assertTrue(player.hasAllPawnsInHome());
     }
@@ -110,11 +110,11 @@ public class LudoGameTest {
     public void shouldNotWinIfOnePawnOutside() {
         // Given
         LudoPlayer player = new LudoPlayer("p1", PlayerColor.RED);
-        
+
         // When
         player.getPawns().forEach(p -> p.setInHome(true));
-        player.getPawns().get(0).setInHome(false); 
-        
+        player.getPawns().get(0).setInHome(false);
+
         // Then
         Assert.assertFalse(player.hasAllPawnsInHome());
     }
@@ -123,7 +123,7 @@ public class LudoGameTest {
     public void testLudoPawnModelCoverage() {
         // Given
         LudoPawn pawn = new LudoPawn(1, 13, PlayerColor.BLUE, 0, false, false);
-        
+
         // When
         pawn.setPosition(18);
         pawn.setStepsMoved(5);
@@ -136,17 +136,17 @@ public class LudoGameTest {
         Assert.assertEquals(pawn.getColor(), PlayerColor.BLUE);
         Assert.assertFalse(pawn.isInHome());
         Assert.assertFalse(pawn.isInBase());
-        Assert.assertNotNull(pawn.toString()); 
+        Assert.assertNotNull(pawn.toString());
     }
 
     @Test
     public void testLudoPlayerModelCoverage() {
         // Given
         LudoPlayer player = new LudoPlayer("u1", PlayerColor.GREEN);
-        
+
         // When
         player.setBot(true);
-        
+
         // Then
         Assert.assertEquals(player.getUserId(), "u1");
         Assert.assertEquals(player.getColor(), PlayerColor.GREEN);
@@ -158,7 +158,7 @@ public class LudoGameTest {
     public void testLudoGameResultModelCoverage() {
         // Given
         LudoGameResult result = new LudoGameResult();
-        
+
         // When
         result.setGameId("g1");
         result.setMaxPlayers(4);
@@ -172,15 +172,16 @@ public class LudoGameTest {
         Assert.assertEquals(result.getWinnerId(), "w1");
         Assert.assertNotNull(result.getPlayers());
         Assert.assertNotNull(result.getPlacement());
-        Assert.assertNotNull(result.toString()); 
+        Assert.assertNotNull(result.toString());
     }
 
     @Test
     public void testLudoGameStateMessageCoverage() {
         // Given
         LudoGameStateMessage msg = new LudoGameStateMessage(
-                "r1", RoomStatus.PLAYING, PlayerColor.RED, "p1", 
-                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null, null
+                "r1", RoomStatus.PLAYING, PlayerColor.RED, "p1",
+                6, true, true, 0, new ArrayList<>(), new HashMap<>(), null, null,
+                null, null, null
         );
 
         // When
@@ -189,8 +190,8 @@ public class LudoGameTest {
         // Then
         Assert.assertEquals(msg.getGameId(), "r1");
         Assert.assertEquals(msg.getRollsLeft(), 3);
-        Assert.assertNotNull(msg.toString()); 
-        
+        Assert.assertNotNull(msg.toString());
+
         LudoGameStateMessage emptyMsg = new LudoGameStateMessage();
         Assert.assertNotNull(emptyMsg);
     }

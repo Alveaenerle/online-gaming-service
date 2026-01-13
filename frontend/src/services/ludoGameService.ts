@@ -47,4 +47,23 @@ export const ludoService = {
       method: "POST",
     });
   },
+
+  /**
+   * Leave the current game. The player will be replaced by a bot.
+   */
+  leaveGame(): Promise<{ message: string }> {
+    return request<{ message: string }>("/leave-game", {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Request the current game state to be sent via WebSocket.
+   * Useful after connecting/reconnecting to get the current state.
+   */
+  requestState(): Promise<{ message: string }> {
+    return request<{ message: string }>("/request-state", {
+      method: "POST",
+    });
+  },
 };

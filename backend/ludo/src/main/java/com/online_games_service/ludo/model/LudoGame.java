@@ -21,36 +21,42 @@ public class LudoGame implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
-    private String roomId;       
-    private String gameId;   
-    
+    private String roomId;
+    private String gameId;
+
     private RoomStatus status;
     private String hostUserId;
     private int maxPlayers;
 
     private List<LudoPlayer> players = new ArrayList<>();
-    
+
     @Getter(AccessLevel.NONE)
     @Setter(AccessLevel.NONE)
-    private Map<String, String> playersUsernames = new HashMap<>(); 
-    
+    private Map<String, String> playersUsernames = new HashMap<>();
+
     private PlayerColor currentPlayerColor;
     private String activePlayerId;
-    
+
     private int lastDiceRoll;
     private boolean diceRolled;
     private boolean waitingForMove;
-    private int rollsLeft; 
+    private int rollsLeft;
 
     private String winnerId;
     private Map<String, Integer> placement = new HashMap<>();
-    
+
     private int botCounter = 0;
 
+    // Turn timer - start timestamp in milliseconds (for accurate client-side timer calculation)
+    private Long turnStartTime;
+
+    // Player avatars - playerId -> avatarId (e.g., "avatar_1.png" or "bot_avatar.svg")
+    private Map<String, String> playersAvatars = new HashMap<>();
+
     public LudoGame(String roomId, List<String> playerIds, String hostUserId, Map<String, String> usernames) {
-        this.roomId = roomId; 
-        this.gameId = "LUDO-" + UUID.randomUUID().toString(); 
-        
+        this.roomId = roomId;
+        this.gameId = "LUDO-" + UUID.randomUUID().toString();
+
         this.status = RoomStatus.PLAYING;
         this.hostUserId = hostUserId;
         this.playersUsernames = usernames != null ? new HashMap<>(usernames) : new HashMap<>();
@@ -67,7 +73,7 @@ public class LudoGame implements Serializable {
             this.activePlayerId = players.get(0).getUserId();
         }
     }
-    
+
     public Map<String, String> getPlayersUsernames() {
         return new HashMap<>(this.playersUsernames);
     }
@@ -75,14 +81,14 @@ public class LudoGame implements Serializable {
     public void setPlayersUsernames(Map<String, String> playersUsernames) {
         this.playersUsernames = playersUsernames != null ? new HashMap<>(playersUsernames) : new HashMap<>();
     }
-    
+
     public LudoPlayer getPlayerById(String userId) {
         return players.stream()
                 .filter(p -> p.getUserId().equals(userId))
                 .findFirst()
-                .orElse(null); 
+                .orElse(null);
     }
-    
+
     public LudoPlayer getPlayerByColor(PlayerColor color) {
         return players.stream()
                 .filter(p -> p.getColor() == color)

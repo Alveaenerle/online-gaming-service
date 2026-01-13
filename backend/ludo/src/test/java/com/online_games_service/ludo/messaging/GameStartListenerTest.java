@@ -58,6 +58,7 @@ public class GameStartListenerTest {
                 eq("room-1"),
                 any(),
                 eq("p1"),
+                any(),
                 any()
         );
     }
@@ -72,7 +73,7 @@ public class GameStartListenerTest {
         listener.handleGameStart(msg);
 
         // Then
-        verify(ludoService, never()).createGame(anyString(), any(), anyString(), any());
+        verify(ludoService, never()).createGame(anyString(), any(), anyString(), any(), any());
     }
 
     @Test

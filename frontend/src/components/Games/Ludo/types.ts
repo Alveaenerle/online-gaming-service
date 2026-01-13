@@ -37,4 +37,11 @@ export interface LudoGameStateMessage {
   usernames: Record<string, string>;
   winnerId: string | null;
   capturedUserId: string | null;
+
+  // Turn timer - seconds remaining for current player's turn (null for bots)
+  turnRemainingSeconds?: number | null;
+  // Turn start time in milliseconds (for accurate client-side timer calculation)
+  turnStartTime?: number | null;
+  // Player avatars - playerId -> avatarId (e.g., "avatar_1.png" or "bot_avatar.svg")
+  playersAvatars?: Record<string, string>;
 }

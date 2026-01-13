@@ -37,7 +37,7 @@ public class LudoService {
     private final StringRedisTemplate stringRedisTemplate;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
-    
+
     private final ScheduledExecutorService turnTimeoutScheduler = Executors.newScheduledThreadPool(4);
     private final Map<String, ScheduledFuture<?>> turnTimeouts = new ConcurrentHashMap<>();
 
@@ -55,13 +55,28 @@ public class LudoService {
 
     // --- API FUNCTIONS ---
 
-    public void createGame(String roomId, List<String> playerIds, String hostUserId, Map<String, String> usernames) {
+    public void createGame(String roomId, List<String> playerIds, String hostUserId, Map<String, String> usernames, Map<String, String> avatars) {
         if (playerIds == null || playerIds.isEmpty()) {
             log.warn("Cannot create Ludo game for room {}: playerIds is null or empty", roomId);
             return;
         }
 
         LudoGame game = new LudoGame(roomId, playerIds, hostUserId, usernames);
+
+        // Initialize avatars from lobby
+        if (avatars != null && !avatars.isEmpty()) {
+            game.setPlayersAvatars(new HashMap<>(avatars));
+        }
+
+        // Set bot avatars for any players that are bots
+        Map<String, String> gameAvatars = game.getPlayersAvatars();
+        for (LudoPlayer player : game.getPlayers()) {
+            if (player.isBot()) {
+                gameAvatars.put(player.getUserId(), "bot_avatar.svg");
+            }
+        }
+        game.setPlayersAvatars(gameAvatars);
+
         if (!game.getPlayers().isEmpty()) {
             updateRollsCountForPlayer(game, game.getPlayers().get(0));
         } else {
@@ -78,6 +93,9 @@ public class LudoService {
         for (String playerId : playerIds) {
             saveUserGameMapping(playerId, roomId);
         }
+
+        // Set initial turn start time before broadcasting
+        game.setTurnStartTime(System.currentTimeMillis());
 
         saveAndBroadcast(game, null);
 
@@ -125,6 +143,89 @@ public class LudoService {
         String capturedId = performMoveLogic(game, player, pawn, roll);
 
         handlePostMove(game, player, roll, capturedId);
+    }
+
+    /**
+     * Handle a player voluntarily leaving the game.
+     * The player will be replaced by a bot.
+     */
+    public void handlePlayerLeave(String userId) {
+        LudoGame game;
+        try {
+            game = getGameByUserId(userId);
+        } catch (IllegalArgumentException e) {
+            log.info("Player {} tried to leave but is not in any game", userId);
+            return;
+        }
+
+        if (game.getStatus() != RoomStatus.PLAYING) {
+            log.info("Player {} tried to leave game {} but it's not in PLAYING status", userId, game.getRoomId());
+            return;
+        }
+
+        LudoPlayer player = game.getPlayerById(userId);
+        if (player == null || player.isBot()) {
+            log.info("Player {} not found or is already a bot in game {}", userId, game.getRoomId());
+            return;
+        }
+
+        log.info("Player {} voluntarily leaving game {}", userId, game.getRoomId());
+
+        // Remove user-game mapping
+        removeUserGameMapping(userId);
+
+        // Replace player with bot
+        int nextBotNum = game.getBotCounter() + 1;
+        game.setBotCounter(nextBotNum);
+
+        String oldId = player.getUserId();
+        String botId = "bot-" + nextBotNum;
+
+        player.setUserId(botId);
+        player.setBot(true);
+
+        Map<String, String> usernames = game.getPlayersUsernames();
+        usernames.remove(oldId);
+        usernames.put(botId, "Bot " + player.getColor().name());
+        game.setPlayersUsernames(usernames);
+
+        // Update avatars - remove old player's avatar and set bot avatar
+        Map<String, String> avatars = game.getPlayersAvatars() != null
+                ? new HashMap<>(game.getPlayersAvatars())
+                : new HashMap<>();
+        avatars.remove(oldId);
+        avatars.put(botId, "bot_avatar.svg");
+        game.setPlayersAvatars(avatars);
+
+        // If it was this player's turn, let the bot take over
+        if (game.getActivePlayerId().equals(oldId)) {
+            game.setActivePlayerId(botId);
+            game.setDiceRolled(false);
+            game.setWaitingForMove(false);
+            game.setLastDiceRoll(0);
+            updateRollsCountForPlayer(game, player);
+            cancelTurnTimeout(game.getRoomId());
+        }
+
+        // Check if all humans left
+        if (checkAndAbortIfNoHumans(game)) {
+            return;
+        }
+
+        saveAndBroadcast(game, null);
+
+        // If it's now the bot's turn, trigger bot logic
+        if (game.getActivePlayerId().equals(botId)) {
+            handleBotTurn(game, botId);
+        }
+    }
+
+    /**
+     * Request the current game state to be sent via WebSocket for a user.
+     */
+    public void requestStateForUser(String userId) {
+        LudoGame game = getGameByUserId(userId);
+        saveAndBroadcast(game, null);
     }
 
     // --- LOOKUP & MAPPING METHODS (DODANE) ---
@@ -177,7 +278,7 @@ public class LudoService {
         }
 
         saveAndBroadcast(game, null);
-        
+
         if (game.getStatus() == RoomStatus.PLAYING && !isBot(game.getActivePlayerId())) {
             scheduleTurnTimeout(game);
         }
@@ -238,7 +339,7 @@ public class LudoService {
                 game.setDiceRolled(false);
                 game.setWaitingForMove(false);
                 game.setRollsLeft(1);
-                
+
                 saveAndBroadcast(game, capturedId);
 
                 if (!isBot(player.getUserId())) {
@@ -300,7 +401,7 @@ public class LudoService {
         try {
             LudoGame game = gameRepository.findById(roomId).orElse(null);
             if (game == null || game.getStatus() != RoomStatus.PLAYING) return;
-            
+
             if (checkAndAbortIfNoHumans(game)) {
                 return;
             }
@@ -314,7 +415,7 @@ public class LudoService {
             game.setLastDiceRoll(roll);
             game.setDiceRolled(true);
             game.setRollsLeft(game.getRollsLeft() - 1);
-            
+
             log.info("Bot {} rolled {}", botId, roll);
 
             boolean canMove = (roll == 6) || canMoveAnyPawn(game, bot, roll);
@@ -326,7 +427,7 @@ public class LudoService {
                     game.setDiceRolled(false);
                     game.setWaitingForMove(false);
                     saveAndBroadcast(game, null);
-                    
+
                     turnTimeoutScheduler.schedule(() -> processBotStep(roomId, botId), 1000, TimeUnit.MILLISECONDS);
                     return;
                 } else {
@@ -351,27 +452,27 @@ public class LudoService {
         try {
             LudoGame game = gameRepository.findById(roomId).orElse(null);
             if (game == null) return;
-            
+
             LudoPlayer bot = game.getPlayerById(botId);
-            
+
             int pawnToMoveIndex = chooseBestPawnToMove(game, bot, roll);
 
             if (pawnToMoveIndex != -1) {
                 LudoPawn pawn = bot.getPawns().get(pawnToMoveIndex);
-                
+
                 String capturedId = performMoveLogic(game, bot, pawn, roll);
-                
+
                 if (checkWinCondition(bot)) {
                     handleGameFinish(game, bot);
                     return;
                 }
-                
+
                 if (roll == 6) {
                     game.setDiceRolled(false);
                     game.setWaitingForMove(false);
                     game.setRollsLeft(1);
                     saveAndBroadcast(game, capturedId);
-                    
+
                     turnTimeoutScheduler.schedule(() -> processBotStep(roomId, botId), 1000, TimeUnit.MILLISECONDS);
                 } else {
                     if (capturedId != null) {
@@ -387,7 +488,7 @@ public class LudoService {
             tryToRecoverTurn(roomId);
         }
     }
-    
+
     private int chooseBestPawnToMove(LudoGame game, LudoPlayer bot, int roll) {
         if (roll == 6) {
             for (LudoPawn pawn : bot.getPawns()) {
@@ -425,7 +526,7 @@ public class LudoService {
 
     private boolean canPawnMoveSimple(LudoGame game, LudoPlayer player, LudoPawn pawn, int roll) {
         if (pawn.isInHome()) return false;
-        
+
         if (pawn.isInBase()) {
             if (roll != 6) return false;
             int startPos = player.getColor().getStartPosition();
@@ -433,7 +534,7 @@ public class LudoService {
         } else {
             int potentialSteps = pawn.getStepsMoved() + roll;
             if (potentialSteps >= BOARD_SIZE) return true;
-            
+
             int nextPos = (pawn.getPosition() + roll) % BOARD_SIZE;
             if (isFieldOccupiedBySelf(game, nextPos, player.getColor())) return false;
             if (isOpponentOnSafePos(game, nextPos, player.getColor())) return false;
@@ -446,13 +547,20 @@ public class LudoService {
     private void scheduleTurnTimeout(LudoGame game) {
         if (game.getStatus() != RoomStatus.PLAYING) return;
         cancelTurnTimeout(game.getRoomId());
-        
-        if (isBot(game.getActivePlayerId())) return;
+
+        if (isBot(game.getActivePlayerId())) {
+            // Clear turn start time for bots
+            game.setTurnStartTime(null);
+            return;
+        }
+
+        // Set turn start time for accurate client-side timer calculation
+        game.setTurnStartTime(System.currentTimeMillis());
 
         ScheduledFuture<?> future = turnTimeoutScheduler.schedule(() -> {
             handleTurnTimeout(game.getRoomId(), game.getActivePlayerId());
         }, turnTimeoutSeconds, TimeUnit.SECONDS);
-        
+
         turnTimeouts.put(game.getRoomId(), future);
     }
 
@@ -463,43 +571,51 @@ public class LudoService {
             if (!game.getActivePlayerId().equals(timedOutPlayerId)) return;
 
             log.info("Timeout for player {} in room {}", timedOutPlayerId, roomId);
-            
+
             LudoPlayer player = game.getPlayerById(timedOutPlayerId);
             if (player != null) {
                 removeUserGameMapping(player.getUserId());
 
                 int nextBotNum = game.getBotCounter() + 1;
                 game.setBotCounter(nextBotNum);
-                
+
                 String oldId = player.getUserId();
                 String botId = "bot-" + nextBotNum;
-                
+
                 player.setUserId(botId);
-                player.setBot(true); 
-                
+                player.setBot(true);
+
                 Map<String, String> usernames = game.getPlayersUsernames();
                 usernames.remove(oldId);
                 usernames.put(botId, "Bot " + nextBotNum);
                 game.setPlayersUsernames(usernames);
-                
+
+                // Update avatars - remove old player's avatar and set bot avatar
+                Map<String, String> avatars = game.getPlayersAvatars() != null
+                        ? new HashMap<>(game.getPlayersAvatars())
+                        : new HashMap<>();
+                avatars.remove(oldId);
+                avatars.put(botId, "bot_avatar.svg");
+                game.setPlayersAvatars(avatars);
+
                 game.setActivePlayerId(botId);
-                
+
                 if (checkAndAbortIfNoHumans(game)) {
                     return;
                 }
-                
+
                 game.setDiceRolled(false);
                 game.setWaitingForMove(false);
                 game.setLastDiceRoll(0);
-                updateRollsCountForPlayer(game, player); 
+                updateRollsCountForPlayer(game, player);
 
                 saveAndBroadcast(game, null);
-                
+
                 handleBotTurn(game, botId);
             } else {
                 passTurnToNextPlayer(game);
             }
-            
+
         } catch (Exception e) {
             log.error("Error handling timeout", e);
         }
@@ -571,11 +687,19 @@ public class LudoService {
 
     private void saveAndBroadcast(LudoGame game, String capturedUserId) {
         gameRepository.save(game);
-        LudoGameStateMessage msg = mapToDTO(game, capturedUserId); 
+        LudoGameStateMessage msg = mapToDTO(game, capturedUserId);
         messagingTemplate.convertAndSend("/topic/game/" + game.getRoomId(), msg);
     }
 
     private LudoGameStateMessage mapToDTO(LudoGame game, String capturedUserId) {
+        // Calculate remaining seconds for timer (null for bots)
+        Integer turnRemainingSeconds = null;
+        if (game.getTurnStartTime() != null && !isBot(game.getActivePlayerId())) {
+            long elapsedMs = System.currentTimeMillis() - game.getTurnStartTime();
+            int elapsedSeconds = (int) (elapsedMs / 1000);
+            turnRemainingSeconds = Math.max(0, (int) turnTimeoutSeconds - elapsedSeconds);
+        }
+
         return new LudoGameStateMessage(
                 game.getRoomId(),
                 game.getStatus(),
@@ -588,7 +712,10 @@ public class LudoService {
                 game.getPlayers(),
                 game.getPlayersUsernames(),
                 game.getWinnerId(),
-                capturedUserId 
+                capturedUserId,
+                turnRemainingSeconds,
+                game.getTurnStartTime(),
+                game.getPlayersAvatars()
         );
     }
 
@@ -596,7 +723,7 @@ public class LudoService {
         cancelTurnTimeout(game.getRoomId());
         game.setStatus(RoomStatus.FINISHED);
         game.setWinnerId(winner.getUserId());
-        
+
         LudoGameResult result = new LudoGameResult(
                 game.getGameId(),
                 game.getMaxPlayers(),
@@ -605,19 +732,19 @@ public class LudoService {
                 calculatePlacement(game, winner)
         );
         gameResultRepository.save(result);
-        
+
         GameFinishMessage finishMsg = new GameFinishMessage(game.getRoomId(), RoomStatus.FINISHED);
         rabbitTemplate.convertAndSend(exchangeName, finishRoutingKey, finishMsg);
-        
+
         saveAndBroadcast(game, null);
-        
+
         removeAllUserMappings(game);
 
         if (game.getRoomId() != null) {
             gameRepository.deleteById(game.getRoomId());
         }
     }
-    
+
     private boolean checkAndAbortIfNoHumans(LudoGame game) {
         boolean hasHumans = game.getPlayers().stream()
                 .anyMatch(p -> !p.isBot());
@@ -631,7 +758,7 @@ public class LudoService {
         }
         return false;
     }
-    
+
     private Map<String, Integer> calculatePlacement(LudoGame game, LudoPlayer winner) {
         Map<String, Integer> placement = new HashMap<>();
         for (String pid : game.getPlayersUsernames().keySet()) {
@@ -654,7 +781,7 @@ public class LudoService {
                 }
             }
             turnTimeouts.clear();
-            
+
             turnTimeoutScheduler.shutdown();
             try {
                 if (!turnTimeoutScheduler.awaitTermination(5, TimeUnit.SECONDS)) {

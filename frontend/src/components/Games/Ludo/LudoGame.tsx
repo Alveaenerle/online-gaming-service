@@ -22,9 +22,11 @@ import {
 
 // Hooks
 import { useTurnTimer } from "./hooks/useTurnTimer";
+import { useLudoSocket } from "./hooks/useLudoSocket";
 
 // Context & Services
 import { useLudo } from "../../../context/LudoGameContext";
+import { ludoService } from "../../../services/ludoGameService";
 import { useAuth } from "../../../context/AuthContext";
 import { useLobby } from "../../../context/LobbyContext";
 import { useSocial } from "../../../context/SocialContext";
@@ -41,16 +43,30 @@ import { RoomStatus, LudoPlayer } from "./types";
  * Builds player views for corner positioning based on player color
  * Red = top-left, Blue = top-right, Yellow = bottom-right, Green = bottom-left
  */
+/**
+ * Get avatar URL from avatarId, handling bots
+ */
+function getAvatarUrl(avatarId: string | undefined, playerId: string, isBot: boolean): string {
+  if (isBot || playerId.startsWith("bot-")) {
+    return "/avatars/bot_avatar.svg";
+  }
+  if (avatarId) {
+    return `/avatars/${avatarId}`;
+  }
+  return "/avatars/avatar_1.png";
+}
+
 function buildCornerPlayers(
   players: LudoPlayer[],
   usernames: Record<string, string>,
+  avatars: Record<string, string> | undefined,
   currentUserId: string,
   currentPlayerId: string,
   hostUserId?: string
 ): CornerPlayerCardProps[] {
   return players.map((p, index) => ({
     id: p.userId,
-    username: usernames[p.userId] || "Unknown",
+    username: p.isBot ? `Bot ${p.color}` : (usernames[p.userId] || "Unknown"),
     color: p.color,
     isActive: p.userId === currentPlayerId,
     isBot: p.isBot,
@@ -59,7 +75,7 @@ function buildCornerPlayers(
     pawnsInBase: p.pawns.filter((pawn) => pawn.inBase).length,
     pawnsOnBoard: p.pawns.filter((pawn) => !pawn.inBase && !pawn.inHome).length,
     pawnsInHome: p.pawns.filter((pawn) => pawn.inHome).length,
-    avatarUrl: `/avatars/avatar_${(index % 4) + 1}.png`,
+    avatarUrl: getAvatarUrl(avatars?.[p.userId], p.userId, p.isBot),
   }));
 }
 
@@ -83,12 +99,20 @@ export function LudoArenaPage() {
     notificationType,
   } = useLudo();
 
+  // WebSocket hook for timeout notifications (runs alongside context)
+  const {
+    wasKickedByTimeout,
+    clearTimeoutStatus,
+    resetState: resetSocketState,
+  } = useLudoSocket();
+
   // Determine if current user is the host
   const isHost = currentLobby?.hostUserId === user?.id;
 
   // Local UI state
   const [showMessage, setShowMessage] = useState(true);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [wasReplacedByBot, setWasReplacedByBot] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [playerContextMenu, setPlayerContextMenu] = useState<{
     playerId: string;
@@ -105,9 +129,11 @@ export function LudoArenaPage() {
   const activePlayer = gameState?.players.find(p => p.userId === gameState?.currentPlayerId);
   const isActivePlayerBot = activePlayer?.isBot ?? false;
 
-  // Turn timer hook
+  // Turn timer hook - synced with server timing
   const { remainingSeconds: turnRemainingSeconds } = useTurnTimer({
     activePlayerId: gameState?.currentPlayerId,
+    serverRemainingSeconds: gameState?.turnRemainingSeconds,
+    turnStartTime: gameState?.turnStartTime,
     isActivePlayerBot,
     isGamePlaying,
   });
@@ -120,6 +146,7 @@ export function LudoArenaPage() {
     return buildCornerPlayers(
       gameState.players,
       gameState.usernames,
+      gameState.playersAvatars,
       user.id,
       gameState.currentPlayerId,
       currentLobby?.hostUserId
@@ -145,6 +172,14 @@ export function LudoArenaPage() {
     }
   }, [notification]);
 
+  // Show timeout modal when kicked via WebSocket notification
+  useEffect(() => {
+    if (wasKickedByTimeout) {
+      setShowTimeoutModal(true);
+      setWasReplacedByBot(true);
+    }
+  }, [wasKickedByTimeout]);
+
   // Handle pawn click
   const handlePawnClick = useCallback(async (pawnId: number) => {
     await movePawn(pawnId);
@@ -156,15 +191,18 @@ export function LudoArenaPage() {
 
   // Handle leaving game
   const handleLeaveGame = useCallback(async () => {
-    console.log("[LudoGame] Leaving game");
+    console.log("[LudoGame] Leaving game mid-session");
     try {
-      await lobbyService.leaveRoom();
+      // Notify backend so player gets replaced by bot
+      await ludoService.leaveGame();
     } catch (err) {
-      console.error("[LudoGame] Failed to leave:", err);
+      console.error("[LudoGame] Failed to notify backend of leave:", err);
+      // Continue with navigation even if API call fails
     }
+    resetSocketState();
     clearLobby();
     navigate("/ludo");
-  }, [clearLobby, navigate]);
+  }, [resetSocketState, clearLobby, navigate]);
 
   // Handle play again
   const handlePlayAgain = useCallback(() => {
@@ -558,9 +596,14 @@ export function LudoArenaPage() {
       {/* Timeout Modal */}
       <TimeoutModal
         isOpen={showTimeoutModal}
-        onClose={() => setShowTimeoutModal(false)}
+        onClose={() => {
+          setShowTimeoutModal(false);
+          clearTimeoutStatus();
+        }}
         onReturnToLobby={() => {
           setShowTimeoutModal(false);
+          clearTimeoutStatus();
+          resetSocketState();
           clearLobby();
           navigate("/ludo");
         }}

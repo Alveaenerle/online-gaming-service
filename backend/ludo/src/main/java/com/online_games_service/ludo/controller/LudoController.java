@@ -36,6 +36,32 @@ public class LudoController {
         return ResponseEntity.ok(Map.of("message", "Move accepted"));
     }
 
+    /**
+     * Leave the current game. The player will be replaced by a bot.
+     */
+    @PostMapping("/leave-game")
+    public ResponseEntity<Map<String, String>> leaveGame(
+            @RequestAttribute(value = "userId", required = false) String userId) {
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        ludoService.handlePlayerLeave(userId);
+        return ResponseEntity.ok(Map.of("message", "success"));
+    }
+
+    /**
+     * Request the current game state to be sent via WebSocket.
+     */
+    @PostMapping("/request-state")
+    public ResponseEntity<Map<String, String>> requestState(
+            @RequestAttribute(value = "userId", required = false) String userId) {
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        ludoService.requestStateForUser(userId);
+        return ResponseEntity.ok(Map.of("message", "success"));
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
