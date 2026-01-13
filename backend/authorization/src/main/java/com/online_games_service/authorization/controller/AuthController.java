@@ -1,5 +1,7 @@
 package com.online_games_service.authorization.controller;
 
+import com.online_games_service.authorization.dto.GoogleOAuthRequest;
+import com.online_games_service.authorization.dto.GoogleUserInfo;
 import com.online_games_service.authorization.dto.LoginRequest;
 import com.online_games_service.authorization.dto.RegisterRequest;
 import com.online_games_service.authorization.dto.UpdateUsernameRequest;
@@ -7,9 +9,11 @@ import com.online_games_service.authorization.dto.UpdatePasswordRequest;
 import com.online_games_service.authorization.dto.EmailResponse;
 import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
 import com.online_games_service.authorization.exception.InvalidCredentialsException;
+import com.online_games_service.authorization.exception.OAuthAccountException;
 import com.online_games_service.authorization.exception.UsernameAlreadyExistsException;
 import com.online_games_service.authorization.model.User;
 import com.online_games_service.authorization.service.AuthService;
+import com.online_games_service.authorization.service.GoogleTokenVerifierService;
 import com.online_games_service.authorization.service.SessionService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +34,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final SessionService sessionService;
+    private final GoogleTokenVerifierService googleTokenVerifierService;
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest request) {
@@ -59,6 +64,9 @@ public class AuthController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
                     .body("Login successful");
+        } catch (OAuthAccountException e) {
+            log.warn("Login failed for email {}: {}", request.getEmail(), e.getMessage());
+            return ResponseEntity.status(400).body(e.getMessage());
         } catch (InvalidCredentialsException e) {
             log.warn("Login failed for email {}: {}", request.getEmail(), e.getMessage());
             return ResponseEntity.status(401).body("Login failed: Invalid credentials");
@@ -66,6 +74,43 @@ public class AuthController {
             log.error("Unexpected error during login", e);
             return ResponseEntity.internalServerError().body("An unexpected error occurred");
         }
+    }
+
+    @PostMapping("/oauth/google")
+    public ResponseEntity<?> loginWithGoogle(@Valid @RequestBody GoogleOAuthRequest request) {
+        log.info("Google OAuth login attempt");
+        try {
+            // Check if Google OAuth is configured
+            if (!googleTokenVerifierService.isConfigured()) {
+                log.error("Google OAuth is not configured");
+                return ResponseEntity.status(503).body("Google Sign-In is not available");
+            }
+
+            // Verify the Google ID token
+            GoogleUserInfo googleUserInfo = googleTokenVerifierService.verifyToken(request.getIdToken());
+            
+            // Process login/registration
+            User user = authService.loginWithGoogle(googleUserInfo);
+
+            ResponseCookie sessionCookie = sessionService.createSessionCookie(user);
+
+            log.info("Google OAuth login successful for: {}", googleUserInfo.getEmail());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
+                    .body("Login successful");
+        } catch (InvalidCredentialsException e) {
+            log.warn("Google OAuth login failed: {}", e.getMessage());
+            return ResponseEntity.status(401).body("Google Sign-In failed: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during Google OAuth login", e);
+            return ResponseEntity.internalServerError().body("An unexpected error occurred");
+        }
+    }
+
+    @GetMapping("/oauth/google/configured")
+    public ResponseEntity<?> isGoogleOAuthConfigured() {
+        boolean configured = googleTokenVerifierService.isConfigured();
+        return ResponseEntity.ok().body(java.util.Map.of("configured", configured));
     }
 
     @PostMapping("/guest")
@@ -161,6 +206,9 @@ public class AuthController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
                     .body("Password updated successfully");
+        } catch (OAuthAccountException e) {
+            log.warn("Password update failed for user {}: OAuth account", user.getId());
+            return ResponseEntity.status(400).body(e.getMessage());
         } catch (InvalidCredentialsException e) {
             log.warn("Password update failed for user {}: {}", user.getId(), e.getMessage());
             return ResponseEntity.status(400).body(e.getMessage());

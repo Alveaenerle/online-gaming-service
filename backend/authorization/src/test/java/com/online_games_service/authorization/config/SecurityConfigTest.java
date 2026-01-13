@@ -121,7 +121,7 @@ public class SecurityConfigTest {
         verify(sessionConfigurer).sessionCreationPolicy(SessionCreationPolicy.STATELESS);
         verify(logoutConfigurer).disable();
         
-        verify(authRegistry).requestMatchers("/register", "/login", "/guest", "/logout");
+        verify(authRegistry).requestMatchers("/register", "/login", "/guest", "/logout", "/oauth/google", "/oauth/google/configured");
         verify(authorizedUrl, times(1)).permitAll();
         verify(authRegistry).anyRequest();
         verify(authorizedUrl, times(1)).authenticated();
