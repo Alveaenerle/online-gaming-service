@@ -81,7 +81,7 @@ const Navbar: React.FC = () => {
                   className="absolute right-0 mt-2 w-48 bg-[#1a1a27] border border-white/10 rounded-xl shadow-lg overflow-hidden"
                 >
                   <Link
-                    to="/home"
+                    to="/dashboard"
                     onClick={() => setDropdownOpen(false)}
                     className="block px-4 py-3 hover:bg-white/5 transition-colors"
                   >

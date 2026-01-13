@@ -2,6 +2,8 @@ package com.online_games_service.authorization.controller;
 
 import com.online_games_service.authorization.dto.LoginRequest;
 import com.online_games_service.authorization.dto.RegisterRequest;
+import com.online_games_service.authorization.dto.UpdateUsernameRequest;
+import com.online_games_service.authorization.dto.UpdatePasswordRequest;
 import com.online_games_service.authorization.exception.EmailAlreadyExistsException;
 import com.online_games_service.authorization.exception.InvalidCredentialsException;
 import com.online_games_service.authorization.model.User;
@@ -94,5 +96,65 @@ public class AuthController {
         }
         log.debug("User {} retrieved from session", user.getUsername());
         return ResponseEntity.ok(user);
+    }
+
+    @PutMapping("/update-username")
+    public ResponseEntity<?> updateUsername(HttpServletRequest request, @Valid @RequestBody UpdateUsernameRequest updateRequest) {
+        User user = sessionService.getUserFromCookie(request);
+        if (user == null) {
+            log.debug("No active session found for /update-username request");
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        if (user.isGuest()) {
+            log.warn("Guest user attempted to update username");
+            return ResponseEntity.status(403).body("Guest accounts cannot update username");
+        }
+
+        log.info("Attempting to update username for user: {}", user.getId());
+        try {
+            User updatedUser = authService.updateUsername(user.getId(), updateRequest);
+
+            // Update session with new user data
+            ResponseCookie sessionCookie = sessionService.createSessionCookie(updatedUser);
+
+            log.info("Username updated successfully for user: {}", user.getId());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
+                    .body(updatedUser);
+        } catch (InvalidCredentialsException e) {
+            log.warn("Username update failed for user {}: {}", user.getId(), e.getMessage());
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during username update", e);
+            return ResponseEntity.internalServerError().body("An unexpected error occurred");
+        }
+    }
+
+    @PutMapping("/update-password")
+    public ResponseEntity<?> updatePassword(HttpServletRequest request, @Valid @RequestBody UpdatePasswordRequest updateRequest) {
+        User user = sessionService.getUserFromCookie(request);
+        if (user == null) {
+            log.debug("No active session found for /update-password request");
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+
+        if (user.isGuest()) {
+            log.warn("Guest user attempted to update password");
+            return ResponseEntity.status(403).body("Guest accounts cannot update password");
+        }
+
+        log.info("Attempting to update password for user: {}", user.getId());
+        try {
+            authService.updatePassword(user.getId(), updateRequest);
+            log.info("Password updated successfully for user: {}", user.getId());
+            return ResponseEntity.ok("Password updated successfully");
+        } catch (InvalidCredentialsException e) {
+            log.warn("Password update failed for user {}: {}", user.getId(), e.getMessage());
+            return ResponseEntity.status(400).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error during password update", e);
+            return ResponseEntity.internalServerError().body("An unexpected error occurred");
+        }
     }
 }

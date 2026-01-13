@@ -19,14 +19,14 @@ export interface User {
 
 async function parseErrorResponse(response: Response, fallbackMessage: string): Promise<string> {
   const status = response.status;
-  
+
   try {
     const contentType = response.headers.get('content-type');
     if (contentType?.includes('application/json')) {
       const errorData = await response.json();
       return errorData.message || errorData.error || fallbackMessage;
     }
-    
+
     const errorText = await response.text();
     if (errorText) {
       return errorText;
@@ -132,5 +132,35 @@ export const authService = {
     }
 
     return response.json();
+  },
+
+  async updateUsername(newUsername: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/update-username`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ newUsername }),
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response, 'Failed to update username.');
+      throw new Error(errorMessage);
+    }
+
+    return response.json();
+  },
+
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/update-password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response, 'Failed to update password.');
+      throw new Error(errorMessage);
+    }
   },
 };
