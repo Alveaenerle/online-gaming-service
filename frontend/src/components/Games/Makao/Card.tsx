@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Card as CardType } from "./types";
+import { getCardImagePath, RANK_DISPLAY, isSpecialCard } from "./utils/cardHelpers";
 
 interface CardProps {
   card: CardType;
@@ -7,6 +8,7 @@ interface CardProps {
   isPlayable?: boolean;
   isFaceDown?: boolean;
   size?: "sm" | "md" | "lg";
+  showEffect?: boolean;
 }
 
 const SIZES = {
@@ -15,31 +17,23 @@ const SIZES = {
   lg: { width: 72, height: 101 },
 };
 
-const getRankName = (rank: string): string => {
-  switch (rank) {
-    case "A": return "ace";
-    case "K": return "king";
-    case "Q": return "queen";
-    case "J": return "jack";
-    default: return rank;
-  }
-};
-
 const Card: React.FC<CardProps> = ({
   card,
   onClick,
   isPlayable = false,
   isFaceDown = false,
   size = "md",
+  showEffect = false,
 }) => {
   const s = SIZES[size];
+  const special = isSpecialCard(card);
 
   if (isFaceDown) {
     return (
       <motion.div
         whileHover={onClick ? { scale: 1.05, y: -2 } : {}}
         style={{ width: s.width, height: s.height }}
-        className={`rounded-lg bg-gradient-to-br from-purpleStart to-purpleEnd shadow-md flex items-center justify-center ${onClick ? "cursor-pointer" : ""}`}
+        className={`rounded-s bg-gradient-to-br from-purpleStart to-purpleEnd shadow-md flex items-center justify-center ${onClick ? "cursor-pointer" : ""}`}
         onClick={onClick}
       >
         <span className="text-white/40 font-bold text-base">OG</span>
@@ -47,26 +41,33 @@ const Card: React.FC<CardProps> = ({
     );
   }
 
-  const rankName = getRankName(card.rank);
-  const cardImage = `/SVG-cards-1.3/${rankName}_of_${card.suit}.svg`;
+  const cardImage = getCardImagePath(card);
 
   return (
     <motion.div
       whileHover={isPlayable ? { scale: 1.08, y: -8 } : {}}
       onClick={isPlayable ? onClick : undefined}
       style={{ width: s.width, height: s.height }}
-      className={`rounded-lg overflow-hidden shadow-md ${
-        isPlayable
-          ? "ring-2 ring-purpleEnd cursor-pointer shadow-neon"
-          : "opacity-80"
-      }`}
+      className={`
+        relative rounded-s overflow-hidden  border-white shadow-xl
+        flex items-center justify-center transition-all duration-200
+        ${isPlayable
+          ? "cursor-pointer hover:shadow-2xl hover:border-white"
+          : "opacity-90 grayscale-[0.2] border-gray-100"
+        }
+      `}
     >
       <img
         src={cardImage}
-        alt={`${card.rank} of ${card.suit}`}
-        className="w-full h-full object-contain bg-white"
+        alt={`${RANK_DISPLAY[card.rank]} of ${card.suit}`}
+        className="w-full h-full object-contain pointer-events-none"
         draggable={false}
       />
+
+      {/* Selection/Effect overlay */}
+      {showEffect && (
+        <div className="absolute inset-0 bg-purpleEnd/10 mix-blend-overlay pointer-events-none" />
+      )}
     </motion.div>
   );
 };

@@ -74,11 +74,20 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
     };
   }, [currentLobby?.id]);
 
+  // Track seen message IDs to prevent duplicate unread count
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+
   // Handle incoming messages
   useEffect(() => {
     const unsubMessage = chatService.onMessage((message) => {
+      // Check if we've already processed this message
+      if (seenMessageIdsRef.current.has(message.id)) {
+        return;
+      }
+      seenMessageIdsRef.current.add(message.id);
+      
       setMessages((prev) => {
-        // Prevent duplicate messages
+        // Prevent duplicate messages in state
         if (prev.some((m) => m.id === message.id)) {
           return prev;
         }
@@ -275,7 +284,7 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
         <MessageCircle className="w-6 h-6 text-white" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center text-white font-bold">
-            {Math.ceil(unreadCount / 2) > 9 ? "9+" : Math.ceil(unreadCount / 2)}
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </motion.button>

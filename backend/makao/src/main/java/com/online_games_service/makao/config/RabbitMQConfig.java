@@ -27,6 +27,9 @@ public class RabbitMQConfig {
     @Value("${makao.amqp.routing.start:makao.start}")
     private String startRoutingKey;
 
+    @Value("${makao.amqp.routing.leave:player.leave}")
+    private String leaveRoutingKey;
+
     @Bean
     public TopicExchange gameEventsExchange() {
         return new TopicExchange(exchangeName, true, false);

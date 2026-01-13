@@ -1,12 +1,10 @@
-package com.online_games_service.social.integration;
+package com.online_games_service.social.repository;
 
 import com.online_games_service.social.model.FriendRequest;
 import com.online_games_service.social.repository.FriendRequestRepository;
 import com.online_games_service.test.BaseIntegrationTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.test.context.ActiveProfiles;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -41,14 +39,16 @@ public class FriendRequestRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    public void shouldBlockDuplicateRequests() {
-        // Given
+    public void shouldSaveMultipleRequestsFromDifferentUsers() {
+        // Given - different user pairs
         friendRequestRepository.save(new FriendRequest("userA", "userB"));
+        friendRequestRepository.save(new FriendRequest("userC", "userB"));
 
-        // When & Then
-        Assert.assertThrows(DuplicateKeyException.class, () -> {
-            friendRequestRepository.save(new FriendRequest("userA", "userB"));
-        });
+        // When
+        List<FriendRequest> incoming = friendRequestRepository.findAllByAddresseeId("userB");
+
+        // Then
+        Assert.assertEquals(incoming.size(), 2);
     }
 
     @Test

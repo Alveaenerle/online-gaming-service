@@ -32,11 +32,16 @@ public class GameStartListenerTest {
         players.put("user1", "Alice");
         players.put("user2", "Bob");
 
+        Map<String, String> avatars = new HashMap<>();
+        avatars.put("user1", "avatar1.png");
+        avatars.put("user2", "avatar2.png");
+
         GameStartMessage message = new GameStartMessage(
                 "room123",
                 "Fun Game",
                 GameType.MAKAO,
                 players,
+                avatars,
                 4,
                 "user1",
                 "Alice"
@@ -66,6 +71,7 @@ public class GameStartListenerTest {
                 "Room",
                 GameType.LUDO,
                 new HashMap<>(),
+                new HashMap<>(),
                 2,
                 "host",
                 "Host"
@@ -86,6 +92,7 @@ public class GameStartListenerTest {
                 "Room",
                 GameType.MAKAO,
                 new HashMap<>(),
+                new HashMap<>(),
                 4,
                 "host",
                 "Host"
@@ -104,11 +111,15 @@ public class GameStartListenerTest {
         Map<String, String> players = new HashMap<>();
         players.put("user1", "Player");
 
+        Map<String, String> avatars = new HashMap<>();
+        avatars.put("user1", "avatar.png");
+
         GameStartMessage message = new GameStartMessage(
                 "room456",
                 "Game Room",
                 GameType.LUDO,
                 players,
+                avatars,
                 2,
                 "user1",
                 "Player"
@@ -132,6 +143,7 @@ public class GameStartListenerTest {
                 "Makao Game",
                 GameType.MAKAO,
                 Map.of("u1", "p1"),
+                Map.of("u1", "avatar1.png"),
                 4,
                 "u1",
                 "p1"
@@ -142,6 +154,7 @@ public class GameStartListenerTest {
                 "Ludo Game",
                 GameType.LUDO,
                 Map.of("u2", "p2"),
+                Map.of("u2", "avatar2.png"),
                 4,
                 "u2",
                 "p2"

@@ -445,4 +445,41 @@ public class FriendNotificationServiceTest {
         // Then
         verify(messagingTemplate).convertAndSendToUser(anyString(), anyString(), any());
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void shouldSendFriendRemovedNotification() {
+        // Given
+        String removedUserId = "removedUser123";
+        String removedByUserId = "removerUser456";
+
+        // When
+        friendNotificationService.sendFriendRemovedNotification(removedUserId, removedByUserId);
+
+        // Then
+        ArgumentCaptor<java.util.Map<String, Object>> messageCaptor = ArgumentCaptor.forClass(java.util.Map.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(removedUserId),
+                eq("/queue/notifications"),
+                messageCaptor.capture()
+        );
+
+        java.util.Map<String, Object> notification = messageCaptor.getValue();
+        Assert.assertEquals(notification.get("type"), "NOTIFICATION_RECEIVED");
+        Assert.assertEquals(notification.get("subType"), "FRIEND_REMOVED");
+        Assert.assertEquals(notification.get("removedByUserId"), removedByUserId);
+    }
+
+    @Test
+    public void shouldHandleExceptionInFriendRemovedNotification() {
+        // Given
+        doThrow(new RuntimeException("Error")).when(messagingTemplate)
+                .convertAndSendToUser(anyString(), anyString(), any());
+
+        // When - should not throw
+        friendNotificationService.sendFriendRemovedNotification("target", "remover");
+
+        // Then
+        verify(messagingTemplate).convertAndSendToUser(anyString(), anyString(), any());
+    }
 }

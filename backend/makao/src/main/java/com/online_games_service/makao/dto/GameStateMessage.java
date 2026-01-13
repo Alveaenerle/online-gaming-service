@@ -29,4 +29,24 @@ public class GameStateMessage {
     private RoomStatus status;
     private int drawDeckCardsAmount;
     private int discardDeckCardsAmount;
+    // Move history log - describes the last action taken (e.g., "Player1 played Ace of Hearts")
+    private String lastMoveLog;
+    // Special effect notification - explicitly describes active effects (e.g., "Player 1 skips a turn due to a 4")
+    private String effectNotification;
+    // List of recent move logs for move history display
+    private List<String> moveHistory;
+    // Turn timer - seconds remaining for current player's turn (null for bots)
+    private Integer turnRemainingSeconds;
+    // Turn start timestamp - when the current turn started (for accurate client-side calculation)
+    private Long turnStartTime;
+    // MAKAO status - player who has only 1 card left (MAKAO)
+    private String makaoPlayerId;
+    // Bot thinking state - ID of bot currently "thinking" (null if no bot thinking)
+    private String botThinkingPlayerId;
+    // Player turn order - list of player IDs in their turn order (human always first)
+    private List<String> playerOrder;
+    // Player usernames - playerId -> username
+    private Map<String, String> playersUsernames;
+    // Player avatars - playerId -> avatarId (e.g., "avatar_1.png" or "bot_avatar.png")
+    private Map<String, String> playersAvatars;
 }

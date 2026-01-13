@@ -1,4 +1,4 @@
-package com.online_games_service.social.integration;
+package com.online_games_service.social.repository;
 
 import com.online_games_service.social.model.SocialProfile;
 import com.online_games_service.social.repository.SocialProfileRepository;

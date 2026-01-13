@@ -39,8 +39,9 @@ public class MakaoGame implements Serializable {
 
     private Map<String, Integer> playersSkipTurns = new HashMap<>();
     private Map<String, String> playersUsernames = new HashMap<>(); // playerId -> username
+    private Map<String, String> playersAvatars = new HashMap<>(); // playerId -> avatarId
     private Map<String, List<Card>> playersHands = new HashMap<>();
-    
+
     private MakaoDeck drawDeck;
     private MakaoDeck discardDeck;
 
@@ -58,11 +59,49 @@ public class MakaoGame implements Serializable {
 
     private int botCounter = 0;
 
-    public MakaoGame(String roomId, Map<String, String> players, String hostUserId, int maxPlayers) {
+    // Turn timer tracking
+    private Long turnStartTime;
+    private Integer turnRemainingSeconds;
+
+    // MAKAO status - player who has only 1 card left
+    private String makaoPlayerId;
+
+    // Bot thinking state - which bot is currently "thinking"
+    private String botThinkingPlayerId;
+
+    // Move history and effect tracking for notifications
+    private String lastMoveLog;
+    private String effectNotification;
+    private List<String> moveHistory = new ArrayList<>();
+    private static final int MAX_MOVE_HISTORY = 20;
+
+    public void addMoveLog(String moveLog) {
+        this.lastMoveLog = moveLog;
+        if (moveLog != null && !moveLog.isBlank()) {
+            this.moveHistory.add(moveLog);
+            while (this.moveHistory.size() > MAX_MOVE_HISTORY) {
+                this.moveHistory.remove(0);
+            }
+        }
+    }
+
+    public void setEffectNotification(String notification) {
+        this.effectNotification = notification;
+    }
+
+    public void clearNotifications() {
+        this.lastMoveLog = null;
+        this.effectNotification = null;
+    }
+
+    public MakaoGame(String roomId, Map<String, String> players, Map<String, String> avatars, String hostUserId, int maxPlayers) {
         this.roomId = roomId;
         this.gameId = "MAKAO-" + UUID.randomUUID();
         if (maxPlayers < 2) {
             throw new IllegalArgumentException("maxPlayers must be at least 2");
+        }
+        if (maxPlayers > 8) {
+            throw new IllegalArgumentException("maxPlayers cannot exceed 8");
         }
         this.maxPlayers = maxPlayers;
         this.hostUserId = hostUserId;
@@ -71,20 +110,45 @@ public class MakaoGame implements Serializable {
             this.playersUsernames.putAll(players);
         }
 
+        // Initialize avatars for human players
+        if (avatars != null && !avatars.isEmpty()) {
+            this.playersAvatars.putAll(avatars);
+        }
+
         int missing = Math.max(0, maxPlayers - this.playersUsernames.size());
         while (missing > 0) {
             botCounter++;
             String botId = "bot-" + botCounter;
             if (!this.playersUsernames.containsKey(botId)) {
                 this.playersUsernames.put(botId, "Bot " + botCounter);
+                // Set default bot avatar
+                this.playersAvatars.put(botId, "bot_avatar.png");
                 missing--;
             }
         }
 
         if (!this.playersUsernames.isEmpty()) {
-            List<String> randomized = new ArrayList<>(this.playersUsernames.keySet());
-            Collections.shuffle(randomized);
-            this.playersOrderIds = randomized;
+            // Separate humans and bots
+            List<String> humans = new ArrayList<>();
+            List<String> bots = new ArrayList<>();
+            for (String playerId : this.playersUsernames.keySet()) {
+                if (playerId.startsWith("bot-")) {
+                    bots.add(playerId);
+                } else {
+                    humans.add(playerId);
+                }
+            }
+
+            // Shuffle both lists independently
+            Collections.shuffle(humans);
+            Collections.shuffle(bots);
+
+            // Build player order: humans first, then bots
+            // This ensures a human player always starts the game (index 0)
+            List<String> orderedPlayers = new ArrayList<>();
+            orderedPlayers.addAll(humans);
+            orderedPlayers.addAll(bots);
+            this.playersOrderIds = orderedPlayers;
         }
 
         this.status = RoomStatus.PLAYING;

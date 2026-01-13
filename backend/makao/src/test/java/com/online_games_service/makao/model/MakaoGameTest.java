@@ -18,9 +18,10 @@ public class MakaoGameTest {
         // Given
         String roomId = "room_1";
         Map<String, String> players = Map.of("player1", "Player 1", "player2", "Player 2");
+        Map<String, String> avatars = Map.of("player1", "avatar_1.png", "player2", "avatar_2.png");
 
         // When
-        MakaoGame game = new MakaoGame(roomId, players, "player1", 4);
+        MakaoGame game = new MakaoGame(roomId, players, avatars, "player1", 4);
 
         // Then
         Assert.assertEquals(game.getRoomId(), roomId);
@@ -41,7 +42,7 @@ public class MakaoGameTest {
         Map<String, String> players = Collections.emptyMap();
 
         // When
-        MakaoGame game = new MakaoGame(roomId, players, "host", 4);
+        MakaoGame game = new MakaoGame(roomId, players, Collections.emptyMap(), "host", 4);
 
         // Then
         Assert.assertNotNull(game.getActivePlayerId());
@@ -54,7 +55,7 @@ public class MakaoGameTest {
     public void shouldAddCardToPlayerHand() {
         // Given
         String playerId = "p1";
-        MakaoGame game = new MakaoGame("room_1", Map.of(playerId, "Player"), playerId, 4);
+        MakaoGame game = new MakaoGame("room_1", Map.of(playerId, "Player"), Map.of(playerId, "avatar_1.png"), playerId, 4);
         Card card = new Card(CardSuit.CLUBS, CardRank.QUEEN);
 
         // When
@@ -68,7 +69,7 @@ public class MakaoGameTest {
     @Test
     public void shouldNotAddCardToUnknownPlayerHand() {
         // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
+        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), Map.of("p1", "avatar_1.png"), "p1", 4);
         Card card = new Card(CardSuit.DIAMONDS, CardRank.JACK);
 
         // When
@@ -107,7 +108,7 @@ public class MakaoGameTest {
     @Test
     public void shouldReturnUnmodifiablePlayersHands() {
         // Given
-        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), "p1", 4);
+        MakaoGame game = new MakaoGame("room_1", Map.of("p1", "P1"), Map.of("p1", "avatar_1.png"), "p1", 4);
 
         // When
         Map<String, List<Card>> hands = game.getPlayersHands();

@@ -8,6 +8,7 @@ import com.online_games_service.menu.dto.JoinGameRequest;
 import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.messaging.GameStartPublisher;
 import com.online_games_service.menu.model.GameRoom;
+import com.online_games_service.menu.model.PlayerState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -153,6 +154,10 @@ public class GameRoomService {
         String waitingKey = KEY_WAITING + requestedType;
         Set<Object> waitingRoomIds = redisTemplate.opsForSet().members(waitingKey);
 
+        // Find all available rooms and pick the one closest to being full
+        GameRoom bestRoom = null;
+        int bestFillRatio = -1; // Track how full the room is (players / maxPlayers ratio scaled)
+
         if (waitingRoomIds != null) {
             for (Object idObj : waitingRoomIds) {
                 String roomId = (String) idObj;
@@ -163,20 +168,36 @@ public class GameRoomService {
                     continue;
                 }
 
-                if (room.getMaxPlayers() == request.getMaxPlayers() &&
-                        room.getPlayers().size() < room.getMaxPlayers() &&
+                // Check if room has space and user is not already in it
+                if (room.getPlayers().size() < room.getMaxPlayers() &&
                         !room.getPlayers().containsKey(userId)) {
 
-                    return addUserToRoom(room, userId, username);
+                    // Calculate fill ratio (higher = closer to full)
+                    // Multiply by 100 to get integer percentage for comparison
+                    int fillRatio = (room.getPlayers().size() * 100) / room.getMaxPlayers();
+
+                    // Prefer rooms that are closer to being full
+                    if (fillRatio > bestFillRatio) {
+                        bestFillRatio = fillRatio;
+                        bestRoom = room;
+                    }
                 }
             }
         }
 
+        if (bestRoom != null) {
+            log.info("Found available room {} ({}/{} players) for user {}",
+                    bestRoom.getId(), bestRoom.getPlayers().size(), bestRoom.getMaxPlayers(), username);
+            return addUserToRoom(bestRoom, userId, username);
+        }
+
+        // No room found - create a new one with default maxPlayers for the game type
         log.info("No matching room found. Creating new one for {}", username);
         CreateRoomRequest createRequest = new CreateRoomRequest();
         createRequest.setName("Room #" + (1000 + RANDOM.nextInt(9000)));
         createRequest.setGameType(requestedType);
-        createRequest.setMaxPlayers(request.getMaxPlayers());
+        // Use a sensible default: 4 players for most games
+        createRequest.setMaxPlayers(4);
         createRequest.setPrivate(false);
 
         return createRoom(createRequest, userId, username);
@@ -302,6 +323,48 @@ public class GameRoomService {
         if (room != null)
             broadcastRoomUpdate(room);
         return message;
+    }
+
+    /**
+     * Removes a player from a room without requiring username.
+     * Called by PlayerLeaveListener when a player leaves/times out during a game.
+     * This method handles host reassignment if necessary.
+     *
+     * @param roomId   The room ID
+     * @param playerId The player ID to remove
+     */
+    public void removePlayerFromRoom(String roomId, String playerId) {
+        if (roomId == null || playerId == null) {
+            log.warn("removePlayerFromRoom called with null roomId or playerId");
+            return;
+        }
+
+        log.info("Removing player {} from room {} (game service notification)", playerId, roomId);
+
+        GameRoom room = getRoomFromRedis(roomId);
+        if (room == null) {
+            log.debug("Room {} not found in Redis, may have already been deleted", roomId);
+            return;
+        }
+
+        // Clear user mapping (we may not have username, but we have the ID)
+        redisTemplate.delete(KEY_USER_ROOM_BY_ID + playerId);
+        // Also try to clear username mapping if we can find it
+        PlayerState playerState = room.getPlayers().get(playerId);
+        if (playerState != null && playerState.getUsername() != null) {
+            redisTemplate.delete(KEY_USER_ROOM_BY_USERNAME + playerState.getUsername());
+        }
+
+        room.removePlayerById(playerId);
+
+        if (room.getPlayers().isEmpty()) {
+            deleteRoom(room);
+            log.info("Room {} was empty after player removal and has been deleted.", roomId);
+        } else {
+            saveRoomToRedis(room);
+            broadcastRoomUpdate(room);
+            log.info("Player {} removed from room {}. Host is now: {}", playerId, roomId, room.getHostUsername());
+        }
     }
 
     public List<GameRoom> getWaitingRooms(GameType gameType) {
