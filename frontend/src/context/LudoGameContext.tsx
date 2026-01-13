@@ -203,7 +203,7 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
         wasKickedByTimeout,
         timeoutMessage,
         setGameNotification,
-        isMyTurn: gameState?.currentPlayerId === user?.id,
+        isMyTurn: Boolean(gameState?.currentPlayerId && user?.id && gameState.currentPlayerId === user.id),
         rollDice,
         movePawn,
         refreshGameState,

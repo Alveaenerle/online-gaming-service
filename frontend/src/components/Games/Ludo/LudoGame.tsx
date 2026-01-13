@@ -497,7 +497,7 @@ export function LudoArenaPage() {
             </div>
 
             {/* Dice Widget */}
-            <DiceWidget isMyTurn={isMyTurn} canRoll={canRoll} />
+            <DiceWidget isMyTurn={isMyTurn ?? false} canRoll={canRoll ?? false} />
 
             {/* Game Status Info */}
             <div className="bg-[#121018]/80 backdrop-blur p-4 rounded-xl border border-white/10 flex-shrink-0">

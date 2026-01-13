@@ -30,7 +30,7 @@ pipeline {
             when {
                 anyOf {
                     changeRequest()
-                    branch 'main'
+                    // branch 'main'
                 }
             }
             steps {
