@@ -1301,6 +1301,200 @@ public class MakaoGameServiceTest {
 		assertEquals(msg.reason(), com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
 	}
 
+	// ============================================
+	// forceEndGame Tests
+	// ============================================
+
+	@Test
+	public void forceEndGame_endsGameSuccessfully() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("force-end-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+		game.setPlayersHands(new HashMap<>(Map.of("p1", new ArrayList<>(), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("p1", "Player1", "p2", "Player2")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.FIVE)))));
+
+		when(gameRepository.findById("force-end-room")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		com.online_games_service.makao.dto.EndGameRequest request = new com.online_games_service.makao.dto.EndGameRequest();
+		request.setRoomId("force-end-room");
+
+		service.forceEndGame(request);
+
+		assertEquals(game.getStatus(), RoomStatus.FINISHED);
+	}
+
+	@Test
+	public void forceEndGame_nullRequestThrows() {
+		try {
+			service.forceEndGame(null);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("roomId is required"));
+		}
+	}
+
+	@Test
+	public void forceEndGame_blankRoomIdThrows() {
+		com.online_games_service.makao.dto.EndGameRequest request = new com.online_games_service.makao.dto.EndGameRequest();
+		request.setRoomId("   ");
+
+		try {
+			service.forceEndGame(request);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("roomId is required"));
+		}
+	}
+
+	@Test
+	public void forceEndGame_gameNotFoundThrows() {
+		when(gameRepository.findById("nonexistent")).thenReturn(Optional.empty());
+
+		com.online_games_service.makao.dto.EndGameRequest request = new com.online_games_service.makao.dto.EndGameRequest();
+		request.setRoomId("nonexistent");
+
+		try {
+			service.forceEndGame(request);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("Game not found"));
+		}
+	}
+
+	// ============================================
+	// sendCurrentStateToPlayer Tests
+	// ============================================
+
+	@Test
+	public void sendCurrentStateToPlayer_sendsStateSuccessfully() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("state-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("p1");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+		game.setPlayersHands(new HashMap<>(Map.of("p1", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("p1", "Player1", "p2", "Player2")));
+		game.setPlayersSkipTurns(new HashMap<>(Map.of("p1", 0, "p2", 0)));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.FIVE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN)))));
+
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("state-room");
+		when(gameRepository.findById("state-room")).thenReturn(Optional.of(game));
+
+		service.sendCurrentStateToPlayer("p1");
+
+		verify(messagingTemplate).convertAndSend(eq("/topic/makao/p1"), any(com.online_games_service.makao.dto.GameStateMessage.class));
+	}
+
+	@Test
+	public void sendCurrentStateToPlayer_nullUserIdThrows() {
+		try {
+			service.sendCurrentStateToPlayer(null);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("userId is required"));
+		}
+	}
+
+	@Test
+	public void sendCurrentStateToPlayer_noRoomMappingThrows() {
+		when(valueOps.get("game:user-room:id:orphan")).thenReturn(null);
+
+		try {
+			service.sendCurrentStateToPlayer("orphan");
+			assertTrue(false, "Expected exception");
+		} catch (IllegalStateException ex) {
+			assertTrue(ex.getMessage().contains("not in a game"));
+		}
+	}
+
+	@Test
+	public void sendCurrentStateToPlayer_gameNotFoundThrows() {
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("missing-room");
+		when(gameRepository.findById("missing-room")).thenReturn(Optional.empty());
+
+		try {
+			service.sendCurrentStateToPlayer("p1");
+			assertTrue(false, "Expected exception");
+		} catch (IllegalStateException ex) {
+			assertTrue(ex.getMessage().contains("Game not found"));
+		}
+	}
+
+	// ============================================
+	// handlePlayerLeave Edge Cases
+	// ============================================
+
+	@Test
+	public void handlePlayerLeave_nullUserIdIsIgnored() {
+		service.handlePlayerLeave(null);
+		verifyNoInteractions(gameRepository);
+	}
+
+	@Test
+	public void handlePlayerLeave_blankUserIdIsIgnored() {
+		service.handlePlayerLeave("   ");
+		verifyNoInteractions(gameRepository);
+	}
+
+	@Test
+	public void handlePlayerLeave_botLeaveIsIgnored() {
+		service.handlePlayerLeave("bot-1");
+		verifyNoInteractions(gameRepository);
+	}
+
+	@Test
+	public void handlePlayerLeave_noRoomFoundIsIgnored() {
+		when(valueOps.get("game:user-room:id:p1")).thenReturn(null);
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).findById(org.mockito.ArgumentMatchers.anyString());
+	}
+
+	@Test
+	public void handlePlayerLeave_gameNotFoundIsIgnored() {
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("missing-room");
+		when(gameRepository.findById("missing-room")).thenReturn(Optional.empty());
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).save(any());
+	}
+
+	@Test
+	public void handlePlayerLeave_gameNotPlayingIsIgnored() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("finished-room");
+		game.setStatus(RoomStatus.FINISHED);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("finished-room");
+		when(gameRepository.findById("finished-room")).thenReturn(Optional.of(game));
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).save(any());
+	}
+
+	@Test
+	public void handlePlayerLeave_playerNotInGameIsIgnored() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("other-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p2", "p3")));
+
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("other-room");
+		when(gameRepository.findById("other-room")).thenReturn(Optional.of(game));
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).save(any());
+	}
+
 	@Test
 	public void handleTurnTimeout_publishesLeaveMessageWithTimeoutReason() {
 		MakaoGame game = new MakaoGame();

@@ -1,4 +1,4 @@
-package com.online_games_service.makao.integration;
+package com.online_games_service.makao.repository;
 
 import com.online_games_service.common.enums.CardRank;
 import com.online_games_service.common.enums.CardSuit;

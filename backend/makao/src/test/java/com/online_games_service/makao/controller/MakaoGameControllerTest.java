@@ -183,6 +183,40 @@ public class MakaoGameControllerTest {
 		verify(makaoGameService).acceptEffect("user-1");
 	}
 
+	@Test
+	public void requestState_requiresAuthentication() throws Exception {
+		mockMvc.perform(post("/request-state"))
+				.andExpect(status().isUnauthorized());
+
+		verifyNoInteractions(makaoGameService);
+	}
+
+	@Test
+	public void requestState_successfulCall() throws Exception {
+		mockMvc.perform(post("/request-state").requestAttr("userId", "user-1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("success"));
+
+		verify(makaoGameService).sendCurrentStateToPlayer("user-1");
+	}
+
+	@Test
+	public void leaveGame_requiresAuthentication() throws Exception {
+		mockMvc.perform(post("/leave-game"))
+				.andExpect(status().isUnauthorized());
+
+		verifyNoInteractions(makaoGameService);
+	}
+
+	@Test
+	public void leaveGame_successfulCall() throws Exception {
+		mockMvc.perform(post("/leave-game").requestAttr("userId", "user-1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("success"));
+
+		verify(makaoGameService).handlePlayerLeave("user-1");
+	}
+
 	private PlayCardRequest buildPlayRequest() {
 		PlayCardRequest request = new PlayCardRequest();
 		request.setCardRank(CardRank.FIVE);
