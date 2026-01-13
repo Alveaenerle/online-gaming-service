@@ -12,6 +12,8 @@ import {
   AlertCircle,
   Check,
   X,
+  Spade,
+  Dice5,
 } from "lucide-react";
 import Navbar from "../Shared/Navbar";
 import { BackgroundGradient } from "../Shared/BackgroundGradient";
@@ -21,10 +23,16 @@ import { useToast } from "../../context/ToastContext";
 import { authService } from "../../services/authService";
 
 // Mock statistics data (to be replaced with real API later)
-const mockStats = {
-  gamesPlayed: 42,
-  gamesWon: 21,
-  winRatio: "50%",
+const mockStatsMakao = {
+  gamesPlayed: 28,
+  gamesWon: 15,
+  winRatio: "54%",
+};
+
+const mockStatsLudo = {
+  gamesPlayed: 14,
+  gamesWon: 6,
+  winRatio: "43%",
 };
 
 const containerVariants = {
@@ -227,25 +235,61 @@ const Dashboard: React.FC = () => {
               <Trophy size={20} className="text-purple-400" />
               Statistics
             </h2>
-            <div className="grid md:grid-cols-3 gap-4">
-              <StatCard
-                icon={Gamepad2}
-                label="Games Played"
-                value={mockStats.gamesPlayed}
-                color="bg-gradient-to-br from-blue-600 to-cyan-500"
-              />
-              <StatCard
-                icon={Trophy}
-                label="Games Won"
-                value={mockStats.gamesWon}
-                color="bg-gradient-to-br from-purple-600 to-fuchsia-500"
-              />
-              <StatCard
-                icon={Percent}
-                label="Win Ratio"
-                value={mockStats.winRatio}
-                color="bg-gradient-to-br from-green-600 to-emerald-500"
-              />
+
+            {/* Makao Statistics */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Spade size={18} className="text-purple-400" />
+                <h3 className="text-lg font-bold text-purple-400">Makao</h3>
+              </div>
+              <div className="grid md:grid-cols-3 gap-4">
+                <StatCard
+                  icon={Gamepad2}
+                  label="Games Played"
+                  value={mockStatsMakao.gamesPlayed}
+                  color="bg-gradient-to-br from-purple-600 to-fuchsia-500"
+                />
+                <StatCard
+                  icon={Trophy}
+                  label="Games Won"
+                  value={mockStatsMakao.gamesWon}
+                  color="bg-gradient-to-br from-purple-600 to-fuchsia-500"
+                />
+                <StatCard
+                  icon={Percent}
+                  label="Win Ratio"
+                  value={mockStatsMakao.winRatio}
+                  color="bg-gradient-to-br from-purple-600 to-fuchsia-500"
+                />
+              </div>
+            </div>
+
+            {/* Ludo Statistics */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Dice5 size={18} className="text-blue-400" />
+                <h3 className="text-lg font-bold text-blue-400">Ludo</h3>
+              </div>
+              <div className="grid md:grid-cols-3 gap-4">
+                <StatCard
+                  icon={Gamepad2}
+                  label="Games Played"
+                  value={mockStatsLudo.gamesPlayed}
+                  color="bg-gradient-to-br from-blue-600 to-cyan-500"
+                />
+                <StatCard
+                  icon={Trophy}
+                  label="Games Won"
+                  value={mockStatsLudo.gamesWon}
+                  color="bg-gradient-to-br from-blue-600 to-cyan-500"
+                />
+                <StatCard
+                  icon={Percent}
+                  label="Win Ratio"
+                  value={mockStatsLudo.winRatio}
+                  color="bg-gradient-to-br from-blue-600 to-cyan-500"
+                />
+              </div>
             </div>
           </motion.section>
 
