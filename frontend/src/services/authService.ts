@@ -29,6 +29,15 @@ async function parseErrorResponse(response: Response, fallbackMessage: string): 
 
     const errorText = await response.text();
     if (errorText) {
+      // Try to parse as JSON if it looks like JSON
+      if (errorText.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(errorText);
+          return parsed.message || parsed.error || errorText;
+        } catch {
+          // Not valid JSON, return as-is
+        }
+      }
       return errorText;
     }
   } catch {
