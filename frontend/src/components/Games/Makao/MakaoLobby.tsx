@@ -6,7 +6,10 @@ import { LobbyHeader } from "../shared/LobbyHeader";
 import { LobbyActions } from "../shared/LobbyActions";
 import { LobbyPlayersSection } from "../shared/LobbyPlayersSection";
 import { AvatarPicker } from "../shared/AvatarPicker";
+import { InviteFriendModal } from "../shared/InviteFriendModal";
+import { ChatWidget } from "../shared/ChatWidget";
 import { SocialCenter } from "../../Shared/SocialCenter";
+import { ConfirmationModal } from "../../Shared/ConfirmationModal";
 
 import { lobbyService } from "../../../services/lobbyService";
 import { useAuth } from "../../../context/AuthContext";
@@ -30,6 +33,8 @@ export function MakaoLobby() {
   const canSendRequests = !user?.isGuest;
 
   const [avatarSelectFor, setAvatarSelectFor] = useState<string | null>(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Map the raw lobby from context
   const lobby = useMemo(() => {
@@ -113,16 +118,20 @@ export function MakaoLobby() {
         isInvited={isInvited}
         hasReceivedRequest={hasReceivedRequest}
         canSendFriendRequest={canSendRequests}
+        onInviteToLobby={() => setShowInviteModal(true)}
+        canInviteToLobby={!user?.isGuest}
       />
 
       <LobbyActions
         isHost={isHost}
         canStart={canStart}
         onStart={() => lobbyService.startGame()}
-        onLeave={handleLeave}
+        onLeave={() => setShowLeaveModal(true)}
       />
 
       <SocialCenter />
+      
+      <ChatWidget isHost={isHost} />
 
       {avatarSelectFor && (
         <AvatarPicker
@@ -130,6 +139,21 @@ export function MakaoLobby() {
           onClose={() => setAvatarSelectFor(null)}
         />
       )}
+
+      <ConfirmationModal
+        isOpen={showLeaveModal}
+        onClose={() => setShowLeaveModal(false)}
+        onConfirm={handleLeave}
+        title="Leave Lobby?"
+        message="Are you sure you want to leave this lobby? You'll need to rejoin if you want to play."
+        confirmText="Leave"
+        variant="warning"
+      />
+
+      <InviteFriendModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+      />
     </GameLobbyLayout>
   );
 }

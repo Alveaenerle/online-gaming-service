@@ -4,9 +4,14 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.support.TestPropertySourceUtils;
 import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.utility.DockerImageName;
+
+import java.time.Duration;
 
 public class MongoContainerInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-    private static final MongoDBContainer MONGO = new MongoDBContainer("mongo:4.4");
+    private static final MongoDBContainer MONGO = new MongoDBContainer(
+            DockerImageName.parse("mongo:4.2"))
+            .withStartupTimeout(Duration.ofMinutes(2));
 
     @Override
     public void initialize(ConfigurableApplicationContext context) {

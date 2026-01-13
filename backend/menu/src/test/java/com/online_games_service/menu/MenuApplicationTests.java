@@ -1,14 +1,11 @@
 package com.online_games_service.menu;
 
+import com.online_games_service.test.BaseIntegrationTest;
 import org.testng.annotations.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 
-@SpringBootTest
-public class MenuApplicationTests extends AbstractTestNGSpringContextTests {
+public class MenuApplicationTests extends BaseIntegrationTest {
 
 	@Test
 	public void contextLoads() {
 	}
-
 }

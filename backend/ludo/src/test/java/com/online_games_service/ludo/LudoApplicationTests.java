@@ -1,11 +1,9 @@
 package com.online_games_service.ludo;
 
 import org.testng.annotations.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import com.online_games_service.test.BaseIntegrationTest;
 
-@SpringBootTest
-public class LudoApplicationTests extends AbstractTestNGSpringContextTests {
+public class LudoApplicationTests extends BaseIntegrationTest {
 
     @Test
     public void contextLoads() {

@@ -48,9 +48,9 @@ const Navbar: React.FC = () => {
       </motion.div>
 
       <nav className="hidden md:flex gap-6 items-center opacity-90">
-        <a className="hover:text-purple-300 transition-colors duration-300">
+        <Link to="/games" className="hover:text-purple-300 transition-colors duration-300">
           Games
-        </a>
+        </Link>
         <a className="hover:text-purple-300 transition-colors duration-300">
           Rankings
         </a>
@@ -81,7 +81,7 @@ const Navbar: React.FC = () => {
                   className="absolute right-0 mt-2 w-48 bg-[#1a1a27] border border-white/10 rounded-xl shadow-lg overflow-hidden"
                 >
                   <Link
-                    to="/home"
+                    to="/dashboard"
                     onClick={() => setDropdownOpen(false)}
                     className="block px-4 py-3 hover:bg-white/5 transition-colors"
                   >

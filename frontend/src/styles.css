@@ -46,6 +46,11 @@
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(139, 92, 246, 0.3);
   border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {

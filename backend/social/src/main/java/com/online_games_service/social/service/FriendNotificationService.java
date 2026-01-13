@@ -147,4 +147,96 @@ public class FriendNotificationService {
             logger.warn("Failed to send request accepted notification to user {}: {}", targetUserId, e.getMessage());
         }
     }
+
+    /**
+     * Sends a game invite notification to the target user via WebSocket.
+     *
+     * @param targetUserId The user to notify
+     * @param inviteId The ID of the invite
+     * @param senderId The user who sent the invite
+     * @param senderUsername The username of the sender
+     * @param lobbyId The lobby ID
+     * @param lobbyName The lobby name
+     * @param gameType The type of game
+     * @param accessCode The room access code for joining
+     */
+    public void sendGameInviteNotification(String targetUserId, String inviteId, String senderId, 
+                                            String senderUsername, String lobbyId, String lobbyName, 
+                                            String gameType, String accessCode) {
+        try {
+            java.util.Map<String, Object> gameInvite = java.util.Map.of(
+                    "id", inviteId,
+                    "senderId", senderId,
+                    "senderUsername", senderUsername,
+                    "lobbyId", lobbyId,
+                    "lobbyName", lobbyName,
+                    "gameType", gameType,
+                    "accessCode", accessCode != null ? accessCode : ""
+            );
+            java.util.Map<String, Object> notification = java.util.Map.of(
+                    "type", "NOTIFICATION_RECEIVED",
+                    "subType", "GAME_INVITE",
+                    "gameInvite", gameInvite
+            );
+            messagingTemplate.convertAndSendToUser(
+                    targetUserId,
+                    "/queue/notifications",
+                    notification
+            );
+            logger.info("Sent game invite notification to user {} from {} for lobby {}", 
+                    targetUserId, senderUsername, lobbyName);
+        } catch (Exception e) {
+            logger.warn("Failed to send game invite notification to user {}: {}", targetUserId, e.getMessage());
+        }
+    }
+
+    /**
+     * Sends mutual presence updates when a new friendship is created.
+     * Both users receive a presence update about each other's current status.
+     *
+     * @param userId1 First user ID
+     * @param userId2 Second user ID
+     */
+    public void sendMutualPresenceUpdates(String userId1, String userId2) {
+        logger.info("Sending mutual presence updates for new friendship between {} and {}", userId1, userId2);
+        
+        boolean user1Online = presenceService.isUserOnline(userId1);
+        boolean user2Online = presenceService.isUserOnline(userId2);
+        
+        // Notify user1 about user2's status
+        if (user1Online) {
+            try {
+                PresenceUpdateMessage message = new PresenceUpdateMessage(
+                        userId2, 
+                        user2Online ? PresenceStatus.ONLINE : PresenceStatus.OFFLINE
+                );
+                messagingTemplate.convertAndSendToUser(
+                        userId1,
+                        PRESENCE_DESTINATION,
+                        message
+                );
+                logger.info("Sent presence update to {} about {}: {}", userId1, userId2, user2Online ? "ONLINE" : "OFFLINE");
+            } catch (Exception e) {
+                logger.warn("Failed to send presence update to {}: {}", userId1, e.getMessage());
+            }
+        }
+        
+        // Notify user2 about user1's status
+        if (user2Online) {
+            try {
+                PresenceUpdateMessage message = new PresenceUpdateMessage(
+                        userId1, 
+                        user1Online ? PresenceStatus.ONLINE : PresenceStatus.OFFLINE
+                );
+                messagingTemplate.convertAndSendToUser(
+                        userId2,
+                        PRESENCE_DESTINATION,
+                        message
+                );
+                logger.info("Sent presence update to {} about {}: {}", userId2, userId1, user1Online ? "ONLINE" : "OFFLINE");
+            } catch (Exception e) {
+                logger.warn("Failed to send presence update to {}: {}", userId2, e.getMessage());
+            }
+        }
+    }
 }

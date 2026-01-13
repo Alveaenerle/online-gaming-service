@@ -17,6 +17,11 @@ const Title: React.FC = () => {
     }
   };
 
+  const handleViewGames = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    navigate("/games");
+  };
+
   return (
     <section className="relative h-screen flex items-center justify-center text-center overflow-hidden bg-bg">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)] animate-gradient-bg" />
@@ -101,6 +106,7 @@ const Title: React.FC = () => {
           <motion.a
             whileHover={{ scale: 1.05 }}
             href="#features"
+            onClick={handleViewGames}
             className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 transition"
           >
             View games
