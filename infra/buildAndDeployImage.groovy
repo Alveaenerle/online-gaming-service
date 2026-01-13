@@ -1,4 +1,4 @@
-def call(imageName, contextDir, moduleName = null) {
+def buildAndDeploy(imageName, contextDir, moduleName = null) {
     echo "Processing service: ${imageName} from ${contextDir}..."
     def fullImageName = "${env.NEXUS_URL}/${imageName}"
     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
