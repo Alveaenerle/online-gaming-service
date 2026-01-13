@@ -82,7 +82,7 @@ export const getPawnCoords = (
     };
     return coords;
   }
-  const offsets = { RED: 0, BLUE: 13, YELLOW: 26, GREEN: 39 };
+
   if (position === -2 && stepsMoved > 43) {
     const step = stepsMoved - 43;
     if (step >= 5) return { row: 8, col: 8 };
@@ -107,7 +107,8 @@ export const getPathCoords = (
   steps: number,
   color: Color,
   pawnIndex: number,
-  stepsMoved: number
+  stepsMoved: number,
+  newPosition?: number
 ) => {
   console.group(
     `%c[LOGIC-PATH] Calculating path for ${color} pawn`,
@@ -117,18 +118,19 @@ export const getPathCoords = (
 
   const path = [];
   let currentPos = startPos;
+  const offsets = { RED: 0, BLUE: 11, YELLOW: 22, GREEN: 33 };
 
   for (let i = 1; i <= steps; i++) {
     const oldPos = currentPos;
 
     if (currentPos === -1) {
       currentPos = 0;
+    } else if (currentPos === -2) {
+      break;
+    } else if (currentPos - offsets[color] === -1 || currentPos >= 43) {
+      currentPos = -2;
     } else {
       currentPos++;
-      stepsMoved++;
-      if (stepsMoved > 43) {
-        break;
-      }
     }
 
     const coords = getPawnCoords(currentPos, stepsMoved, color, pawnIndex);

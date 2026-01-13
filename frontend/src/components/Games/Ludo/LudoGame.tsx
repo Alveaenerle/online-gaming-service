@@ -28,8 +28,10 @@ export function LudoArenaPage() {
   const [chatMessage, setChatMessage] = useState("");
   const [showMessage, setShowMessage] = useState(true);
 
+  // --- AUTOMATYCZNE ZARZĄDZANIE POPUPEM KOSTKI ---
   useEffect(() => {
-    if (!gameState || !user) return;
+    // Nie otwieramy kostki, jeśli gra się już skończyła (mamy zwycięzcę)
+    if (!gameState || !user || gameState.winnerId) return;
 
     const shouldShowDice =
       isMyTurn && gameState.rollsLeft > 0 && !gameState.waitingForMove;
@@ -49,6 +51,7 @@ export function LudoArenaPage() {
     isMyTurn,
     gameState?.rollsLeft,
     gameState?.waitingForMove,
+    gameState?.winnerId,
     diceOpen,
     isRolling,
     user,
@@ -63,7 +66,7 @@ export function LudoArenaPage() {
   if (!gameState) {
     return (
       <div className="min-h-screen bg-[#050508] flex items-center justify-center text-purple-500 font-black tracking-tighter">
-        INITIALIZING NEURAL LINK...
+        INITIALIZING LUDO GAME...
       </div>
     );
   }
@@ -91,6 +94,7 @@ export function LudoArenaPage() {
             <div className="absolute inset-20 border border-white/[0.02] rounded-[40px] pointer-events-none" />
 
             <div className="relative pl-64 pr-64">
+              {/* Karty graczy */}
               {gameState.players.map((player, idx) => {
                 const sides = [
                   "top-left",
@@ -121,12 +125,14 @@ export function LudoArenaPage() {
               >
                 <LudoBoard
                   players={gameState.players}
+                  usernames={gameState.usernames} // Przekazujemy mapę nazw
                   currentPlayerId={gameState.currentPlayerId}
                   diceValue={gameState.lastDiceRoll}
                   waitingForMove={gameState.waitingForMove}
                   onPawnMoveComplete={handlePawnMoveFinished}
                   onPawnClick={handlePawnClick}
                   loggedPlayerId={user ? user.id : ""}
+                  winnerId={gameState.winnerId} // Przekazujemy ID zwycięzcy
                 />
               </motion.div>
             </div>

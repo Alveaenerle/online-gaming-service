@@ -7,12 +7,12 @@ export enum RoomStatus {
 }
 
 export interface LudoPawn {
-  id: number; // odpowiednik int id
-  position: number; // odpowiednik int position
-  color: Color; // enum PlayerColor
-  stepsMoved: number; // int stepsMoved
-  inBase: boolean; // boolean inBase
-  inHome: boolean; // boolean inHome (czy jest na mecie/w środku)
+  id: number;
+  position: number;
+  color: Color;
+  stepsMoved: number;
+  inBase: boolean;
+  inHome: boolean;
 }
 
 export interface LudoPlayer {
