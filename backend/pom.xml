@@ -24,6 +24,7 @@
         <module>ludo</module>
         <module>authorization</module>
         <module>menu</module>
+        <module>statistical</module>
         <module>common</module>
         <module>common-test-support</module>
         <module>coverage-report</module>

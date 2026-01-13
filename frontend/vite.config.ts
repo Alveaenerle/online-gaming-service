@@ -43,6 +43,11 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/ludo/, ""),
         ws: true,
       },
+      "/api/statistics": {
+        target: "http://statistical:8080",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/statistics/, ""),
+      },
     },
   },
 });

@@ -124,6 +124,23 @@ services:
       - redis
       - rabbitmq
 
+  statistical:
+    build:
+      context: ./backend
+      target: dev
+      args:
+        MODULE_NAME: statistical
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - mongo
+      - redis
+      - rabbitmq
+
   frontend:
     build:
       context: ./frontend
@@ -149,6 +166,7 @@ services:
       - social
       - makao
       - ludo
+      - statistical
 
 volumes:
   mongo_data:
