@@ -1,4 +1,4 @@
-def execute(serverIp, serverUser, sshCredentialId) {
+def call(serverIp, serverUser, sshCredentialId) {
     withCredentials([
         usernamePassword(credentialsId: 'mongo-root-creds', passwordVariable: 'MONGO_PASS', usernameVariable: 'MONGO_USER'),
         string(credentialsId: 'redis-password', variable: 'REDIS_PASS'),

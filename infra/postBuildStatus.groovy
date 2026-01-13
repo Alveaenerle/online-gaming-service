@@ -1,4 +1,4 @@
-def postStatus(status) {
+def call(status) {
     if (!env.CHANGE_ID) {
         return
     }

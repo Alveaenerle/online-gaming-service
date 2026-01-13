@@ -71,12 +71,12 @@ pipeline {
 
                     backendModules.each { module ->
                         builds[module] = {
-                            deployService.buildAndDeploy("online-gaming-${module}", './backend', module)
+                            deployService("online-gaming-${module}", './backend', module)
                         }
                     }
 
                     builds['frontend'] = {
-                        deployService.buildAndDeploy('online-gaming-frontend', './frontend')
+                        deployService("online-gaming-frontend", './frontend')
                     }
 
                     parallel builds
@@ -91,7 +91,7 @@ pipeline {
             steps {
                 script {
                     def deployToDemo = load('infra/deploy.groovy')
-                    deployToDemo.execute(env.DEMO_IP, env.DEMO_USER, env.DEMO_SSH_ID)
+                    deployToDemo(env.DEMO_IP, env.DEMO_USER, env.DEMO_SSH_ID)
                 }
             }
         }
@@ -101,7 +101,7 @@ pipeline {
             steps {
                 script {
                     def deployToProd = load('infra/deploy.groovy')
-                    deployToProd.execute(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
+                    deployToProd(env.PROD_IP, env.PROD_USER, env.PROD_SSH_ID)
                 }
             }
         }
@@ -112,7 +112,7 @@ pipeline {
             script {
                 try {
                     def postBuildStatus = load('infra/postBuildStatus.groovy')
-                    postBuildStatus.postStatus(currentBuild.currentResult)
+                    postBuildStatus(currentBuild.currentResult)
                 } catch (e) {
                     echo "Could not execute postBuildStatus: ${e.message}"
                 }
