@@ -17,6 +17,7 @@ import AboutPage from "./components/Pages/AboutPage";
 import PrivacyPage from "./components/Pages/PrivacyPage";
 import TermsPage from "./components/Pages/TermsPage";
 import SupportPage from "./components/Pages/SupportPage";
+import GamesLibrary from "./components/Games/GamesLibrary";
 
 import { SocialProvider } from "./context/SocialContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -38,6 +39,7 @@ const App: React.FC = () => {
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/games" element={<GamesLibrary />} />
 
             {/* Protected routes */}
             <Route
