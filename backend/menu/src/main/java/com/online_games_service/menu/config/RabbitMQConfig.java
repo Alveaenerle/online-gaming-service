@@ -25,6 +25,12 @@ public class RabbitMQConfig {
     @Value("${menu.amqp.routing.finish.makao:makao.finish}")
     private String makaoFinishRoutingKey;
 
+    @Value("${menu.amqp.queue.leave:player.leave.queue}")
+    private String playerLeaveQueueName;
+
+    @Value("${menu.amqp.routing.leave:player.leave}")
+    private String playerLeaveRoutingKey;
+
     @Bean
     public TopicExchange gameEventsExchange() {
         return new TopicExchange(exchangeName, true, false);
@@ -38,6 +44,16 @@ public class RabbitMQConfig {
     @Bean
     public Binding makaoFinishBinding(Queue makaoFinishQueue, TopicExchange gameEventsExchange) {
         return BindingBuilder.bind(makaoFinishQueue).to(gameEventsExchange).with(makaoFinishRoutingKey);
+    }
+
+    @Bean
+    public Queue playerLeaveQueue() {
+        return QueueBuilder.durable(playerLeaveQueueName).build();
+    }
+
+    @Bean
+    public Binding playerLeaveBinding(Queue playerLeaveQueue, TopicExchange gameEventsExchange) {
+        return BindingBuilder.bind(playerLeaveQueue).to(gameEventsExchange).with(playerLeaveRoutingKey);
     }
 
     @Bean

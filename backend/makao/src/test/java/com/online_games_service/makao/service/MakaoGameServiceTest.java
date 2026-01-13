@@ -75,6 +75,7 @@ public class MakaoGameServiceTest {
 				topicExchange,
 				messagingTemplate);
 		ReflectionTestUtils.setField(service, "finishRoutingKey", "finish.key");
+		ReflectionTestUtils.setField(service, "leaveRoutingKey", "leave.key");
 		ReflectionTestUtils.setField(service, "turnTimeoutSeconds", 60L);
 	}
 
@@ -1237,6 +1238,95 @@ public class MakaoGameServiceTest {
 
 		// Verify the entry was removed
 		assertFalse(gameInProgress.containsKey("room-end-cleanup"));
+	}
+
+	@Test
+	public void publishPlayerLeave_sendsMessageToRabbitMQ() {
+		// Test that publishPlayerLeave sends the correct message
+		ReflectionTestUtils.invokeMethod(service, "publishPlayerLeave", 
+				"room-123", "player-456", 
+				com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+
+		ArgumentCaptor<com.online_games_service.common.messaging.PlayerLeaveMessage> captor = 
+				ArgumentCaptor.forClass(com.online_games_service.common.messaging.PlayerLeaveMessage.class);
+		verify(rabbitTemplate).convertAndSend(eq("exchange"), eq("leave.key"), captor.capture());
+		
+		com.online_games_service.common.messaging.PlayerLeaveMessage msg = captor.getValue();
+		assertEquals(msg.roomId(), "room-123");
+		assertEquals(msg.playerId(), "player-456");
+		assertEquals(msg.reason(), com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+	}
+
+	@Test
+	public void publishPlayerLeave_skipsNullRoomId() {
+		ReflectionTestUtils.invokeMethod(service, "publishPlayerLeave", 
+				null, "player-456", 
+				com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.TIMEOUT);
+
+		verifyNoInteractions(rabbitTemplate);
+	}
+
+	@Test
+	public void publishPlayerLeave_skipsBotPlayers() {
+		ReflectionTestUtils.invokeMethod(service, "publishPlayerLeave", 
+				"room-123", "bot-1", 
+				com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+
+		verifyNoInteractions(rabbitTemplate);
+	}
+
+	@Test
+	public void handlePlayerLeave_publishesLeaveMessage() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("leave-test-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("leaving-player", "p2")));
+		game.setActivePlayerId("p2");
+		game.setPlayersHands(new HashMap<>(Map.of("leaving-player", new ArrayList<>(), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("leaving-player", "LeavingUser", "p2", "Player2")));
+
+		when(valueOps.get("game:user-room:id:leaving-player")).thenReturn("leave-test-room");
+		when(gameRepository.findById("leave-test-room")).thenReturn(Optional.of(game));
+
+		service.handlePlayerLeave("leaving-player");
+
+		// Verify the leave message was published with VOLUNTARY reason
+		ArgumentCaptor<com.online_games_service.common.messaging.PlayerLeaveMessage> captor = 
+				ArgumentCaptor.forClass(com.online_games_service.common.messaging.PlayerLeaveMessage.class);
+		verify(rabbitTemplate).convertAndSend(eq("exchange"), eq("leave.key"), captor.capture());
+		
+		com.online_games_service.common.messaging.PlayerLeaveMessage msg = captor.getValue();
+		assertEquals(msg.roomId(), "leave-test-room");
+		assertEquals(msg.playerId(), "leaving-player");
+		assertEquals(msg.reason(), com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+	}
+
+	@Test
+	public void handleTurnTimeout_publishesLeaveMessageWithTimeoutReason() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("timeout-leave-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("timeout-player", "p2")));
+		game.setActivePlayerId("timeout-player");
+		game.setPlayersHands(new HashMap<>(Map.of("timeout-player", new ArrayList<>(), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("timeout-player", "TimeoutUser", "p2", "Player2")));
+		game.setPlayersAvatars(new HashMap<>());
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+
+		when(gameRepository.findById("timeout-leave-room")).thenReturn(Optional.of(game));
+		when(gameRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "timeout-leave-room", "timeout-player");
+
+		// Verify the leave message was published with TIMEOUT reason
+		ArgumentCaptor<com.online_games_service.common.messaging.PlayerLeaveMessage> captor = 
+				ArgumentCaptor.forClass(com.online_games_service.common.messaging.PlayerLeaveMessage.class);
+		verify(rabbitTemplate).convertAndSend(eq("exchange"), eq("leave.key"), captor.capture());
+		
+		com.online_games_service.common.messaging.PlayerLeaveMessage msg = captor.getValue();
+		assertEquals(msg.roomId(), "timeout-leave-room");
+		assertEquals(msg.playerId(), "timeout-player");
+		assertEquals(msg.reason(), com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.TIMEOUT);
 	}
 
 	private MakaoGame baseGameWithTopCard(Card topCard) {

@@ -119,6 +119,32 @@ const MakaoGame: React.FC = () => {
     }
   }, [user?.id, navigate]);
 
+  // Handle browser close/refresh - notify backend to clean up player state
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Use fetch with keepalive for reliable delivery during page unload
+      // keepalive allows the request to outlive the page
+      try {
+        fetch("/api/makao/leave-game", {
+          method: "POST",
+          credentials: "include",
+          keepalive: true,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      } catch {
+        // Ignore errors during unload
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
   // Handle Game State Changes (Animations, Sound)
   useEffect(() => {
     if (!gameState) return;
@@ -849,14 +875,6 @@ const MakaoGame: React.FC = () => {
                        className="w-2.5 h-2.5 rounded-full bg-purpleEnd ml-auto"
                      />
                    ) : null}
-                 </div>
-               </div>
-
-               {/* Game Info */}
-               <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
-                 <div className="flex justify-between items-center text-xs text-gray-400">
-                   <span>Room ID</span>
-                   <span className="font-mono text-white/60">{gameState.roomId?.slice(0, 8)}</span>
                  </div>
                </div>
             </div>

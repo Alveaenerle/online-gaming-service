@@ -38,6 +38,7 @@ export const useTurnTimer = ({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivePlayerRef = useRef<string | null>(null);
   const lastServerValueRef = useRef<number | null>(null);
+  const isInitialMountRef = useRef<boolean>(true);
 
   // Cleanup interval on unmount
   useEffect(() => {
@@ -69,13 +70,22 @@ export const useTurnTimer = ({
 
     // Check if active player changed (turn changed)
     const playerChanged = lastActivePlayerRef.current !== activePlayerId;
+    const wasInitialMount = isInitialMountRef.current;
+    
     lastActivePlayerRef.current = activePlayerId;
+    isInitialMountRef.current = false;
 
     // Determine starting value for the timer
     let startValue: number;
 
-    if (playerChanged) {
-      // New turn - reset to full time or use server value if available
+    if (wasInitialMount) {
+      // Initial page load/reconnect - always use server value if available
+      startValue = serverRemainingSeconds != null && serverRemainingSeconds > 0 
+        ? serverRemainingSeconds 
+        : TURN_TIMEOUT_SECONDS;
+    } else if (playerChanged) {
+      // Turn actually changed during the game - start fresh
+      // But still check server value in case we missed some time
       startValue = serverRemainingSeconds != null && serverRemainingSeconds > 0 
         ? serverRemainingSeconds 
         : TURN_TIMEOUT_SECONDS;

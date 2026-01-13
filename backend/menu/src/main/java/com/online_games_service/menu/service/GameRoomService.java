@@ -8,6 +8,7 @@ import com.online_games_service.menu.dto.JoinGameRequest;
 import com.online_games_service.menu.dto.RoomInfoResponse;
 import com.online_games_service.menu.messaging.GameStartPublisher;
 import com.online_games_service.menu.model.GameRoom;
+import com.online_games_service.menu.model.PlayerState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -322,6 +323,48 @@ public class GameRoomService {
         if (room != null)
             broadcastRoomUpdate(room);
         return message;
+    }
+
+    /**
+     * Removes a player from a room without requiring username.
+     * Called by PlayerLeaveListener when a player leaves/times out during a game.
+     * This method handles host reassignment if necessary.
+     *
+     * @param roomId   The room ID
+     * @param playerId The player ID to remove
+     */
+    public void removePlayerFromRoom(String roomId, String playerId) {
+        if (roomId == null || playerId == null) {
+            log.warn("removePlayerFromRoom called with null roomId or playerId");
+            return;
+        }
+
+        log.info("Removing player {} from room {} (game service notification)", playerId, roomId);
+
+        GameRoom room = getRoomFromRedis(roomId);
+        if (room == null) {
+            log.debug("Room {} not found in Redis, may have already been deleted", roomId);
+            return;
+        }
+
+        // Clear user mapping (we may not have username, but we have the ID)
+        redisTemplate.delete(KEY_USER_ROOM_BY_ID + playerId);
+        // Also try to clear username mapping if we can find it
+        PlayerState playerState = room.getPlayers().get(playerId);
+        if (playerState != null && playerState.getUsername() != null) {
+            redisTemplate.delete(KEY_USER_ROOM_BY_USERNAME + playerState.getUsername());
+        }
+
+        room.removePlayerById(playerId);
+
+        if (room.getPlayers().isEmpty()) {
+            deleteRoom(room);
+            log.info("Room {} was empty after player removal and has been deleted.", roomId);
+        } else {
+            saveRoomToRedis(room);
+            broadcastRoomUpdate(room);
+            log.info("Player {} removed from room {}. Host is now: {}", playerId, roomId, room.getHostUsername());
+        }
     }
 
     public List<GameRoom> getWaitingRooms(GameType gameType) {

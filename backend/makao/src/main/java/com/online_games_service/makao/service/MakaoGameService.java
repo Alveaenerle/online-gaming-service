@@ -5,6 +5,7 @@ import com.online_games_service.common.enums.CardSuit;
 import com.online_games_service.common.model.Card;
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
+import com.online_games_service.common.messaging.PlayerLeaveMessage;
 import com.online_games_service.makao.dto.PlayCardRequest;
 import com.online_games_service.makao.dto.PlayerCardView;
 import com.online_games_service.makao.dto.PlayerTimeoutMessage;
@@ -67,6 +68,9 @@ public class MakaoGameService {
 
     @Value("${makao.amqp.routing.finish:makao.finish}")
     private String finishRoutingKey;
+
+    @Value("${makao.amqp.routing.leave:player.leave}")
+    private String leaveRoutingKey;
 
     private static final String KEY_USER_ROOM_BY_ID = "game:user-room:id:";
 
@@ -206,6 +210,9 @@ public class MakaoGameService {
 
         // Clean up Redis mapping for the leaving player
         redisTemplate.delete(KEY_USER_ROOM_BY_ID + userId);
+
+        // Notify Menu service to update GameRoom (remove player, reassign host if needed)
+        publishPlayerLeave(roomId, userId, PlayerLeaveMessage.LeaveReason.VOLUNTARY);
     }
 
     public void forceEndGame(EndGameRequest request) {
@@ -1006,6 +1013,23 @@ public class MakaoGameService {
     }
 
     /**
+     * Publishes a message to notify the Menu service that a player has left the game.
+     * This allows the Menu service to update the GameRoom accordingly (remove player, reassign host).
+     */
+    private void publishPlayerLeave(String roomId, String playerId, PlayerLeaveMessage.LeaveReason reason) {
+        if (roomId == null || playerId == null || isBot(playerId)) {
+            return;
+        }
+        try {
+            PlayerLeaveMessage message = new PlayerLeaveMessage(roomId, playerId, reason);
+            rabbitTemplate.convertAndSend(gameEventsExchange.getName(), leaveRoutingKey, message);
+            log.info("Published player leave message for player {} in room {} (reason: {})", playerId, roomId, reason);
+        } catch (Exception e) {
+            log.error("Failed to publish player leave message for player {} in room {}", playerId, roomId, e);
+        }
+    }
+
+    /**
      * Clears the Redis mappings for all human players in the game.
      * Called when the game ends to allow players to join new games.
      */
@@ -1365,6 +1389,9 @@ public class MakaoGameService {
 
             // Clean up Redis mapping for timed-out player so they can join new games
             clearPlayerRoomMapping(timedOutPlayer);
+
+            // Notify Menu service to update GameRoom (remove player, reassign host if needed)
+            publishPlayerLeave(roomId, timedOutPlayer, PlayerLeaveMessage.LeaveReason.TIMEOUT);
 
             // Add notification for player being replaced
             game.addMoveLog(String.format("%s timed out and was replaced by Bot %d", oldUsername, nextBot));
