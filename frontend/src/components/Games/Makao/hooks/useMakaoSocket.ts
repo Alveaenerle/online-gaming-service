@@ -102,10 +102,11 @@ export const useMakaoSocket = (): UseMakaoSocketReturn => {
 
     const topic = `/topic/makao/${user.id}`;
     const timeoutTopic = `/topic/makao/${user.id}/timeout`;
+    const wsUrl = import.meta.env.VITE_MAKAO_WS_URL || "/api/makao/ws";
 
     try {
       console.log("[Makao WS] Creating SockJS connection...");
-      const socket = new SockJS("http://localhost/api/makao/ws");
+      const socket = new SockJS(wsUrl);
       const client = StompJs.over(socket);
 
       // Disable verbose STOMP debug logs but keep our custom ones
