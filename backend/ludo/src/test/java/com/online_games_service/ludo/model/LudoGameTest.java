@@ -88,11 +88,11 @@ public class LudoGameTest {
 
     @Test
     public void nextColorShouldRotateCorrectly() {
-        // Given & When & Then
+        // Given & When & Then - order follows enum: RED, BLUE, YELLOW, GREEN
         Assert.assertEquals(PlayerColor.RED.next(), PlayerColor.BLUE);
-        Assert.assertEquals(PlayerColor.BLUE.next(), PlayerColor.GREEN);
-        Assert.assertEquals(PlayerColor.GREEN.next(), PlayerColor.YELLOW);
-        Assert.assertEquals(PlayerColor.YELLOW.next(), PlayerColor.RED);
+        Assert.assertEquals(PlayerColor.BLUE.next(), PlayerColor.YELLOW);
+        Assert.assertEquals(PlayerColor.YELLOW.next(), PlayerColor.GREEN);
+        Assert.assertEquals(PlayerColor.GREEN.next(), PlayerColor.RED);
     }
 
     @Test
@@ -363,11 +363,11 @@ public class LudoGameTest {
         // When
         LudoGame game = new LudoGame("r1", playerIds, "p1", usernames, 4);
 
-        // Then
+        // Then - colors assigned in enum order: RED, BLUE, YELLOW, GREEN
         Assert.assertEquals(game.getPlayers().get(0).getColor(), PlayerColor.RED);
         Assert.assertEquals(game.getPlayers().get(1).getColor(), PlayerColor.BLUE);
-        Assert.assertEquals(game.getPlayers().get(2).getColor(), PlayerColor.GREEN);
-        Assert.assertEquals(game.getPlayers().get(3).getColor(), PlayerColor.YELLOW);
+        Assert.assertEquals(game.getPlayers().get(2).getColor(), PlayerColor.YELLOW);
+        Assert.assertEquals(game.getPlayers().get(3).getColor(), PlayerColor.GREEN);
     }
 
     @Test
@@ -379,11 +379,11 @@ public class LudoGameTest {
         // When
         LudoGame game = new LudoGame("r1", playerIds, "p1", usernames, 3);
 
-        // Then
+        // Then - colors assigned in enum order: RED, BLUE, YELLOW, GREEN
         Assert.assertEquals(game.getPlayers().size(), 3);
         Assert.assertEquals(game.getPlayers().get(0).getColor(), PlayerColor.RED);
         Assert.assertEquals(game.getPlayers().get(1).getColor(), PlayerColor.BLUE);
-        Assert.assertEquals(game.getPlayers().get(2).getColor(), PlayerColor.GREEN);
+        Assert.assertEquals(game.getPlayers().get(2).getColor(), PlayerColor.YELLOW);
 
         // First is human, rest are bots
         Assert.assertFalse(game.getPlayers().get(0).isBot());

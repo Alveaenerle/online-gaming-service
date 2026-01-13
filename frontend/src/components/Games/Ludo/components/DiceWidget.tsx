@@ -100,17 +100,6 @@ export function DiceWidget({ isMyTurn, canRoll }: DiceWidgetProps) {
           >
             <DiceFace value={displayValue} />
           </motion.div>
-
-          {/* Result indicator */}
-          {isFinished && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-black shadow-lg shadow-purple-500/50"
-            >
-              {gameState?.lastDiceRoll}
-            </motion.div>
-          )}
         </div>
 
         {/* Status Text */}

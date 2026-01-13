@@ -131,16 +131,6 @@ export function DicePopup({
             className="relative w-80 bg-[#121018] border border-white/10 rounded-[45px] p-10 shadow-2xl flex flex-col items-center"
           >
             <div className="h-44 flex items-center justify-center relative">
-              {isFinished && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="absolute -top-6 text-7xl font-black text-purple-500/40 italic"
-                >
-                  {gameState.lastDiceRoll}
-                </motion.div>
-              )}
-
               <motion.div
                 animate={
                   isVisuallyRolling || isRolling
