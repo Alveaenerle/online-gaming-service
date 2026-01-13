@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1768326932523" clover="3.2.0">
-  <project timestamp="1768326932523" name="All files">
-    <metrics statements="658" coveredstatements="547" conditionals="310" coveredconditionals="190" methods="172" coveredmethods="141" elements="1140" coveredelements="878" complexity="0" loc="658" ncloc="658" packages="2" files="11" classes="11"/>
+<coverage generated="1768327104423" clover="3.2.0">
+  <project timestamp="1768327104423" name="All files">
+    <metrics statements="690" coveredstatements="575" conditionals="332" coveredconditionals="204" methods="177" coveredmethods="146" elements="1199" coveredelements="925" complexity="0" loc="690" ncloc="690" packages="2" files="12" classes="12"/>
     <package name="context">
       <metrics statements="281" coveredstatements="229" conditionals="99" coveredconditionals="59" methods="62" coveredmethods="50"/>
       <file name="AuthContext.tsx" path="/Users/annawierzbik/online-gaming-service/frontend/src/context/AuthContext.tsx">
@@ -299,7 +299,7 @@
       </file>
     </package>
     <package name="services">
-      <metrics statements="377" coveredstatements="318" conditionals="211" coveredconditionals="131" methods="110" coveredmethods="91"/>
+      <metrics statements="409" coveredstatements="346" conditionals="233" coveredconditionals="145" methods="115" coveredmethods="96"/>
       <file name="authService.ts" path="/Users/annawierzbik/online-gaming-service/frontend/src/services/authService.ts">
         <metrics statements="66" coveredstatements="56" conditionals="46" coveredconditionals="32" methods="9" coveredmethods="9"/>
         <line num="2" count="4" type="cond" truecount="3" falsecount="1"/>
@@ -697,6 +697,41 @@
         <line num="215" count="1" type="stmt"/>
         <line num="217" count="1" type="stmt"/>
         <line num="221" count="2" type="stmt"/>
+      </file>
+      <file name="statisticsService.ts" path="/Users/annawierzbik/online-gaming-service/frontend/src/services/statisticsService.ts">
+        <metrics statements="32" coveredstatements="28" conditionals="22" coveredconditionals="14" methods="5" coveredmethods="5"/>
+        <line num="2" count="1" type="cond" truecount="3" falsecount="1"/>
+        <line num="30" count="3" type="stmt"/>
+        <line num="31" count="3" type="stmt"/>
+        <line num="32" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="33" count="2" type="stmt"/>
+        <line num="34" count="1" type="cond" truecount="1" falsecount="2"/>
+        <line num="36" count="1" type="stmt"/>
+        <line num="37" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="43" count="1" type="stmt"/>
+        <line num="46" count="1" type="stmt"/>
+        <line num="51" count="3" type="stmt"/>
+        <line num="56" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="57" count="2" type="stmt"/>
+        <line num="61" count="2" type="stmt"/>
+        <line num="64" count="1" type="stmt"/>
+        <line num="71" count="1" type="stmt"/>
+        <line num="76" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="77" count="0" type="stmt"/>
+        <line num="81" count="0" type="stmt"/>
+        <line num="84" count="1" type="stmt"/>
+        <line num="94" count="1" type="stmt"/>
+        <line num="101" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="102" count="0" type="stmt"/>
+        <line num="106" count="0" type="stmt"/>
+        <line num="109" count="1" type="stmt"/>
+        <line num="116" count="3" type="stmt"/>
+        <line num="123" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="124" count="1" type="stmt"/>
+        <line num="128" count="1" type="stmt"/>
+        <line num="131" count="2" type="stmt"/>
+        <line num="135" count="1" type="stmt"/>
       </file>
     </package>
   </project>
