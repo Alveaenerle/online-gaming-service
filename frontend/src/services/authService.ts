@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/auth';
+const API_BASE_URL =
+  typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env.VITE_API_URL || "/api/auth"
+    : "/api/auth";
 
 export interface LoginRequest {
   email: string;
@@ -17,12 +20,15 @@ export interface User {
   isGuest: boolean;
 }
 
-async function parseErrorResponse(response: Response, fallbackMessage: string): Promise<string> {
+async function parseErrorResponse(
+  response: Response,
+  fallbackMessage: string
+): Promise<string> {
   const status = response.status;
 
   try {
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
+    const contentType = response.headers.get("content-type");
+    if (contentType?.includes("application/json")) {
       const errorData = await response.json();
       return errorData.message || errorData.error || fallbackMessage;
     }
@@ -30,7 +36,7 @@ async function parseErrorResponse(response: Response, fallbackMessage: string): 
     const errorText = await response.text();
     if (errorText) {
       // Try to parse as JSON if it looks like JSON
-      if (errorText.trim().startsWith('{')) {
+      if (errorText.trim().startsWith("{")) {
         try {
           const parsed = JSON.parse(errorText);
           return parsed.message || parsed.error || errorText;
@@ -46,21 +52,21 @@ async function parseErrorResponse(response: Response, fallbackMessage: string): 
 
   switch (status) {
     case 400:
-      return 'Invalid request. Please check your input.';
+      return "Invalid request. Please check your input.";
     case 401:
-      return 'Invalid credentials. Please try again.';
+      return "Invalid credentials. Please try again.";
     case 403:
-      return 'Access denied.';
+      return "Access denied.";
     case 404:
-      return 'Service not found. Please try again later.';
+      return "Service not found. Please try again later.";
     case 409:
-      return 'Account already exists with this email.';
+      return "Account already exists with this email.";
     case 429:
-      return 'Too many attempts. Please try again later.';
+      return "Too many attempts. Please try again later.";
     case 500:
     case 502:
     case 503:
-      return 'Server error. Please try again later.';
+      return "Server error. Please try again later.";
     default:
       return fallbackMessage;
   }
@@ -69,14 +75,17 @@ async function parseErrorResponse(response: Response, fallbackMessage: string): 
 export const authService = {
   async login(credentials: LoginRequest): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(credentials),
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Login failed. Please try again.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Login failed. Please try again."
+      );
       throw new Error(errorMessage);
     }
 
@@ -85,14 +94,17 @@ export const authService = {
 
   async register(data: RegisterRequest): Promise<string> {
     const response = await fetch(`${API_BASE_URL}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Registration failed. Please try again.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Registration failed. Please try again."
+      );
       throw new Error(errorMessage);
     }
 
@@ -101,12 +113,15 @@ export const authService = {
 
   async loginAsGuest(): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/guest`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Guest login failed. Please try again.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Guest login failed. Please try again."
+      );
       throw new Error(errorMessage);
     }
 
@@ -115,28 +130,34 @@ export const authService = {
 
   async logout(): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/logout`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Logout failed. Please try again.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Logout failed. Please try again."
+      );
       throw new Error(errorMessage);
     }
   },
 
   async getCurrentUser(): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/me`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
 
     if (!response.ok) {
       const status = response.status;
       if (status === 401) {
-        throw new Error('Session expired. Please log in again.');
+        throw new Error("Session expired. Please log in again.");
       }
-      const errorMessage = await parseErrorResponse(response, 'Unable to retrieve user information. Please try again.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Unable to retrieve user information. Please try again."
+      );
       throw new Error(errorMessage);
     }
 
@@ -145,42 +166,54 @@ export const authService = {
 
   async updateUsername(newUsername: string): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/update-username`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ newUsername }),
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Failed to update username.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Failed to update username."
+      );
       throw new Error(errorMessage);
     }
 
     return response.json();
   },
 
-  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+  async updatePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/update-password`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ currentPassword, newPassword }),
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Failed to update password.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Failed to update password."
+      );
       throw new Error(errorMessage);
     }
   },
 
   async getUserEmail(): Promise<string> {
     const response = await fetch(`${API_BASE_URL}/email`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Failed to retrieve email.');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Failed to retrieve email."
+      );
       throw new Error(errorMessage);
     }
 

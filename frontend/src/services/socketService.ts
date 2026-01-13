@@ -1,7 +1,10 @@
 import SockJS from "sockjs-client";
 import * as StompJs from "stompjs";
 
-const WS_URL = import.meta.env.VITE_MENU_WS_URL || "/api/menu/ws";
+const WS_URL =
+  typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env.VITE_MENU_WS_URL || "/api/menu/ws"
+    : "/api/menu/ws";
 
 interface StompSubscription {
   topic: string;
@@ -40,22 +43,22 @@ class SocketService {
     }
 
     this.isConnecting = true;
-    
+
     this.connectPromise = new Promise((resolve, reject) => {
       const attemptConnect = () => {
         try {
           const socket = new SockJS(WS_URL);
           this.client = StompJs.over(socket);
-          
+
           // Configure heartbeat: 20s outgoing, 20s incoming
           this.client.heartbeat.outgoing = 20000;
           this.client.heartbeat.incoming = 20000;
-          
+
           // Disable debug logs
-          this.client.debug = () => {}; 
+          this.client.debug = () => {};
 
           this.client.connect(
-            {}, 
+            {},
             () => {
               this.onConnect();
               resolve();
@@ -71,7 +74,7 @@ class SocketService {
           // Retry on sync errors too
         }
       };
-      
+
       attemptConnect();
     });
 
@@ -82,11 +85,11 @@ class SocketService {
     console.log("[SocketService] Connected");
     this.connected = true;
     this.isConnecting = false;
-    
+
     // Keep connectPromise 'resolved' effectively by not clearing it?
     // Actually we should clear it so subsequent calls return immediate resolve
     this.connectPromise = null;
-    
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -121,7 +124,9 @@ class SocketService {
 
     this.subscriptions.forEach((sub) => {
       if (sub.subscription) {
-        try { sub.subscription.unsubscribe(); } catch (e) {}
+        try {
+          sub.subscription.unsubscribe();
+        } catch (e) {}
       }
 
       try {
@@ -130,7 +135,7 @@ class SocketService {
             try {
               sub.callback(JSON.parse(msg.body));
             } catch (e) {
-               console.error("JSON Error", e);
+              console.error("JSON Error", e);
             }
           }
         });
@@ -145,23 +150,25 @@ class SocketService {
     const subEntry: StompSubscription = {
       topic,
       callback,
-      subscription: null
+      subscription: null,
     };
     this.subscriptions.set(topic, subEntry);
 
     if (this.connected && this.client) {
       const stompSub = this.client.subscribe(topic, (msg: any) => {
-          if (msg.body) {
-            try {
-               callback(JSON.parse(msg.body));
-            } catch (e) { console.error(e); }
+        if (msg.body) {
+          try {
+            callback(JSON.parse(msg.body));
+          } catch (e) {
+            console.error(e);
           }
+        }
       });
       subEntry.subscription = stompSub;
     } else {
-        if (!this.isConnecting && !this.connected) {
-             this.connect();
-        }
+      if (!this.isConnecting && !this.connected) {
+        this.connect();
+      }
     }
 
     return () => {
@@ -172,7 +179,9 @@ class SocketService {
   unsubscribe(topic: string) {
     const entry = this.subscriptions.get(topic);
     if (entry?.subscription) {
-      try { entry.subscription.unsubscribe(); } catch (e) {}
+      try {
+        entry.subscription.unsubscribe();
+      } catch (e) {}
     }
     this.subscriptions.delete(topic);
   }
@@ -188,7 +197,7 @@ class SocketService {
   disconnect() {
     this.pendingDisconnect = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    
+
     this.client?.disconnect(() => {
       this.connected = false;
       this.client = null;
