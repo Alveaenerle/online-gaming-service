@@ -47,6 +47,7 @@ public class GameStartListenerTest {
                 "Room",
                 GameType.MAKAO,
                 Map.of("host", "Host", "p2", "P2"),
+                Map.of("host", "avatar_1.png", "p2", "avatar_2.png"),
                 4,
                 "host",
                 "Host"
@@ -69,6 +70,7 @@ public class GameStartListenerTest {
                 "Room",
                 GameType.MAKAO,
                 Map.of("host", "Host"),
+                Map.of("host", "avatar_1.png"),
                 4,
                 "host",
                 "Host"
@@ -89,6 +91,7 @@ public class GameStartListenerTest {
                 "Room",
                 GameType.MAKAO,
                 Map.of(),
+                Map.of(),
                 4,
                 "host",
                 "Host"
@@ -98,5 +101,79 @@ public class GameStartListenerTest {
 
         verify(repository, never()).save(any());
         verify(makaoGameService, never()).initializeGameAfterStart(any());
+    }
+
+    @Test
+    public void shouldSkipWhenNullMessage() {
+        listener.handleGameStart(null);
+
+        verify(repository, never()).save(any());
+        verify(makaoGameService, never()).initializeGameAfterStart(any());
+    }
+
+    @Test
+    public void shouldSkipWhenPlayersEmpty() {
+        GameStartMessage msg = new GameStartMessage(
+                "room-1",
+                "Room",
+                GameType.MAKAO,
+                Map.of(),
+                Map.of(),
+                4,
+                "host",
+                "Host"
+        );
+
+        when(repository.existsById("room-1")).thenReturn(false);
+
+        listener.handleGameStart(msg);
+
+        verify(repository, never()).save(any());
+        verify(makaoGameService, never()).initializeGameAfterStart(any());
+    }
+
+    @Test
+    public void shouldSkipWhenPlayersNull() {
+        GameStartMessage msg = new GameStartMessage(
+                "room-1",
+                "Room",
+                GameType.MAKAO,
+                null,
+                null,
+                4,
+                "host",
+                "Host"
+        );
+
+        when(repository.existsById("room-1")).thenReturn(false);
+
+        listener.handleGameStart(msg);
+
+        verify(repository, never()).save(any());
+        verify(makaoGameService, never()).initializeGameAfterStart(any());
+    }
+
+    @Test
+    public void shouldHandleExceptionDuringInitialization() {
+        GameStartMessage msg = new GameStartMessage(
+                "room-err",
+                "Room",
+                GameType.MAKAO,
+                Map.of("host", "Host"),
+                Map.of("host", "avatar_1.png"),
+                4,
+                "host",
+                "Host"
+        );
+
+        when(repository.existsById("room-err")).thenReturn(false);
+        when(repository.save(any(MakaoGame.class))).thenAnswer(inv -> inv.getArgument(0));
+        doThrow(new RuntimeException("Initialization failed")).when(makaoGameService).initializeGameAfterStart("room-err");
+
+        // Should not throw, just log the error
+        listener.handleGameStart(msg);
+
+        verify(repository).save(any(MakaoGame.class));
+        verify(makaoGameService).initializeGameAfterStart("room-err");
     }
 }

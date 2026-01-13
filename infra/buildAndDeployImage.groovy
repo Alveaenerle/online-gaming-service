@@ -1,4 +1,4 @@
-void call(String imageName, String contextDir, String moduleName = null) {
+def call(String imageName, String contextDir, String moduleName = null) {
     echo "Processing service: ${imageName} from ${contextDir}..."
     def fullImageName = "${NEXUS_URL}/${imageName}"
     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()

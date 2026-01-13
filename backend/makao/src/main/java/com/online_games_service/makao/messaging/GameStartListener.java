@@ -40,7 +40,7 @@ public class GameStartListener {
             return;
         }
 
-        MakaoGame game = new MakaoGame(roomId, message.players(), message.hostUserId(), message.maxPlayers());
+        MakaoGame game = new MakaoGame(roomId, message.players(), message.playerAvatars(), message.hostUserId(), message.maxPlayers());
 
         gameRedisRepository.save(game);
         log.info("Makao game {} created with {} players and persisted to Redis", roomId, message.players().size());

@@ -6,10 +6,12 @@ import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.model.Card;
 import com.online_games_service.makao.dto.DrawCardResponse;
 import com.online_games_service.makao.dto.PlayCardRequest;
+import com.online_games_service.makao.dto.PlayerTimeoutMessage;
 import com.online_games_service.makao.model.MakaoDeck;
 import com.online_games_service.makao.model.MakaoGame;
 import com.online_games_service.makao.repository.mongo.MakaoGameResultRepository;
 import com.online_games_service.makao.repository.redis.MakaoGameRedisRepository;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.amqp.core.TopicExchange;
@@ -73,6 +75,7 @@ public class MakaoGameServiceTest {
 				topicExchange,
 				messagingTemplate);
 		ReflectionTestUtils.setField(service, "finishRoutingKey", "finish.key");
+		ReflectionTestUtils.setField(service, "leaveRoutingKey", "leave.key");
 		ReflectionTestUtils.setField(service, "turnTimeoutSeconds", 60L);
 	}
 
@@ -949,6 +952,575 @@ public class MakaoGameServiceTest {
 		ReflectionTestUtils.invokeMethod(service, "nextTurn", game);
 
 		assertEquals(game.getStatus(), RoomStatus.FINISHED);
+	}
+
+	// ============================================
+	// Turn Timer Tests
+	// ============================================
+
+	@Test
+	public void calculateTurnRemainingSeconds_returnsNullWhenNoStartTime() {
+		MakaoGame game = new MakaoGame();
+		game.setTurnStartTime(null);
+
+		Integer remaining = ReflectionTestUtils.invokeMethod(service, "calculateTurnRemainingSeconds", game);
+
+		assertNull(remaining);
+	}
+
+	@Test
+	public void calculateTurnRemainingSeconds_returnsCorrectValue() {
+		MakaoGame game = new MakaoGame();
+		// Set start time to 30 seconds ago
+		game.setTurnStartTime(System.currentTimeMillis() - 30_000);
+
+		Integer remaining = ReflectionTestUtils.invokeMethod(service, "calculateTurnRemainingSeconds", game);
+
+		assertNotNull(remaining);
+		// Should be around 30 seconds remaining (60 - 30 = 30), allow some tolerance
+		assertTrue(remaining >= 28 && remaining <= 32, "Expected ~30 seconds remaining, got: " + remaining);
+	}
+
+	@Test
+	public void calculateTurnRemainingSeconds_returnsZeroWhenExpired() {
+		MakaoGame game = new MakaoGame();
+		// Set start time to 90 seconds ago (past the 60 second timeout)
+		game.setTurnStartTime(System.currentTimeMillis() - 90_000);
+
+		Integer remaining = ReflectionTestUtils.invokeMethod(service, "calculateTurnRemainingSeconds", game);
+
+		assertNotNull(remaining);
+		assertEquals(remaining.intValue(), 0);
+	}
+
+	@Test
+	public void scheduleTurnTimeout_setsTurnStartTimeForHumanPlayer() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-1");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("human-player");
+
+		ReflectionTestUtils.invokeMethod(service, "scheduleTurnTimeout", game);
+
+		assertNotNull(game.getTurnStartTime());
+		assertNotNull(game.getTurnRemainingSeconds());
+		assertEquals(game.getTurnRemainingSeconds().intValue(), 60);
+
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-timer-1");
+	}
+
+	@Test
+	public void scheduleTurnTimeout_clearsTurnTimeForBot() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-2");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("bot-1");
+		// Set some previous values that should be cleared
+		game.setTurnStartTime(System.currentTimeMillis());
+		game.setTurnRemainingSeconds(30);
+
+		ReflectionTestUtils.invokeMethod(service, "scheduleTurnTimeout", game);
+
+		assertNull(game.getTurnStartTime());
+		assertNull(game.getTurnRemainingSeconds());
+	}
+
+	@Test
+	public void scheduleTurnTimeout_clearsTurnTimeWhenNotPlaying() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-3");
+		game.setStatus(RoomStatus.FINISHED);
+		game.setActivePlayerId("human-player");
+		// Set some previous values that should be cleared
+		game.setTurnStartTime(System.currentTimeMillis());
+		game.setTurnRemainingSeconds(30);
+
+		ReflectionTestUtils.invokeMethod(service, "scheduleTurnTimeout", game);
+
+		assertNull(game.getTurnStartTime());
+		assertNull(game.getTurnRemainingSeconds());
+	}
+
+	@Test
+	public void handleTurnTimeout_resetsTimerForNextPlayer() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-timer-4");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("p1");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("p1", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))));
+		hands.put("p2", new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN))));
+		game.setPlayersHands(hands);
+		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of("p1", 0, "p2", 0)));
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("p1", "Alice", "p2", "Bob")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.THREE)))));
+		// Set initial timer
+		game.setTurnStartTime(System.currentTimeMillis() - 60_000);
+		game.setTurnRemainingSeconds(0);
+
+		when(gameRepository.findById("room-timer-4")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "room-timer-4", "p1");
+
+		// Player p1 should be replaced by a bot, and the next player (p2) should have a new timer
+		assertTrue(game.getLosers().contains("p1"));
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-timer-4");
+	}
+
+	// ============================================
+	// Timeout Notification Tests
+	// ============================================
+
+	@Test
+	public void notifyPlayerTimeout_sendsMessageToKickedPlayer() {
+		String playerId = "user-123";
+		String roomId = "room-abc";
+		String botId = "bot-1";
+
+		ReflectionTestUtils.invokeMethod(service, "notifyPlayerTimeout", playerId, roomId, botId);
+
+		ArgumentCaptor<PlayerTimeoutMessage> messageCaptor = ArgumentCaptor.forClass(PlayerTimeoutMessage.class);
+		verify(messagingTemplate).convertAndSend(eq("/topic/makao/" + playerId + "/timeout"), messageCaptor.capture());
+
+		PlayerTimeoutMessage sentMessage = messageCaptor.getValue();
+		assertEquals(sentMessage.getRoomId(), roomId);
+		assertEquals(sentMessage.getPlayerId(), playerId);
+		assertEquals(sentMessage.getReplacedByBotId(), botId);
+		assertEquals(sentMessage.getType(), "PLAYER_TIMEOUT");
+		assertNotNull(sentMessage.getMessage());
+	}
+
+	@Test
+	public void notifyPlayerTimeout_doesNotSendToBots() {
+		String botId = "bot-1";
+		String roomId = "room-abc";
+		String replacingBotId = "bot-2";
+
+		ReflectionTestUtils.invokeMethod(service, "notifyPlayerTimeout", botId, roomId, replacingBotId);
+
+		// Should not send any message for bots
+		verify(messagingTemplate, org.mockito.Mockito.never()).convertAndSend(
+				org.mockito.ArgumentMatchers.anyString(),
+				any(PlayerTimeoutMessage.class)
+		);
+	}
+
+	@Test
+	public void notifyPlayerTimeout_doesNotSendForNullPlayer() {
+		ReflectionTestUtils.invokeMethod(service, "notifyPlayerTimeout", null, "room-abc", "bot-1");
+
+		// Should not send any message for null player
+		verify(messagingTemplate, org.mockito.Mockito.never()).convertAndSend(
+				org.mockito.ArgumentMatchers.anyString(),
+				any(PlayerTimeoutMessage.class)
+		);
+	}
+
+	@Test
+	public void handleTurnTimeout_sendsTimeoutNotificationToPlayer() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-notify");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("player-to-kick");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("player-to-kick", "other-player")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("player-to-kick", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))));
+		hands.put("other-player", new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN))));
+		game.setPlayersHands(hands);
+		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of("player-to-kick", 0, "other-player", 0)));
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("player-to-kick", "KickedUser", "other-player", "OtherUser")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.THREE)))));
+
+		when(gameRepository.findById("room-notify")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "room-notify", "player-to-kick");
+
+		// Verify timeout notification was sent to the kicked player
+		ArgumentCaptor<PlayerTimeoutMessage> messageCaptor = ArgumentCaptor.forClass(PlayerTimeoutMessage.class);
+		verify(messagingTemplate).convertAndSend(eq("/topic/makao/player-to-kick/timeout"), messageCaptor.capture());
+
+		PlayerTimeoutMessage sentMessage = messageCaptor.getValue();
+		assertEquals(sentMessage.getRoomId(), "room-notify");
+		assertEquals(sentMessage.getPlayerId(), "player-to-kick");
+		assertEquals(sentMessage.getReplacedByBotId(), "bot-1");
+		assertEquals(sentMessage.getType(), "PLAYER_TIMEOUT");
+
+		// Player should be in losers list
+		assertTrue(game.getLosers().contains("player-to-kick"));
+
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-notify");
+	}
+
+	// ============================================
+	// Player Room Mapping Cleanup Tests
+	// ============================================
+
+	@Test
+	public void clearPlayerRoomMapping_deletesRedisKey() {
+		String playerId = "user-cleanup-1";
+
+		ReflectionTestUtils.invokeMethod(service, "clearPlayerRoomMapping", playerId);
+
+		verify(redisTemplate).delete("game:user-room:id:" + playerId);
+	}
+
+	@Test
+	public void clearPlayerRoomMapping_skipsBotsAndNullPlayers() {
+		ReflectionTestUtils.invokeMethod(service, "clearPlayerRoomMapping", (String) null);
+		ReflectionTestUtils.invokeMethod(service, "clearPlayerRoomMapping", "bot-1");
+
+		// Neither should trigger a delete
+		verify(redisTemplate, org.mockito.Mockito.never()).delete(org.mockito.ArgumentMatchers.anyString());
+	}
+
+	@Test
+	public void handleTurnTimeout_clearsPlayerRoomMapping() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-cleanup");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("timeout-player");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("timeout-player", "other")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("timeout-player", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))));
+		hands.put("other", new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN))));
+		game.setPlayersHands(hands);
+		game.setPlayersSkipTurns(new HashMap<String, Integer>(Map.of("timeout-player", 0, "other", 0)));
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("timeout-player", "TimeoutUser", "other", "Other")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.THREE)))));
+
+		when(gameRepository.findById("room-cleanup")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "room-cleanup", "timeout-player");
+
+		// Verify Redis mapping was cleared for the timed-out player
+		verify(redisTemplate).delete("game:user-room:id:timeout-player");
+
+		// Cleanup
+		ReflectionTestUtils.invokeMethod(service, "cancelTurnTimeout", "room-cleanup");
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	public void endGame_clearsGameInProgressMap() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("room-end-cleanup");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1")));
+		Map<String, List<Card>> hands = new HashMap<>();
+		hands.put("p1", new ArrayList<>());
+		game.setPlayersHands(hands);
+		game.setPlayersUsernames(new HashMap<String, String>(Map.of("p1", "Player1")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+
+		doReturn(game).when(gameRepository).save(game);
+
+		// Simulate that gameInProgress has an entry for this room
+		Map<String, java.util.concurrent.atomic.AtomicBoolean> gameInProgress = 
+				(Map<String, java.util.concurrent.atomic.AtomicBoolean>) ReflectionTestUtils.getField(service, "gameInProgress");
+		assertNotNull(gameInProgress);
+
+		// Add an entry
+		gameInProgress.put("room-end-cleanup", new java.util.concurrent.atomic.AtomicBoolean(false));
+		assertTrue(gameInProgress.containsKey("room-end-cleanup"));
+
+		// End the game
+		ReflectionTestUtils.invokeMethod(service, "endGame", game);
+
+		// Verify the entry was removed
+		assertFalse(gameInProgress.containsKey("room-end-cleanup"));
+	}
+
+	@Test
+	public void publishPlayerLeave_sendsMessageToRabbitMQ() {
+		// Test that publishPlayerLeave sends the correct message
+		ReflectionTestUtils.invokeMethod(service, "publishPlayerLeave", 
+				"room-123", "player-456", 
+				com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+
+		ArgumentCaptor<com.online_games_service.common.messaging.PlayerLeaveMessage> captor = 
+				ArgumentCaptor.forClass(com.online_games_service.common.messaging.PlayerLeaveMessage.class);
+		verify(rabbitTemplate).convertAndSend(eq("exchange"), eq("leave.key"), captor.capture());
+		
+		com.online_games_service.common.messaging.PlayerLeaveMessage msg = captor.getValue();
+		assertEquals(msg.roomId(), "room-123");
+		assertEquals(msg.playerId(), "player-456");
+		assertEquals(msg.reason(), com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+	}
+
+	@Test
+	public void publishPlayerLeave_skipsNullRoomId() {
+		ReflectionTestUtils.invokeMethod(service, "publishPlayerLeave", 
+				null, "player-456", 
+				com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.TIMEOUT);
+
+		verifyNoInteractions(rabbitTemplate);
+	}
+
+	@Test
+	public void publishPlayerLeave_skipsBotPlayers() {
+		ReflectionTestUtils.invokeMethod(service, "publishPlayerLeave", 
+				"room-123", "bot-1", 
+				com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+
+		verifyNoInteractions(rabbitTemplate);
+	}
+
+	@Test
+	public void handlePlayerLeave_publishesLeaveMessage() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("leave-test-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("leaving-player", "p2")));
+		game.setActivePlayerId("p2");
+		game.setPlayersHands(new HashMap<>(Map.of("leaving-player", new ArrayList<>(), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("leaving-player", "LeavingUser", "p2", "Player2")));
+
+		when(valueOps.get("game:user-room:id:leaving-player")).thenReturn("leave-test-room");
+		when(gameRepository.findById("leave-test-room")).thenReturn(Optional.of(game));
+
+		service.handlePlayerLeave("leaving-player");
+
+		// Verify the leave message was published with VOLUNTARY reason
+		ArgumentCaptor<com.online_games_service.common.messaging.PlayerLeaveMessage> captor = 
+				ArgumentCaptor.forClass(com.online_games_service.common.messaging.PlayerLeaveMessage.class);
+		verify(rabbitTemplate).convertAndSend(eq("exchange"), eq("leave.key"), captor.capture());
+		
+		com.online_games_service.common.messaging.PlayerLeaveMessage msg = captor.getValue();
+		assertEquals(msg.roomId(), "leave-test-room");
+		assertEquals(msg.playerId(), "leaving-player");
+		assertEquals(msg.reason(), com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.VOLUNTARY);
+	}
+
+	// ============================================
+	// forceEndGame Tests
+	// ============================================
+
+	@Test
+	public void forceEndGame_endsGameSuccessfully() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("force-end-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+		game.setPlayersHands(new HashMap<>(Map.of("p1", new ArrayList<>(), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("p1", "Player1", "p2", "Player2")));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.FIVE)))));
+
+		when(gameRepository.findById("force-end-room")).thenReturn(Optional.of(game));
+		doReturn(game).when(gameRepository).save(game);
+
+		com.online_games_service.makao.dto.EndGameRequest request = new com.online_games_service.makao.dto.EndGameRequest();
+		request.setRoomId("force-end-room");
+
+		service.forceEndGame(request);
+
+		assertEquals(game.getStatus(), RoomStatus.FINISHED);
+	}
+
+	@Test
+	public void forceEndGame_nullRequestThrows() {
+		try {
+			service.forceEndGame(null);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("roomId is required"));
+		}
+	}
+
+	@Test
+	public void forceEndGame_blankRoomIdThrows() {
+		com.online_games_service.makao.dto.EndGameRequest request = new com.online_games_service.makao.dto.EndGameRequest();
+		request.setRoomId("   ");
+
+		try {
+			service.forceEndGame(request);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("roomId is required"));
+		}
+	}
+
+	@Test
+	public void forceEndGame_gameNotFoundThrows() {
+		when(gameRepository.findById("nonexistent")).thenReturn(Optional.empty());
+
+		com.online_games_service.makao.dto.EndGameRequest request = new com.online_games_service.makao.dto.EndGameRequest();
+		request.setRoomId("nonexistent");
+
+		try {
+			service.forceEndGame(request);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("Game not found"));
+		}
+	}
+
+	// ============================================
+	// sendCurrentStateToPlayer Tests
+	// ============================================
+
+	@Test
+	public void sendCurrentStateToPlayer_sendsStateSuccessfully() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("state-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setActivePlayerId("p1");
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+		game.setPlayersHands(new HashMap<>(Map.of("p1", new ArrayList<>(List.of(new Card(CardSuit.HEARTS, CardRank.FIVE))), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("p1", "Player1", "p2", "Player2")));
+		game.setPlayersSkipTurns(new HashMap<>(Map.of("p1", 0, "p2", 0)));
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.FIVE)))));
+		game.setDrawDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.CLUBS, CardRank.SEVEN)))));
+
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("state-room");
+		when(gameRepository.findById("state-room")).thenReturn(Optional.of(game));
+
+		service.sendCurrentStateToPlayer("p1");
+
+		verify(messagingTemplate).convertAndSend(eq("/topic/makao/p1"), any(com.online_games_service.makao.dto.GameStateMessage.class));
+	}
+
+	@Test
+	public void sendCurrentStateToPlayer_nullUserIdThrows() {
+		try {
+			service.sendCurrentStateToPlayer(null);
+			assertTrue(false, "Expected exception");
+		} catch (IllegalArgumentException ex) {
+			assertTrue(ex.getMessage().contains("userId is required"));
+		}
+	}
+
+	@Test
+	public void sendCurrentStateToPlayer_noRoomMappingThrows() {
+		when(valueOps.get("game:user-room:id:orphan")).thenReturn(null);
+
+		try {
+			service.sendCurrentStateToPlayer("orphan");
+			assertTrue(false, "Expected exception");
+		} catch (IllegalStateException ex) {
+			assertTrue(ex.getMessage().contains("not in a game"));
+		}
+	}
+
+	@Test
+	public void sendCurrentStateToPlayer_gameNotFoundThrows() {
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("missing-room");
+		when(gameRepository.findById("missing-room")).thenReturn(Optional.empty());
+
+		try {
+			service.sendCurrentStateToPlayer("p1");
+			assertTrue(false, "Expected exception");
+		} catch (IllegalStateException ex) {
+			assertTrue(ex.getMessage().contains("Game not found"));
+		}
+	}
+
+	// ============================================
+	// handlePlayerLeave Edge Cases
+	// ============================================
+
+	@Test
+	public void handlePlayerLeave_nullUserIdIsIgnored() {
+		service.handlePlayerLeave(null);
+		verifyNoInteractions(gameRepository);
+	}
+
+	@Test
+	public void handlePlayerLeave_blankUserIdIsIgnored() {
+		service.handlePlayerLeave("   ");
+		verifyNoInteractions(gameRepository);
+	}
+
+	@Test
+	public void handlePlayerLeave_botLeaveIsIgnored() {
+		service.handlePlayerLeave("bot-1");
+		verifyNoInteractions(gameRepository);
+	}
+
+	@Test
+	public void handlePlayerLeave_noRoomFoundIsIgnored() {
+		when(valueOps.get("game:user-room:id:p1")).thenReturn(null);
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).findById(org.mockito.ArgumentMatchers.anyString());
+	}
+
+	@Test
+	public void handlePlayerLeave_gameNotFoundIsIgnored() {
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("missing-room");
+		when(gameRepository.findById("missing-room")).thenReturn(Optional.empty());
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).save(any());
+	}
+
+	@Test
+	public void handlePlayerLeave_gameNotPlayingIsIgnored() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("finished-room");
+		game.setStatus(RoomStatus.FINISHED);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p1", "p2")));
+
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("finished-room");
+		when(gameRepository.findById("finished-room")).thenReturn(Optional.of(game));
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).save(any());
+	}
+
+	@Test
+	public void handlePlayerLeave_playerNotInGameIsIgnored() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("other-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("p2", "p3")));
+
+		when(valueOps.get("game:user-room:id:p1")).thenReturn("other-room");
+		when(gameRepository.findById("other-room")).thenReturn(Optional.of(game));
+
+		service.handlePlayerLeave("p1");
+
+		verify(gameRepository, org.mockito.Mockito.never()).save(any());
+	}
+
+	@Test
+	public void handleTurnTimeout_publishesLeaveMessageWithTimeoutReason() {
+		MakaoGame game = new MakaoGame();
+		game.setRoomId("timeout-leave-room");
+		game.setStatus(RoomStatus.PLAYING);
+		game.setPlayersOrderIds(new ArrayList<>(List.of("timeout-player", "p2")));
+		game.setActivePlayerId("timeout-player");
+		game.setPlayersHands(new HashMap<>(Map.of("timeout-player", new ArrayList<>(), "p2", new ArrayList<>())));
+		game.setPlayersUsernames(new HashMap<>(Map.of("timeout-player", "TimeoutUser", "p2", "Player2")));
+		game.setPlayersAvatars(new HashMap<>());
+		game.setDiscardDeck(new MakaoDeck(new ArrayList<>(List.of(new Card(CardSuit.SPADES, CardRank.NINE)))));
+
+		when(gameRepository.findById("timeout-leave-room")).thenReturn(Optional.of(game));
+		when(gameRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		ReflectionTestUtils.invokeMethod(service, "handleTurnTimeout", "timeout-leave-room", "timeout-player");
+
+		// Verify the leave message was published with TIMEOUT reason
+		ArgumentCaptor<com.online_games_service.common.messaging.PlayerLeaveMessage> captor = 
+				ArgumentCaptor.forClass(com.online_games_service.common.messaging.PlayerLeaveMessage.class);
+		verify(rabbitTemplate).convertAndSend(eq("exchange"), eq("leave.key"), captor.capture());
+		
+		com.online_games_service.common.messaging.PlayerLeaveMessage msg = captor.getValue();
+		assertEquals(msg.roomId(), "timeout-leave-room");
+		assertEquals(msg.playerId(), "timeout-player");
+		assertEquals(msg.reason(), com.online_games_service.common.messaging.PlayerLeaveMessage.LeaveReason.TIMEOUT);
 	}
 
 	private MakaoGame baseGameWithTopCard(Card topCard) {

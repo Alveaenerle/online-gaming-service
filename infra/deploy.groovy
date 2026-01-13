@@ -1,4 +1,4 @@
-void call(String serverIp, String serverUser, String sshCredentialId) {
+def call(String serverIp, String serverUser, String sshCredentialId) {
     withCredentials([
         usernamePassword(credentialsId: 'mongo-root-creds', passwordVariable: 'MONGO_PASS', usernameVariable: 'MONGO_USER'),
         string(credentialsId: 'redis-password', variable: 'REDIS_PASS'),
@@ -8,14 +8,13 @@ void call(String serverIp, String serverUser, String sshCredentialId) {
         def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
         def envFileContent = """
 NEXUS_URL=${env.NEXUS_URL}
-MONGO_ROOT_USER=${MONGO_USER}
-MONGO_ROOT_PASSWORD=${MONGO_PASS}
-REDIS_PASSWORD=${REDIS_PASS}
-RABBITMQ_USER=${RABBITMQ_USER}
-RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+MONGO_ROOT_USER=${env.MONGO_USER}
+MONGO_ROOT_PASSWORD=${env.MONGO_PASS}
+REDIS_PASSWORD=${env.REDIS_PASS}
+RABBITMQ_USER=${env.RABBITMQ_USER}
+RABBITMQ_PASSWORD=${env.RABBITMQ_PASSWORD}
 TAG=${gitCommit}
 """.trim()
-        
         try {
             writeFile file: '.env.deploy', text: envFileContent
             sh "chmod 600 .env.deploy"
@@ -33,7 +32,7 @@ TAG=${gitCommit}
                 sh """
                     ssh ${sshOpts} ${serverUser}@${serverIp} '
                         cd ${remoteDir}
-                        echo "${NEXUS_PASS}" | docker login ${env.NEXUS_URL} -u ${NEXUS_USER} --password-stdin
+                        echo "${env.NEXUS_PASS}" | docker login ${env.NEXUS_URL} -u ${env.NEXUS_USER} --password-stdin
                         docker compose pull
                         docker compose up -d --remove-orphans
                         docker logout ${env.NEXUS_URL}

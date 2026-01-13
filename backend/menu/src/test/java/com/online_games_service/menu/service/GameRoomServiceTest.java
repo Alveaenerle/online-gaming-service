@@ -655,4 +655,80 @@ public class GameRoomServiceTest {
 	private String waitingKey(GameType type) {
 		return "game:waiting:" + type;
 	}
+
+	// ==================== removePlayerFromRoom Tests ====================
+
+	@Test
+	public void removePlayerFromRoom_removesPlayerAndBroadcasts() {
+		// Setup a room with 2 players
+		GameRoom room = new GameRoom("Test", GameType.MAKAO, "host-id", "host", 4, false);
+		room.setId("room-1");
+		room.addPlayer("player-2", "Player2");
+
+		when(valueOperations.get(keyForRoom("room-1"))).thenReturn(room);
+
+		gameRoomService.removePlayerFromRoom("room-1", "player-2");
+
+		// Verify player was removed
+		Assert.assertFalse(room.getPlayers().containsKey("player-2"));
+		Assert.assertEquals(room.getPlayers().size(), 1);
+
+		// Verify Redis cleanup
+		verify(redisTemplate).delete(keyForUserId("player-2"));
+		verify(redisTemplate).delete(keyForUsername("Player2"));
+
+		// Verify room was saved
+		verify(valueOperations).set(eq(keyForRoom("room-1")), any(GameRoom.class), any(Duration.class));
+
+		// Verify broadcast
+		verify(messagingTemplate).convertAndSend(eq("/topic/room/room-1"), any(RoomInfoResponse.class));
+	}
+
+	@Test
+	public void removePlayerFromRoom_reassignsHostWhenHostLeaves() {
+		// Setup a room where host leaves
+		GameRoom room = new GameRoom("Test", GameType.MAKAO, "host-id", "host", 4, false);
+		room.setId("room-host-leave");
+		room.addPlayer("player-2", "Player2");
+
+		when(valueOperations.get(keyForRoom("room-host-leave"))).thenReturn(room);
+
+		gameRoomService.removePlayerFromRoom("room-host-leave", "host-id");
+
+		// Verify host was reassigned
+		Assert.assertEquals(room.getHostUserId(), "player-2");
+		Assert.assertEquals(room.getHostUsername(), "Player2");
+	}
+
+	@Test
+	public void removePlayerFromRoom_deletesRoomWhenEmpty() {
+		// Setup a room with only one player
+		GameRoom room = new GameRoom("Test", GameType.MAKAO, "host-id", "host", 4, false);
+		room.setId("room-delete");
+		room.setAccessCode("ABC123");
+
+		when(valueOperations.get(keyForRoom("room-delete"))).thenReturn(room);
+
+		gameRoomService.removePlayerFromRoom("room-delete", "host-id");
+
+		// Verify room was deleted
+		verify(redisTemplate).delete(keyForRoom("room-delete"));
+		verify(redisTemplate).delete(codeKey("ABC123"));
+	}
+
+	@Test
+	public void removePlayerFromRoom_handlesNullRoomId() {
+		// Should not throw and just return silently
+		gameRoomService.removePlayerFromRoom(null, "player-1");
+
+		verify(valueOperations, never()).get(anyString());
+	}
+
+	@Test
+	public void removePlayerFromRoom_handlesNonExistentRoom() {
+		when(valueOperations.get(keyForRoom("nonexistent"))).thenReturn(null);
+
+		// Should not throw and just return silently
+		gameRoomService.removePlayerFromRoom("nonexistent", "player-1");
+	}
 }

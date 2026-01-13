@@ -36,10 +36,13 @@ public class GameStartPublisher {
             return;
         }
 
-        // Convert players map from Map<String, PlayerState> to Map<String, String>
+        // Convert players map from Map<String, PlayerState> to Map<String, String> for usernames
         Map<String, String> playerUsernames = new HashMap<>();
+        // Extract avatar IDs for each player
+        Map<String, String> playerAvatars = new HashMap<>();
         for (Map.Entry<String, PlayerState> entry : room.getPlayers().entrySet()) {
             playerUsernames.put(entry.getKey(), entry.getValue().getUsername());
+            playerAvatars.put(entry.getKey(), entry.getValue().getAvatarId());
         }
 
         GameStartMessage payload = new GameStartMessage(
@@ -47,6 +50,7 @@ public class GameStartPublisher {
                 room.getName(),
                 room.getGameType(),
                 playerUsernames,
+                playerAvatars,
                 room.getMaxPlayers(),
                 room.getHostUserId(),
                 room.getHostUsername()

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#1a1a2e" stroke="#00d4ff" stroke-width="3"/>
+
+  <!-- Robot head -->
+  <rect x="50" y="55" width="100" height="90" rx="15" ry="15" fill="#2d3748" stroke="#00d4ff" stroke-width="2"/>
+
+  <!-- Antenna -->
+  <line x1="100" y1="55" x2="100" y2="30" stroke="#00d4ff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="100" cy="25" r="8" fill="#00ff88" stroke="#00d4ff" stroke-width="2">
+    <animate attributeName="fill" values="#00ff88;#00d4ff;#00ff88" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Eyes -->
+  <ellipse cx="75" cy="90" rx="15" ry="18" fill="#0a0a15" stroke="#00d4ff" stroke-width="2"/>
+  <ellipse cx="125" cy="90" rx="15" ry="18" fill="#0a0a15" stroke="#00d4ff" stroke-width="2"/>
+
+  <!-- Eye glow/pupils -->
+  <ellipse cx="75" cy="90" rx="8" ry="10" fill="#00d4ff">
+    <animate attributeName="opacity" values="1;0.6;1" dur="3s" repeatCount="indefinite"/>
+  </ellipse>
+  <ellipse cx="125" cy="90" rx="8" ry="10" fill="#00d4ff">
+    <animate attributeName="opacity" values="1;0.6;1" dur="3s" repeatCount="indefinite"/>
+  </ellipse>
+
+  <!-- Mouth/speaker grille -->
+  <rect x="70" y="115" width="60" height="20" rx="5" ry="5" fill="#0a0a15" stroke="#00d4ff" stroke-width="2"/>
+  <line x1="80" y1="120" x2="80" y2="130" stroke="#00d4ff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="92" y1="120" x2="92" y2="130" stroke="#00d4ff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="104" y1="120" x2="104" y2="130" stroke="#00d4ff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="116" y1="120" x2="116" y2="130" stroke="#00d4ff" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Ear pieces -->
+  <rect x="35" y="80" width="15" height="30" rx="5" ry="5" fill="#2d3748" stroke="#00d4ff" stroke-width="2"/>
+  <rect x="150" y="80" width="15" height="30" rx="5" ry="5" fill="#2d3748" stroke="#00d4ff" stroke-width="2"/>
+
+  <!-- Decorative bolts -->
+  <circle cx="55" cy="65" r="4" fill="#00d4ff"/>
+  <circle cx="145" cy="65" r="4" fill="#00d4ff"/>
+  <circle cx="55" cy="135" r="4" fill="#00d4ff"/>
+  <circle cx="145" cy="135" r="4" fill="#00d4ff"/>
+
+  <!-- Neck/body hint -->
+  <rect x="80" y="145" width="40" height="20" rx="3" ry="3" fill="#2d3748" stroke="#00d4ff" stroke-width="2"/>
+</svg>

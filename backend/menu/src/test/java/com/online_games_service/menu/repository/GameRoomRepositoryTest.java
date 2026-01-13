@@ -1,4 +1,4 @@
-package com.online_games_service.menu.integration;
+package com.online_games_service.menu.repository;
 
 import com.online_games_service.common.enums.GameType;
 import com.online_games_service.common.enums.RoomStatus;

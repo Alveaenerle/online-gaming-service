@@ -111,6 +111,12 @@ export const SocialProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 } else {
                   refreshSocialData();
                 }
+             } else if (notification.subType === 'FRIEND_REMOVED') {
+                // A friend removed us - update our friends list immediately
+                const removedByUserId = notification.removedByUserId;
+                if (removedByUserId) {
+                  setFriends(prev => prev.filter(friend => friend.id !== removedByUserId));
+                }
              }
            }
         });

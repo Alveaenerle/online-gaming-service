@@ -1,978 +1,1078 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { UserPlus, UserMinus } from "lucide-react";
 import Navbar from "../../Shared/Navbar";
-import Footer from "../../Shared/Footer";
-import Player from "./Player";
+import { SocialCenter } from "../../Shared/SocialCenter";
+import { ConfirmationModal } from "../../Shared/ConfirmationModal";
 import Card from "./Card";
-import { Card as CardType, Player as PlayerType, GameState, Suit, Rank, GameStateMessage, PlayCardRequest } from "./types";
+import Player from "./components/Player";
+import DemandPicker from "./components/DemandPicker";
+import DrawnCardModal from "./components/DrawnCardModal";
+import GameOverModal from "./components/GameOverModal";
+import TimeoutModal from "./components/TimeoutModal";
+import SidebarNotifications from "./components/SidebarNotifications";
+import DiscardPile from "./components/DiscardPile";
+import { ChatWidget } from "../shared/ChatWidget";
+import { useCardAnimations, CardAnimationManager, AnimatedCardPile } from "./components/AnimatedCard";
+import { useMakaoSocket } from "./hooks/useMakaoSocket";
+import { useMakaoActions } from "./hooks/useMakaoActions";
+import { useTurnTimer } from "./hooks/useTurnTimer";
+import { useGameSounds } from "./utils/soundEffects";
 import { useAuth } from "../../../context/AuthContext";
-import { socketService } from "../../../services/socketService";
-import { makaoGameService } from "../../../services/makaoGameService";
+import { useLobby } from "../../../context/LobbyContext";
+import { useSocial } from "../../../context/SocialContext";
+import { useToast } from "../../../context/ToastContext";
+import makaoGameService from "../../../services/makaoGameService";
+import { lobbyService } from "../../../services/lobbyService";
+import {
+  Card as CardType,
+  CardSuit,
+  CardRank,
+  PlayerCardView,
+  PlayerView,
+  DemandType,
+} from "./types";
+import {
+  buildPlayerViews,
+  distributePlayersAroundTable,
+  RANK_DISPLAY,
+  SUIT_INFO,
+  requiresDemand,
+  getPlayerDisplayName,
+  isBot,
+} from "./utils/cardHelpers";
+
+// ============================================
+// Main Makao Game Component
+// ============================================
 
 const MakaoGame: React.FC = () => {
   const { user } = useAuth();
+  const { currentLobby, clearLobby } = useLobby();
+  const { friends, sendFriendRequest } = useSocial();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // Online game state from backend
-  const [onlineGameState, setOnlineGameState] = useState<GameStateMessage | null>(null);
-  const [isOnlineMode, setIsOnlineMode] = useState(true);
-  const [drawnCard, setDrawnCard] = useState<{ suit: string; rank: string } | null>(null);
+  // Determine if current user is the host
+  const isHost = currentLobby?.hostUserId === user?.id;
 
-  // Local game state (fallback)
-  const [playerCount, setPlayerCount] = useState<number>(4);
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [message, setMessage] = useState<string>("");
+  // Sounds
+  const {
+    playCardSound,
+    drawCardSound,
+    playTurnStartSound,
+    playMakaoSound
+  } = useGameSounds();
 
-  // Handle game state update from WebSocket
-  const handleGameUpdate = useCallback((data: GameStateMessage) => {
-    console.log("Game state update:", data);
-    setOnlineGameState(data);
+  // WebSocket connection and game state
+  const { gameState, isConnected, connectionError, resetState, wasKickedByTimeout, clearTimeoutStatus, reconnect } = useMakaoSocket();
 
-    if (data.status === "FINISHED") {
-      setMessage("Game finished!");
+  // Game actions
+  const {
+    playCard,
+    drawCard,
+    playDrawnCard,
+    skipDrawnCard,
+    acceptEffect,
+    isLoading,
+    error: actionError,
+    clearError,
+  } = useMakaoActions();
+
+  // Card animations hook
+  const {
+    animations,
+    addPlayAnimation,
+    addDrawAnimation,
+    removeAnimation,
+  } = useCardAnimations();
+
+  // Refs for animation positions
+  const gameTableRef = useRef<HTMLDivElement>(null);
+  const deckRef = useRef<HTMLDivElement>(null);
+  const discardRef = useRef<HTMLDivElement>(null);
+  const handRef = useRef<HTMLDivElement>(null);
+  const playerRefsMap = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
+
+  // Local UI state
+  const [pendingCard, setPendingCard] = useState<CardType | null>(null);
+  const [demandType, setDemandType] = useState<DemandType | null>(null);
+  const [drawnCardInfo, setDrawnCardInfo] = useState<{
+    card: CardType;
+    canPlay: boolean;
+  } | null>(null);
+  const [previousCardPlayed, setPreviousCardPlayed] = useState<CardType | null>(null);
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [wasReplacedByBot, setWasReplacedByBot] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [playerContextMenu, setPlayerContextMenu] = useState<{
+    playerId: string;
+    username: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Track previous active player to know who played the card
+  const prevActivePlayerIdRef = useRef<string | null>(null);
+  // Track previous turn to detecting turn start sfx
+  const wasMyTurnRef = useRef<boolean>(false);
+  // Track if user was previously in the game (to detect being kicked)
+  const wasInGameRef = useRef<boolean>(false);
+
+  // Helper to get or create a ref for a player
+  const getPlayerRef = useCallback((playerId: string) => {
+    if (!playerRefsMap.current.has(playerId)) {
+      playerRefsMap.current.set(playerId, React.createRef<HTMLDivElement>());
     }
+    return playerRefsMap.current.get(playerId)!;
   }, []);
 
-  // Connect to WebSocket for game updates
+  // Redirect if not authenticated
   useEffect(() => {
-    if (!user?.id || !isOnlineMode) return;
-
-    const initSocket = async () => {
-      try {
-        await socketService.connect();
-        socketService.subscribe(`/topic/makao/${user.id}`, handleGameUpdate);
-        console.log(`Subscribed to /topic/makao/${user.id}`);
-      } catch (err) {
-        console.error("Socket connection failed:", err);
-        setIsOnlineMode(false);
-      }
-    };
-
-    initSocket();
-
-    return () => {
-      socketService.unsubscribe(`/topic/makao/${user.id}`);
-    };
-  }, [user?.id, isOnlineMode, handleGameUpdate]);
-
-  // Online game actions
-  const handlePlayCard = async (suit: string, rank: string, demandedRank?: string, demandedSuit?: string) => {
-    try {
-      const request: PlayCardRequest = {
-        cardSuit: suit,
-        cardRank: rank,
-        demandedRank,
-        demandedSuit,
-      };
-      await makaoGameService.playCard(request);
-      setMessage("Card played!");
-    } catch (err: any) {
-      setMessage(err.message || "Failed to play card");
+    if (!user?.id) {
+      navigate("/login");
+      return;
     }
-  };
+  }, [user?.id, navigate]);
 
-  const handleDrawCard = async () => {
-    try {
-      const response = await makaoGameService.drawCard();
-      if (response.card) {
-        setDrawnCard(response.card);
-        setMessage(`Drew ${response.card.rank} of ${response.card.suit}`);
-      } else {
-        setMessage("No cards to draw");
+  // Handle Game State Changes (Animations, Sound)
+  useEffect(() => {
+    if (!gameState) return;
+
+    // 1. Detect card plays for animation
+    if (gameState.currentCard && previousCardPlayed) {
+      const cardChanged =
+        gameState.currentCard.rank !== previousCardPlayed.rank ||
+        gameState.currentCard.suit !== previousCardPlayed.suit;
+
+      if (cardChanged) {
+        // The player who played is likely the one who WAS active
+        // If I am the one who played, I handled it in handleCardClick
+        // But for consistency and opponents, we can trigger here if not already handled
+        // Note: handleCardClick triggers animation immediately for better UX.
+        // We should avoid double animation for self.
+
+        const whoPlayed = prevActivePlayerIdRef.current;
+        if (whoPlayed && whoPlayed !== user?.id) {
+            addPlayAnimation(gameState.currentCard, undefined, whoPlayed);
+            playCardSound();
+        }
       }
-    } catch (err: any) {
-      setMessage(err.message || "Failed to draw card");
     }
-  };
 
-  const handlePlayDrawnCard = async () => {
-    if (!drawnCard) return;
-    try {
-      await makaoGameService.playDrawnCard({
-        cardSuit: drawnCard.suit,
-        cardRank: drawnCard.rank,
+    // Update trackers
+    setPreviousCardPlayed(gameState.currentCard || null);
+    prevActivePlayerIdRef.current = gameState.activePlayerId;
+
+    // 2. Detect Turn Start
+    const isNowMyTurn = gameState.activePlayerId === user?.id;
+    if (isNowMyTurn && !wasMyTurnRef.current) {
+        playTurnStartSound();
+    }
+    wasMyTurnRef.current = isNowMyTurn;
+
+    // 3. Detect Makao - play sound when any player has exactly 1 card
+    // Check if any player just reached 1 card by comparing with previous state
+    if (gameState.playersCardsAmount) {
+      const hasPlayerWithOneCard = Object.values(gameState.playersCardsAmount).some(count => count === 1);
+      if (hasPlayerWithOneCard && gameState.makaoPlayerId) {
+        // Only play sound when backend signals a new MAKAO event
+        playMakaoSound();
+      }
+    }
+
+    // 4. Detect if user was replaced by a bot (kicked due to timeout) - fallback detection
+    // Primary detection is via wasKickedByTimeout from WebSocket, this is a backup
+    const isUserInGame = gameState.playersCardsAmount && user?.id && user.id in gameState.playersCardsAmount;
+    const isUserInLosers = gameState.losers?.includes(user?.id || "");
+
+    if (wasInGameRef.current && !isUserInGame && !isGameOver && isUserInLosers && !wasKickedByTimeout) {
+      // User was in game but now they're not (and game isn't over) - they got replaced
+      setWasReplacedByBot(true);
+      setShowTimeoutModal(true);
+    }
+
+    // Update tracking ref
+    if (isUserInGame) {
+      wasInGameRef.current = true;
+    }
+
+  }, [gameState, previousCardPlayed, user?.id, addPlayAnimation, playCardSound, playTurnStartSound, playMakaoSound, wasKickedByTimeout]);
+
+  // Show timeout modal when kicked via WebSocket notification
+  useEffect(() => {
+    if (wasKickedByTimeout) {
+      setShowTimeoutModal(true);
+      setWasReplacedByBot(true);
+    }
+  }, [wasKickedByTimeout]);
+
+  // Build player views from game state
+  const players = useMemo<PlayerView[]>(() => {
+    if (!gameState || !user?.id) return [];
+    return buildPlayerViews(gameState, user.id);
+  }, [gameState, user?.id]);
+
+  // Distribute players around table
+  const { me, others } = useMemo(() => {
+    return distributePlayersAroundTable(players, user?.id || "");
+  }, [players, user?.id]);
+
+  // Game state derived values
+  const isMyTurn = gameState?.activePlayerId === user?.id;
+  const isGameOver = gameState?.status === "FINISHED";
+  const hasSpecialEffect = gameState?.specialEffectActive;
+
+  // Get bot thinking player ID from game state
+  const botThinkingPlayerId = gameState?.botThinkingPlayerId || null;
+
+  // Determine if active player is a bot
+  const isActivePlayerBot = gameState?.activePlayerId ? isBot(gameState.activePlayerId) : false;
+
+  // Turn timer - uses local countdown for smooth UI
+  const { remainingSeconds: turnRemainingSeconds } = useTurnTimer({
+    activePlayerId: gameState?.activePlayerId,
+    serverRemainingSeconds: gameState?.turnRemainingSeconds,
+    turnStartTime: gameState?.turnStartTime,
+    isActivePlayerBot,
+    isGamePlaying: gameState?.status === "PLAYING",
+  });
+
+  // Check if a card can be played
+  const canPlayCard = useCallback(
+    (cardView: PlayerCardView): boolean => {
+      if (!isMyTurn || isLoading || drawnCardInfo) return false;
+      return cardView.playable;
+    },
+    [isMyTurn, isLoading, drawnCardInfo]
+  );
+
+  // Handle card click from hand
+  const handleCardClick = useCallback(
+    async (cardView: PlayerCardView) => {
+      if (!canPlayCard(cardView)) return;
+
+      const card = cardView.card;
+      const demand = requiresDemand(card);
+
+      if (demand) {
+        // Card requires demand selection - show picker
+        setPendingCard(card);
+        setDemandType(demand);
+        return;
+      }
+
+      // Trigger play animation immediately for self
+      addPlayAnimation(card, undefined, user?.id);
+      playCardSound();
+
+      // Play card directly
+      await playCard(card);
+    },
+    [canPlayCard, playCard, addPlayAnimation, user?.id, playCardSound]
+  );
+
+  // Handle demand selection (for Ace/Jack)
+  const handleDemandSelect = useCallback(
+    async (value: CardSuit | CardRank) => {
+      if (!pendingCard) return;
+
+      // Trigger play animation for the pending card
+      addPlayAnimation(pendingCard, undefined, user?.id);
+      playCardSound();
+
+      if (demandType === "suit") {
+        await playCard(pendingCard, value as CardSuit, null);
+      } else if (demandType === "rank") {
+        await playCard(pendingCard, null, value as CardRank);
+      }
+
+      setPendingCard(null);
+      setDemandType(null);
+
+    },
+    [pendingCard, demandType, playCard, playCardSound, addPlayAnimation, user?.id]
+  );
+
+  // Cancel demand selection
+  const handleDemandCancel = useCallback(() => {
+    setPendingCard(null);
+    setDemandType(null);
+  }, []);
+
+  // Handle draw card
+  const handleDrawCard = useCallback(async () => {
+    if (!isMyTurn || isLoading || drawnCardInfo) return;
+
+    // If special effect is active, need to accept it first
+    if (hasSpecialEffect) {
+      await acceptEffect();
+      return;
+    }
+
+    const result = await drawCard();
+    if (result) {
+      // Trigger draw animation
+      addDrawAnimation(result.drawnCard, undefined, user?.id);
+      drawCardSound();
+
+      setDrawnCardInfo({
+        card: result.drawnCard,
+        canPlay: result.playable,
       });
-      setDrawnCard(null);
-      setMessage("Played drawn card!");
-    } catch (err: any) {
-      setMessage(err.message || "Failed to play drawn card");
     }
-  };
+  }, [isMyTurn, isLoading, drawnCardInfo, hasSpecialEffect, acceptEffect, drawCard, addDrawAnimation, user?.id, drawCardSound]);
 
-  const handleSkipDrawnCard = async () => {
+  // Handle playing drawn card
+  const handlePlayDrawnCard = useCallback(async () => {
+    if (!drawnCardInfo) return;
+
+    const card = drawnCardInfo.card;
+    const demand = requiresDemand(card);
+
+    if (demand) {
+      // Need to select demand first
+      setPendingCard(card);
+      setDemandType(demand);
+      setDrawnCardInfo(null);
+      return;
+    }
+
+    // Trigger animation for playing the drawn card
+    addPlayAnimation(card, undefined, user?.id);
+    playCardSound();
+    await playDrawnCard();
+    setDrawnCardInfo(null);
+  }, [drawnCardInfo, playDrawnCard, playCardSound, addPlayAnimation, user?.id]);
+
+  // Handle skipping after draw
+  const handleSkipDrawnCard = useCallback(async () => {
+    await skipDrawnCard();
+    setDrawnCardInfo(null);
+  }, [skipDrawnCard]);
+
+  // Handle leaving game (mid-game)
+  const handleLeaveGame = useCallback(async () => {
+    console.log("[MakaoGame] Leaving game mid-session");
     try {
-      await makaoGameService.skipDrawnCard();
-      setDrawnCard(null);
-      setMessage("Skipped turn");
-    } catch (err: any) {
-      setMessage(err.message || "Failed to skip");
+      // Notify backend so player gets replaced by bot
+      await makaoGameService.leaveGame();
+    } catch (err) {
+      console.error("[MakaoGame] Failed to notify backend of leave:", err);
+      // Continue with navigation even if API call fails
     }
-  };
+    resetState();
+    clearLobby();
+    navigate("/makao");
+  }, [resetState, clearLobby, navigate]);
 
-  const handleAcceptEffect = async () => {
+  // Handle player click (for context menu)
+  const handlePlayerClick = useCallback(
+    (e: React.MouseEvent, playerId: string, username: string) => {
+      // Don't show menu for yourself
+      if (playerId === user?.id) return;
+      // Don't show menu for guests (username starts with Guest_)
+      if (username.startsWith("Guest_")) return;
+      
+      e.preventDefault();
+      setPlayerContextMenu({
+        playerId,
+        username,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    },
+    [user?.id]
+  );
+
+  // Check if a player is already a friend
+  const isFriend = useCallback(
+    (userId: string) => friends.some((f) => f.id === userId),
+    [friends]
+  );
+
+  // Handle adding friend from player context menu
+  const handleAddFriendFromMenu = useCallback(async () => {
+    if (!playerContextMenu) return;
+    await sendFriendRequest(playerContextMenu.playerId);
+    setPlayerContextMenu(null);
+  }, [playerContextMenu, sendFriendRequest]);
+
+  // Handle kicking player from player context menu
+  const handleKickFromMenu = useCallback(async () => {
+    if (!playerContextMenu) return;
     try {
-      await makaoGameService.acceptEffect();
-      setMessage("Effect accepted");
-    } catch (err: any) {
-      setMessage(err.message || "Failed to accept effect");
+      await lobbyService.kickPlayer(playerContextMenu.playerId);
+      showToast(`${playerContextMenu.username} has been kicked`, "info");
+    } catch {
+      showToast("Failed to kick player", "error");
     }
-  };
+    setPlayerContextMenu(null);
+  }, [playerContextMenu, showToast]);
 
-  const handleLeaveGame = () => {
-    socketService.disconnect();
+  // Reset all local UI state (for new game)
+  const resetLocalState = useCallback(() => {
+    console.log("[MakaoGame] Resetting local UI state");
+    setPendingCard(null);
+    setDemandType(null);
+    setDrawnCardInfo(null);
+    setPreviousCardPlayed(null);
+    setShowTimeoutModal(false);
+    setWasReplacedByBot(false);
+    prevActivePlayerIdRef.current = null;
+    wasMyTurnRef.current = false;
+    wasInGameRef.current = false;
+    playerRefsMap.current.clear();
+  }, []);
+
+  // Handle "Play Again" - return to lobby with same players
+  const handlePlayAgain = useCallback(() => {
+    console.log("[MakaoGame] Play Again clicked - resetting for new game");
+    // Reset game-specific state
+    resetLocalState();
+    resetState(); // Reset WebSocket game state
+    // Clear the lobby so user can join a new one
+    clearLobby();
+    // Navigate back to makao page to join/create new lobby
+    navigate("/makao");
+  }, [resetLocalState, resetState, clearLobby, navigate]);
+
+  // Handle "Exit to Menu" - leave completely
+  const handleExitToMenu = useCallback(() => {
+    console.log("[MakaoGame] Exit to Menu clicked");
+    resetLocalState();
+    resetState();
+    clearLobby(); // Clear the lobby context entirely
     navigate("/home");
-  };
+  }, [resetLocalState, resetState, clearLobby, navigate]);
 
-  // Helper to convert backend card format to display format
-  const convertRank = (rank: string): string => {
-    const rankMap: Record<string, string> = {
-      TWO: "2", THREE: "3", FOUR: "4", FIVE: "5", SIX: "6",
-      SEVEN: "7", EIGHT: "8", NINE: "9", TEN: "10",
-      JACK: "J", QUEEN: "Q", KING: "K", ACE: "A"
-    };
-    return rankMap[rank] || rank;
-  };
-
-  const convertSuit = (suit: string): string => {
-    return suit.toLowerCase();
-  };
-
-  // Render online game
-  if (isOnlineMode && onlineGameState) {
-    const isMyTurn = onlineGameState.activePlayerId === user?.id;
-    const otherPlayers = Object.entries(onlineGameState.playersCardsAmount)
-      .filter(([id]) => id !== user?.id)
-      .map(([id, cardCount], index) => ({
-        id: index + 1,
-        odlId: id,
-        name: `Player ${index + 1}`,
-        cardCount,
-        isActive: id === onlineGameState.activePlayerId,
-      }));
-
-    return (
-      <div className="min-h-screen bg-bg text-white antialiased overflow-hidden">
-        <Navbar />
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)]" />
-
-        <main className="pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
-          <div className="h-full max-w-[2000px] mx-auto flex gap-2 justify-center">
-            {/* Game Table Area */}
-            <div className="flex-1 flex items-center justify-center">
-              <div className="relative w-full max-w-5xl aspect-[16/10] bg-gradient-to-br from-[#18171f] to-[#0d0c12] rounded-[3rem] border border-purpleEnd/20 shadow-2xl shadow-black/50 p-8">
-                {/* Table glow */}
-                <div className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(ellipse_at_center,_rgba(108,42,255,0.1),_transparent_60%)]" />
-
-                {/* Other Players */}
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-3">
-                  {otherPlayers.map((player) => (
-                    <div
-                      key={player.id}
-                      className={`bg-[#1a1a27] p-3 rounded-xl border ${
-                        player.isActive ? "border-purpleEnd" : "border-white/10"
-                      }`}
-                    >
-                      <p className="text-sm font-medium">{player.name}</p>
-                      <p className="text-xs text-gray-400">{player.cardCount} cards</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Center - Deck & Discard */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12">
-                  {/* Draw Pile */}
-                  <div
-                    className={`text-center ${isMyTurn && !drawnCard ? "cursor-pointer group" : ""}`}
-                    onClick={isMyTurn && !drawnCard ? handleDrawCard : undefined}
-                  >
-                    <div className="relative group-hover:scale-105 transition-transform">
-                      <div className="absolute -top-0.5 -left-0.5 w-[58px] h-[82px] rounded-lg bg-purpleStart/30" />
-                      <div className="absolute -top-1 -left-1 w-[58px] h-[82px] rounded-lg bg-purpleStart/20" />
-                      <div className="w-[56px] h-[80px] rounded-lg bg-gradient-to-br from-purple-600 to-purple-900 border border-white/20" />
-                    </div>
-                    <p className="text-xs text-white/60 mt-2">Draw ({onlineGameState.drawDeckCardsAmount})</p>
-                  </div>
-
-                  {/* Discard Pile */}
-                  <div className="text-center">
-                    {onlineGameState.currentCard && (
-                      <Card
-                        card={{
-                          suit: convertSuit(onlineGameState.currentCard.suit) as Suit,
-                          rank: convertRank(onlineGameState.currentCard.rank) as Rank,
-                          id: "discard",
-                        }}
-                        size="md"
-                      />
-                    )}
-                    <p className="text-xs text-white/60 mt-2">Discard</p>
-                  </div>
-                </div>
-
-                {/* Drawn Card Modal */}
-                {drawnCard && (
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 p-6 rounded-xl z-10">
-                    <p className="text-center mb-3">You drew:</p>
-                    <Card
-                      card={{
-                        suit: convertSuit(drawnCard.suit) as Suit,
-                        rank: convertRank(drawnCard.rank) as Rank,
-                        id: "drawn",
-                      }}
-                      size="lg"
-                    />
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={handlePlayDrawnCard}
-                        className="px-4 py-2 bg-purple-600 rounded-lg text-sm"
-                      >
-                        Play
-                      </button>
-                      <button
-                        onClick={handleSkipDrawnCard}
-                        className="px-4 py-2 bg-gray-600 rounded-lg text-sm"
-                      >
-                        Skip
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* My Cards */}
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[90%]">
-                  <div className={`p-3 rounded-xl ${isMyTurn ? "bg-purpleEnd/20 border border-purpleEnd" : "bg-[#1a1a27]"}`}>
-                    <p className="text-xs text-gray-400 mb-2">
-                      {isMyTurn ? "Your turn!" : "Waiting..."}
-                    </p>
-                    <div className="flex gap-1 flex-wrap justify-center">
-                      {onlineGameState.myCards.map((card, index) => (
-                        <div
-                          key={index}
-                          className={isMyTurn ? "cursor-pointer hover:scale-110 transition-transform" : ""}
-                          onClick={() => isMyTurn && handlePlayCard(card.suit, card.rank)}
-                        >
-                          <Card
-                            card={{
-                              suit: convertSuit(card.suit) as Suit,
-                              rank: convertRank(card.rank) as Rank,
-                              id: `my-${index}`,
-                            }}
-                            size="sm"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Side Panel */}
-            <div className="w-64 flex flex-col gap-3 flex-shrink-0">
-              {/* Navigation */}
-              <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleLeaveGame}
-                  className="w-full py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-red-500/30"
-                >
-                  Leave Game
-                </motion.button>
-              </div>
-
-              {/* Activity */}
-              <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
-                <h3 className="text-xs font-medium text-gray-500 mb-2">Activity</h3>
-                <p className="text-white text-sm">{message || "Game in progress..."}</p>
-              </div>
-
-              {/* Game Status */}
-              <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10 flex-1">
-                <h3 className="text-xs font-medium text-gray-500 mb-3">Game Status</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Room</span>
-                    <span className="text-white font-mono">{onlineGameState.roomId?.slice(0, 8)}</span>
-                  </div>
-                  {onlineGameState.specialEffectActive && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Special Effect</span>
-                      <span className="text-red-400">Active</span>
-                    </div>
-                  )}
-                  {onlineGameState.demandedSuit && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Demanded Suit</span>
-                      <span className="text-purpleEnd capitalize">{onlineGameState.demandedSuit}</span>
-                    </div>
-                  )}
-                  {onlineGameState.demandedRank && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Demanded Rank</span>
-                      <span className="text-purpleEnd">{convertRank(onlineGameState.demandedRank)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Accept Effect Button */}
-              {onlineGameState.specialEffectActive && isMyTurn && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleAcceptEffect}
-                  className="w-full py-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 font-medium border border-orange-500/30"
-                >
-                  Accept Effect
-                </motion.button>
-              )}
-            </div>
-          </div>
-        </main>
-
-        {/* Game Finished Modal */}
-        {onlineGameState.status === "FINISHED" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-            onClick={handleLeaveGame}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-[#121018] p-10 rounded-2xl border border-purpleEnd/50 shadow-2xl text-center"
-            >
-              <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-purpleStart to-purpleEnd bg-clip-text text-transparent">
-                Game Finished!
-              </h2>
-              <p className="text-gray-400 text-sm">Click anywhere to return to home</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </div>
-    );
-  }
-
-  // ========== LOCAL GAME MODE (original code) ==========
-
-  // Initialize deck
-  const createDeck = (): CardType[] => {
-    const suits: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
-    const ranks: Rank[] = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
-    const deck: CardType[] = [];
-
-    suits.forEach((suit) => {
-      ranks.forEach((rank) => {
-        deck.push({
-          suit,
-          rank,
-          id: `${suit}-${rank}-${Math.random()}`,
-        });
-      });
-    });
-
-    return shuffleDeck(deck);
-  };
-
-  const shuffleDeck = (deck: CardType[]): CardType[] => {
-    const shuffled = [...deck];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  // Warning for errors
+  useEffect(() => {
+    if (actionError) {
+       // We rely on standard toast or console for now, or could pass to sidebar
+       const timeout = setTimeout(() => {
+        clearError();
+      }, 5000);
+      return () => clearTimeout(timeout);
     }
-    return shuffled;
-  };
+  }, [actionError, clearError]);
 
-  const startGame = () => {
-    const deck = createDeck();
-    const players: PlayerType[] = [];
 
-    // Create players
-    for (let i = 0; i < playerCount; i++) {
-      players.push({
-        id: i,
-        name: i === 0 ? "You" : `Player ${i + 1}`,
-        cards: [],
-        isHuman: i === 0,
-      });
-    }
-
-    // Deal 5 cards to each player
-    let cardIndex = 0;
-    for (let i = 0; i < 5; i++) {
-      players.forEach((player) => {
-        player.cards.push(deck[cardIndex++]);
-      });
-    }
-
-    const remainingDeck = deck.slice(cardIndex);
-    const firstCard = remainingDeck.pop()!;
-
-    setGameState({
-      players,
-      currentPlayerIndex: 0,
-      deck: remainingDeck,
-      discardPile: [firstCard],
-      direction: 1,
-      drawCount: 0,
-      gameStarted: true,
-      winner: null,
-    });
-
-    setMessage("Game started! Play a card or draw from the deck.");
-  };
-
-  const canPlayCard = (card: CardType, topCard: CardType, state: GameState): boolean => {
-    // If there's a requested suit or rank from special cards
-    if (state.requestedSuit) {
-      return card.suit === state.requestedSuit || card.rank === "A";
-    }
-    if (state.requestedRank) {
-      return card.rank === state.requestedRank || card.rank === "J";
-    }
-
-    // If player must draw cards (from 2 or 3)
-    if (state.drawCount > 0) {
-      return card.rank === "2" || card.rank === "3";
-    }
-
-    // Normal play: same suit or same rank
-    return card.suit === topCard.suit || card.rank === topCard.rank;
-  };
-
-  const playCard = (card: CardType) => {
-    if (!gameState || gameState.currentPlayerIndex !== 0) return;
-
-    const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-
-    if (!canPlayCard(card, topCard, gameState)) {
-      setMessage("You can't play that card!");
-      return;
-    }
-
-    const newGameState = { ...gameState };
-    const playerCards = newGameState.players[0].cards.filter((c) => c.id !== card.id);
-    newGameState.players[0].cards = playerCards;
-    newGameState.discardPile.push(card);
-
-    // Check for winner
-    if (playerCards.length === 0) {
-      newGameState.winner = 0;
-      setGameState(newGameState);
-      setMessage("🎉 You won! Congratulations!");
-      return;
-    }
-
-    // Handle special cards
-    let skipNext = false;
-
-    if (card.rank === "4") {
-      // Skip next player
-      skipNext = true;
-      setMessage("You played a 4! Next player is skipped.");
-    } else if (card.rank === "K" && (card.suit === "hearts" || card.suit === "spades")) {
-      // Change direction
-      newGameState.direction *= -1 as 1 | -1;
-      setMessage(`You played King of ${card.suit}! Direction reversed.`);
-    } else if (card.rank === "2" || card.rank === "3") {
-      // Force next player to draw
-      const drawAmount = card.rank === "2" ? 2 : 3;
-      newGameState.drawCount += drawAmount;
-      setMessage(`You played a ${card.rank}! Next player must draw ${newGameState.drawCount} cards or play another 2/3.`);
-    } else if (card.rank === "A") {
-      // Request suit - for now, auto-select randomly
-      const suits: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
-      newGameState.requestedSuit = suits[Math.floor(Math.random() * suits.length)];
-      setMessage(`You played an Ace! Requested suit: ${newGameState.requestedSuit}`);
-    } else if (card.rank === "J") {
-      // Request rank - for now, auto-select randomly
-      const ranks: Rank[] = ["5", "6", "7", "8", "9", "10"];
-      newGameState.requestedRank = ranks[Math.floor(Math.random() * ranks.length)];
-      setMessage(`You played a Jack! Requested rank: ${newGameState.requestedRank}`);
-    } else {
-      setMessage("Card played!");
-    }
-
-    // Move to next player
-    let nextPlayerIndex = (newGameState.currentPlayerIndex + newGameState.direction + newGameState.players.length) % newGameState.players.length;
-
-    if (skipNext) {
-      nextPlayerIndex = (nextPlayerIndex + newGameState.direction + newGameState.players.length) % newGameState.players.length;
-    }
-
-    newGameState.currentPlayerIndex = nextPlayerIndex;
-    setGameState(newGameState);
-
-    // AI players play after a delay
-    setTimeout(() => {
-      playAITurns(newGameState);
-    }, 1000);
-  };
-
-  const drawCard = () => {
-    if (!gameState || gameState.currentPlayerIndex !== 0) return;
-
-    const newGameState = { ...gameState };
-
-    if (newGameState.deck.length === 0) {
-      setMessage("No more cards in the deck!");
-      return;
-    }
-
-    const drawAmount = newGameState.drawCount > 0 ? newGameState.drawCount : 1;
-    const drawnCards: CardType[] = [];
-
-    for (let i = 0; i < drawAmount && newGameState.deck.length > 0; i++) {
-      const card = newGameState.deck.pop()!;
-      drawnCards.push(card);
-    }
-
-    newGameState.players[0].cards.push(...drawnCards);
-    newGameState.drawCount = 0;
-    newGameState.requestedSuit = undefined;
-    newGameState.requestedRank = undefined;
-
-    setMessage(`You drew ${drawAmount} card(s).`);
-
-    // Move to next player
-    const nextPlayerIndex = (newGameState.currentPlayerIndex + newGameState.direction + newGameState.players.length) % newGameState.players.length;
-    newGameState.currentPlayerIndex = nextPlayerIndex;
-    setGameState(newGameState);
-
-    setTimeout(() => {
-      playAITurns(newGameState);
-    }, 1000);
-  };
-
-  const playAITurns = (currentState: GameState) => {
-    let state = { ...currentState };
-
-    while (state.currentPlayerIndex !== 0 && !state.winner) {
-      const currentPlayer = state.players[state.currentPlayerIndex];
-      const topCard = state.discardPile[state.discardPile.length - 1];
-
-      // Find playable cards
-      const playableCards = currentPlayer.cards.filter((card) =>
-        canPlayCard(card, topCard, state)
-      );
-
-      if (playableCards.length > 0) {
-        // Play first playable card
-        const cardToPlay = playableCards[0];
-        const playerCards = currentPlayer.cards.filter((c) => c.id !== cardToPlay.id);
-        currentPlayer.cards = playerCards;
-        state.discardPile.push(cardToPlay);
-
-        // Check for winner
-        if (playerCards.length === 0) {
-          state.winner = state.currentPlayerIndex;
-          setGameState(state);
-          setMessage(`${currentPlayer.name} won the game!`);
-          return;
-        }
-
-        // Handle special cards (simplified for AI)
-        let skipNext = false;
-
-        if (cardToPlay.rank === "4") {
-          skipNext = true;
-        } else if (cardToPlay.rank === "K" && (cardToPlay.suit === "hearts" || cardToPlay.suit === "spades")) {
-          state.direction *= -1 as 1 | -1;
-        } else if (cardToPlay.rank === "2" || cardToPlay.rank === "3") {
-          const drawAmount = cardToPlay.rank === "2" ? 2 : 3;
-          state.drawCount += drawAmount;
-        } else if (cardToPlay.rank === "A") {
-          const suits: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
-          state.requestedSuit = suits[Math.floor(Math.random() * suits.length)];
-        } else if (cardToPlay.rank === "J") {
-          const ranks: Rank[] = ["5", "6", "7", "8", "9", "10"];
-          state.requestedRank = ranks[Math.floor(Math.random() * ranks.length)];
-        }
-
-        setMessage(`${currentPlayer.name} played ${cardToPlay.rank} of ${cardToPlay.suit}`);
-
-        let nextPlayerIndex = (state.currentPlayerIndex + state.direction + state.players.length) % state.players.length;
-
-        if (skipNext) {
-          nextPlayerIndex = (nextPlayerIndex + state.direction + state.players.length) % state.players.length;
-        }
-
-        state.currentPlayerIndex = nextPlayerIndex;
-      } else {
-        // Draw cards
-        const drawAmount = state.drawCount > 0 ? state.drawCount : 1;
-        const drawnCards: CardType[] = [];
-
-        for (let i = 0; i < drawAmount && state.deck.length > 0; i++) {
-          const card = state.deck.pop()!;
-          drawnCards.push(card);
-        }
-
-        currentPlayer.cards.push(...drawnCards);
-        state.drawCount = 0;
-        state.requestedSuit = undefined;
-        state.requestedRank = undefined;
-
-        setMessage(`${currentPlayer.name} drew ${drawAmount} card(s).`);
-
-        const nextPlayerIndex = (state.currentPlayerIndex + state.direction + state.players.length) % state.players.length;
-        state.currentPlayerIndex = nextPlayerIndex;
-      }
-    }
-
-    setGameState(state);
-  };
-
-  const resetGame = () => {
-    setGameState(null);
-    setMessage("");
-  };
-
+  // ============================================
+  // Loading State
+  // ============================================
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-bg text-white antialiased">
+      <div className="min-h-screen bg-bg text-white antialiased flex items-center justify-center">
         <Navbar />
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)] animate-gradient-bg" />
-
-        <main className="pt-24 pb-10 px-6 md:px-12 lg:px-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-2xl mx-auto"
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purpleEnd mx-auto mb-4" />
+          <p className="text-white text-lg">
+            {isConnected ? "Waiting for game to start..." : "Connecting to game server..."}
+          </p>
+          {connectionError && (
+            <p className="text-red-400 mt-2 text-sm">{connectionError}</p>
+          )}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate("/makao")}
+            className="mt-6 px-6 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm"
           >
-            <div className="mb-6">
-              <Link
-                to="/"
-                className="text-purpleEnd hover:text-purple-400 flex items-center gap-2"
-              >
-                ← Back to Home
-              </Link>
-            </div>
-
-            <div className="bg-[#121018] p-8 rounded-3xl border border-white/10 shadow-neon">
-              <h1 className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-purpleStart to-purpleEnd bg-clip-text text-transparent">
-                Makao Card Game
-              </h1>
-              <p className="text-gray-400 mb-8">
-                Classic card game - Play against AI opponents
-              </p>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium mb-3">
-                    Number of Players (1-8)
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    {[2, 3, 4, 5, 6, 7, 8].map((count) => (
-                      <motion.button
-                        key={count}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setPlayerCount(count)}
-                        className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-                          playerCount === count
-                            ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white shadow-neon"
-                            : "bg-[#1a1a27] border border-white/10 text-gray-300"
-                        }`}
-                      >
-                        {count}
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-[#1a1a27] p-6 rounded-xl border border-white/10">
-                  <h3 className="font-bold text-lg mb-3">Game Rules:</h3>
-                  <ul className="text-sm text-gray-300 space-y-2">
-                    <li>• Match the suit or rank of the top card</li>
-                    <li>• <strong>2</strong> - Forces next player to draw 2 cards</li>
-                    <li>• <strong>3</strong> - Forces next player to draw 3 cards</li>
-                    <li>• <strong>4</strong> - Skips the next player</li>
-                    <li>• <strong>J</strong> - Request any rank</li>
-                    <li>• <strong>K♥/K♠</strong> - Reverses play direction</li>
-                    <li>• <strong>A</strong> - Request any suit</li>
-                    <li>• First player to run out of cards wins!</li>
-                  </ul>
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={startGame}
-                  className="w-full py-4 rounded-xl bg-gradient-to-br from-purpleStart to-purpleEnd text-white font-bold text-lg shadow-neon"
-                >
-                  Start Game
-                </motion.button>
-              </div>
-            </div>
-          </motion.div>
-        </main>
-        <Footer />
+            Back to Lobby
+          </motion.button>
+        </div>
       </div>
     );
   }
 
-  const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-  const humanPlayer = gameState.players[0];
-  const otherPlayers = gameState.players.slice(1);
-
-  // Distribute players around table (clockwise: right -> top -> left)
-  const distributePlayersAroundTable = () => {
-    const total = otherPlayers.length;
-    const top: PlayerType[] = [];
-    const left: PlayerType[] = [];
-    const right: PlayerType[] = [];
-
-    // Clockwise from human player (bottom): left -> top -> right
-    if (total === 1) {
-      top.push(otherPlayers[0]);
-    } else if (total === 2) {
-        left.push(otherPlayers[0]);
-        right.push(otherPlayers[1]);
-    } else if (total === 3) {
-      left.push(otherPlayers[0]);
-      top.push(otherPlayers[1]);
-      right.push(otherPlayers[2]);
-    } else if (total === 4) {
-      left.push(otherPlayers[0]);
-      top.push(otherPlayers[1], otherPlayers[2]);
-      right.push(otherPlayers[3]);
-    } else if (total === 5) {
-      left.push(otherPlayers[1], otherPlayers[0]);
-      top.push(otherPlayers[2]);
-      right.push(otherPlayers[3], otherPlayers[4]);
-    } else if (total === 6) {
-      left.push(otherPlayers[1], otherPlayers[0]);
-      top.push(otherPlayers[2], otherPlayers[3]);
-      right.push(otherPlayers[4], otherPlayers[5]);
-    } else {
-      // 7 players
-      left.push(otherPlayers[1], otherPlayers[0]);
-      top.push(otherPlayers[2], otherPlayers[3], otherPlayers[4]);
-      right.push(otherPlayers[5], otherPlayers[6]);
-    }
-
-    return { top, left, right };
-  };
-
-  const { top: topPlayers, left: leftPlayers, right: rightPlayers } = distributePlayersAroundTable();
-
+  // ============================================
+  // Game Render
+  // ============================================
   return (
     <div className="min-h-screen bg-bg text-white antialiased overflow-hidden">
       <Navbar />
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)]" />
 
+      {/* Card Animation Layer - uses refs for accurate positioning */}
+      <CardAnimationManager
+        animations={animations}
+        onAnimationComplete={removeAnimation}
+        deckRef={deckRef}
+        discardRef={discardRef}
+        handRef={handRef}
+        playerRefs={playerRefsMap.current}
+      />
+
       <main className="pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
-        <div className="h-full max-w-[2000px] mx-auto flex gap-2 justify-center">
+        <div className="h-full max-w-[2000px] mx-auto flex gap-4 justify-center">
+
           {/* Game Table Area */}
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center" ref={gameTableRef}>
             <div className="relative w-full max-w-5xl aspect-[16/10] bg-gradient-to-br from-[#18171f] to-[#0d0c12] rounded-[3rem] border border-purpleEnd/20 shadow-2xl shadow-black/50 p-8">
               {/* Table glow */}
               <div className="absolute inset-0 rounded-[3rem] bg-[radial-gradient(ellipse_at_center,_rgba(108,42,255,0.1),_transparent_60%)]" />
 
-              {/* Top Players */}
-              {topPlayers.length > 0 && (
+              {/* Other Players - Circular Layout for 2-8 players */}
+
+              {/* Top Position */}
+              {others.filter((p) => p.position === "top").length > 0 && (
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-3">
-                  {topPlayers.map((player) => (
-                    <Player
-                      key={player.id}
-                      player={player}
-                      isCurrentPlayer={gameState.currentPlayerIndex === player.id}
-                      compact
-                      position="top"
-                    />
-                  ))}
+                  {others
+                    .filter((p) => p.position === "top")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
+                      />
+                    ))}
                 </div>
               )}
 
-              {/* Left Players */}
-              {leftPlayers.length > 0 && (
+              {/* Top-Left Position */}
+              {others.filter((p) => p.position === "top-left").length > 0 && (
+                <div className="absolute top-6 left-[15%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "top-left")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Top-Right Position */}
+              {others.filter((p) => p.position === "top-right").length > 0 && (
+                <div className="absolute top-6 right-[15%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "top-right")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Left Position */}
+              {others.filter((p) => p.position === "left").length > 0 && (
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col gap-3">
-                  {leftPlayers.map((player) => (
-                    <Player
-                      key={player.id}
-                      player={player}
-                      isCurrentPlayer={gameState.currentPlayerIndex === player.id}
-                      compact
-                      position="left"
-                    />
-                  ))}
+                  {others
+                    .filter((p) => p.position === "left")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
+                      />
+                    ))}
                 </div>
               )}
 
-              {/* Right Players */}
-              {rightPlayers.length > 0 && (
+              {/* Right Position */}
+              {others.filter((p) => p.position === "right").length > 0 && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-3">
-                  {rightPlayers.map((player) => (
-                    <Player
-                      key={player.id}
-                      player={player}
-                      isCurrentPlayer={gameState.currentPlayerIndex === player.id}
-                      compact
-                      position="right"
-                    />
-                  ))}
+                  {others
+                    .filter((p) => p.position === "right")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Bottom-Left Position */}
+              {others.filter((p) => p.position === "bottom-left").length > 0 && (
+                <div className="absolute bottom-20 left-[10%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "bottom-left")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Bottom-Right Position */}
+              {others.filter((p) => p.position === "bottom-right").length > 0 && (
+                <div className="absolute bottom-20 right-[10%] flex gap-2">
+                  {others
+                    .filter((p) => p.position === "bottom-right")
+                    .map((player) => (
+                      <Player
+                        key={player.id}
+                        ref={getPlayerRef(player.id)}
+                        player={player}
+                        isBot={isBot(player.id)}
+                        isBotThinking={botThinkingPlayerId === player.id}
+                        hasMakao={player.cardCount === 1}
+                        turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
+                      />
+                    ))}
                 </div>
               )}
 
               {/* Center - Deck & Discard */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12">
-                {/* Draw Pile */}
+                {/* Draw Pile - with animation support */}
                 <div
-                  className={`text-center ${gameState.currentPlayerIndex === 0 && !gameState.winner ? "cursor-pointer group" : ""}`}
-                  onClick={gameState.currentPlayerIndex === 0 && !gameState.winner ? drawCard : undefined}
+                  ref={deckRef}
+                  className="text-center"
+                  onClick={
+                    isMyTurn && !drawnCardInfo && !hasSpecialEffect
+                      ? handleDrawCard
+                      : undefined
+                  }
                 >
-                  <div className="relative group-hover:scale-105 transition-transform">
-                    <div className="absolute -top-0.5 -left-0.5 w-[58px] h-[82px] rounded-lg bg-purpleStart/30" />
-                    <div className="absolute -top-1 -left-1 w-[58px] h-[82px] rounded-lg bg-purpleStart/20" />
-                    <Card card={topCard} isFaceDown size="md" />
-                  </div>
-                  <p className="text-xs text-white/60 mt-2">Draw ({gameState.deck.length})</p>
+                  <AnimatedCardPile
+                    count={gameState.drawDeckCardsAmount}
+                    isClickable={isMyTurn && !drawnCardInfo && !hasSpecialEffect}
+                    showGlow={isMyTurn && !drawnCardInfo && !hasSpecialEffect}
+                    onClick={handleDrawCard}
+                  />
+                  <p className="text-xs text-white/60 mt-2">Draw Deck</p>
                 </div>
 
-                {/* Discard Pile */}
-                <div className="text-center">
-                  <Card card={topCard} size="md" />
-                  <p className="text-xs text-white/60 mt-2">Discard</p>
+                {/* Discard Pile - with animation support */}
+                <div ref={discardRef} className="text-center">
+                  <DiscardPile
+                    topCard={gameState.currentCard}
+                    count={gameState.discardDeckCardsAmount}
+                  />
+                  <p className="text-xs text-white/60 mt-2">Discard Pile</p>
                 </div>
               </div>
 
-              {/* Bottom - Human Player */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[90%]">
-                <Player
-                  player={humanPlayer}
-                  isCurrentPlayer={gameState.currentPlayerIndex === 0}
-                  onCardClick={playCard}
-                  canPlayCard={(card) => canPlayCard(card, topCard, gameState)}
-                  position="bottom"
-                />
-              </div>
+              {/* Accept Effect HUD (Positioned lower) */}
+              {hasSpecialEffect && isMyTurn && (
+                <div className="absolute top-[65%] left-1/2 -translate-x-1/2 z-50">
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="flex flex-col items-center gap-3"
+                  >
+                    {/* Penalty Indicator */}
+                    <div className={`px-6 py-2 rounded-full font-bold uppercase tracking-wider text-sm shadow-xl border ${
+                      gameState.effectNotification?.includes("draw")
+                        ? "bg-red-500/90 border-red-400 text-white"
+                        : "bg-amber-500/90 border-amber-400 text-black"
+                    }`}>
+                      {gameState.effectNotification || "Special Effect Active"}
+                    </div>
+
+                    {/* Accept Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => acceptEffect()}
+                      disabled={isLoading}
+                      className="px-8 py-3 rounded-xl bg-gray-900/90 hover:bg-gray-800 text-white font-bold border border-white/20 shadow-lg backdrop-blur mx-auto"
+                    >
+                      Accept & Continue
+                    </motion.button>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* My Cards - Bottom */}
+              {me && (
+                <div
+                  ref={handRef}
+                  className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[90%]"
+                >
+                  <motion.div
+                    layout
+                    className={`p-3 rounded-xl ${
+                      isMyTurn
+                        ? "bg-purpleEnd/20 border border-purpleEnd shadow-lg shadow-purpleEnd/20"
+                        : "bg-[#1a1a27]"
+                    } transition-all duration-300`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-400">
+                          {isMyTurn ? (
+                            <span className="flex items-center gap-1.5">
+                              <motion.span
+                                animate={{ scale: [1, 1.2, 1] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                className="w-2 h-2 rounded-full bg-green-500"
+                              />
+                              Your turn!
+                            </span>
+                          ) : (
+                            "Waiting for your turn..."
+                          )}
+                        </p>
+                        {/* MAKAO Badge for current user */}
+                        {gameState.myCards.length === 1 && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="px-2 py-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs font-bold rounded-full shadow-lg"
+                          >
+                            MAKAO!
+                          </motion.span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {gameState.myCards.length} cards
+                      </p>
+                    </div>
+                    <div className="flex gap-1 flex-wrap justify-center">
+                      <AnimatePresence mode="popLayout">
+                        {gameState.myCards.map((cardView, index) => (
+                          <motion.div
+                            key={`${cardView.card.suit}-${cardView.card.rank}-${index}`}
+                            layout
+                            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.5, y: -20 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 400,
+                              damping: 25,
+                            }}
+                            whileHover={canPlayCard(cardView) ? { scale: 1.1, y: -12 } : {}}
+                            className={
+                              canPlayCard(cardView)
+                                ? "cursor-pointer"
+                                : ""
+                            }
+                            onClick={() => handleCardClick(cardView)}
+                          >
+                            <Card
+                              card={cardView.card}
+                              size="md"
+                              isPlayable={canPlayCard(cardView)}
+                              showEffect
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Side Panel */}
-          <div className="w-64 flex flex-col gap-3 flex-shrink-0">
-            {/* Navigation */}
-            <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
-              <Link
-                to="/"
-                className="flex items-center gap-2 text-gray-400 hover:text-purpleEnd transition-colors text-sm mb-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Home
-              </Link>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={resetGame}
-                className="w-full py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-red-500/30"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                New Game
-              </motion.button>
+          <div className="w-80 flex flex-col gap-3 flex-shrink-0 h-full overflow-hidden">
+            {/* Top Section: Navigation & Status */}
+            <div className="flex flex-col gap-3 flex-shrink-0">
+               {/* Navigation */}
+               <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
+                 <motion.button
+                   whileHover={{ scale: 1.02 }}
+                   whileTap={{ scale: 0.98 }}
+                   onClick={() => setShowLeaveConfirm(true)}
+                   className="w-full py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-red-500/30"
+                 >
+                   <svg
+                     className="w-4 h-4"
+                     fill="none"
+                     stroke="currentColor"
+                     viewBox="0 0 24 24"
+                   >
+                     <path
+                       strokeLinecap="round"
+                       strokeLinejoin="round"
+                       strokeWidth={2}
+                       d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                     />
+                   </svg>
+                   Leave Game
+                 </motion.button>
+               </div>
+
+               {/* Current Turn with Timer */}
+               <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
+                 <h3 className="text-xs font-medium text-gray-500 mb-2">
+                   Current Turn
+                 </h3>
+                 <div className="flex items-center gap-2">
+                   {/* Avatar with Timer Ring */}
+                   <div className="relative">
+                     {/* Timer Ring - only show for human players */}
+                     {turnRemainingSeconds != null && !isActivePlayerBot && (
+                       <svg
+                         className="absolute inset-0 -rotate-90"
+                         width={36}
+                         height={36}
+                         viewBox="0 0 36 36"
+                       >
+                         {/* Background ring */}
+                         <circle
+                           cx={18}
+                           cy={18}
+                           r={16}
+                           fill="none"
+                           stroke="rgba(255,255,255,0.1)"
+                           strokeWidth={2.5}
+                         />
+                         {/* Progress ring */}
+                         <motion.circle
+                           cx={18}
+                           cy={18}
+                           r={16}
+                           fill="none"
+                           stroke={turnRemainingSeconds <= 5 ? "#ef4444" : turnRemainingSeconds <= 10 ? "#f97316" : "#8b5cf6"}
+                           strokeWidth={2.5}
+                           strokeLinecap="round"
+                           strokeDasharray={2 * Math.PI * 16}
+                           strokeDashoffset={(2 * Math.PI * 16) * (1 - Math.max(0, Math.min(1, turnRemainingSeconds / 60)))}
+                           animate={{
+                             strokeDashoffset: (2 * Math.PI * 16) * (1 - Math.max(0, Math.min(1, turnRemainingSeconds / 60))),
+                             stroke: turnRemainingSeconds <= 5 ? "#ef4444" : turnRemainingSeconds <= 10 ? "#f97316" : "#8b5cf6",
+                           }}
+                           transition={{ duration: 0.3, ease: "linear" }}
+                         />
+                       </svg>
+                     )}
+                     <div
+                       className={`w-9 h-9 rounded-full overflow-hidden border-2 ${
+                         turnRemainingSeconds != null && turnRemainingSeconds <= 10
+                           ? "border-red-500"
+                           : isActivePlayerBot
+                           ? "border-cyan-500"
+                           : "border-purpleEnd"
+                       }`}
+                     >
+                       <img
+                         src={
+                           players.find((p) => p.id === gameState.activePlayerId)?.avatarUrl ||
+                           (isActivePlayerBot ? "/avatars/bot_avatar.svg" : "/avatars/avatar_1.png")
+                         }
+                         alt="Active Player"
+                         className="w-full h-full object-cover"
+                         onError={(e) => {
+                           const target = e.target as HTMLImageElement;
+                           target.src = isActivePlayerBot
+                             ? "/avatars/bot_avatar.svg"
+                             : "/avatars/avatar_1.png";
+                         }}
+                       />
+                     </div>
+                   </div>
+                   <div className="flex-1 min-w-0">
+                     <p className="text-white text-sm font-medium truncate">
+                       {isMyTurn
+                         ? "Your Turn"
+                         : players.find((p) => p.id === gameState.activePlayerId)?.username ||
+                           getPlayerDisplayName(gameState.activePlayerId)}
+                     </p>
+                     <p className="text-[10px] text-gray-500">
+                       {isMyTurn ? "Play a card or draw" : isActivePlayerBot ? "Bot thinking..." : "Waiting..."}
+                     </p>
+                   </div>
+                   {/* Timer display / Active indicator */}
+                   {turnRemainingSeconds != null && !isActivePlayerBot ? (
+                     <motion.div
+                       animate={turnRemainingSeconds <= 10 ? { opacity: [1, 0.5, 1] } : {}}
+                       transition={{ duration: 0.5, repeat: Infinity }}
+                       className={`text-sm font-mono font-bold ml-auto ${
+                         turnRemainingSeconds <= 5
+                           ? "text-red-400"
+                           : turnRemainingSeconds <= 10
+                           ? "text-orange-400"
+                           : "text-gray-400"
+                       }`}
+                     >
+                       {turnRemainingSeconds}s
+                     </motion.div>
+                   ) : isMyTurn ? (
+                     <motion.div
+                       animate={{ opacity: [0.5, 1, 0.5] }}
+                       transition={{ duration: 1.5, repeat: Infinity }}
+                       className="w-2.5 h-2.5 rounded-full bg-purpleEnd ml-auto"
+                     />
+                   ) : null}
+                 </div>
+               </div>
             </div>
 
-            {/* Activity */}
-            <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
-              <h3 className="text-xs font-medium text-gray-500 mb-2">Activity</h3>
-              <div className="min-h-[48px] flex items-center">
-                {message ? (
-                  <motion.p
-                    key={message}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="text-white text-sm"
-                  >
-                    {message}
-                  </motion.p>
-                ) : (
-                  <p className="text-gray-600 text-sm">Waiting...</p>
-                )}
-              </div>
-            </div>
-
-            {/* Game Status */}
-            <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10 flex-1">
-              <h3 className="text-xs font-medium text-gray-500 mb-3">Game Status</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Direction</span>
-                  <span className="text-white text-lg">{gameState.direction === 1 ? "→" : "←"}</span>
-                </div>
-                {gameState.drawCount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Must Draw</span>
-                    <span className="text-red-400 font-bold">{gameState.drawCount}</span>
-                  </div>
-                )}
-                {gameState.requestedSuit && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Suit</span>
-                    <span className="text-purpleEnd capitalize">{gameState.requestedSuit}</span>
-                  </div>
-                )}
-                {gameState.requestedRank && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Rank</span>
-                    <span className="text-purpleEnd">{gameState.requestedRank}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Current Turn */}
-            <div className="bg-[#121018]/80 backdrop-blur p-3 rounded-xl border border-white/10">
-              <h3 className="text-xs font-medium text-gray-500 mb-2">Current Turn</h3>
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                  gameState.currentPlayerIndex === 0
-                    ? "bg-gradient-to-br from-purpleStart to-purpleEnd text-white"
-                    : "bg-gray-700 text-gray-300"
-                }`}>
-                  {gameState.players[gameState.currentPlayerIndex].name.charAt(0)}
-                </div>
-                <div>
-                  <p className="text-white text-sm font-medium">
-                    {gameState.players[gameState.currentPlayerIndex].name}
-                  </p>
-                  <p className="text-[10px] text-gray-500">
-                    {gameState.currentPlayerIndex === 0 ? "Your turn!" : "Thinking..."}
-                  </p>
-                </div>
-              </div>
+            {/* Bottom Section: Notifications & Alerts */}
+            {/* "New Alert Position: Move all game alerts/notifications to the right-hand side, positioned vertically below the side panels." */}
+            <div className="flex-1 min-h-0 flex flex-col justify-end">
+               <SidebarNotifications
+                  effectNotification={gameState.effectNotification}
+                  specialEffectActive={hasSpecialEffect || false}
+                  demandedSuit={gameState.demandedSuit}
+                  demandedRank={gameState.demandedRank}
+                  isMyTurn={isMyTurn || false}
+                  lastMoveLog={gameState.lastMoveLog}
+               />
             </div>
           </div>
         </div>
       </main>
 
-      {/* Winner Modal */}
-      {gameState.winner !== null && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-          onClick={resetGame}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#121018] p-10 rounded-2xl border border-purpleEnd/50 shadow-2xl text-center"
-          >
-            <h2 className="text-4xl font-bold mb-3 bg-gradient-to-r from-purpleStart to-purpleEnd bg-clip-text text-transparent">
-              {gameState.winner === 0 ? "🎉 You Won!" : `${gameState.players[gameState.winner].name} Won!`}
-            </h2>
-            <p className="text-gray-400 text-sm">Click anywhere to start a new game</p>
-          </motion.div>
-        </motion.div>
-      )}
+      {/* Chat Widget - preserves chat history from lobby */}
+      <ChatWidget isHost={isHost} />
+
+      {/* Player Context Menu */}
+      <AnimatePresence>
+        {playerContextMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-[60]"
+              onClick={() => setPlayerContextMenu(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed z-[70] bg-black/90 border border-purple-500/30 rounded-xl 
+                         shadow-xl shadow-purple-500/20 py-1 min-w-[150px]"
+              style={{ left: playerContextMenu.x, top: playerContextMenu.y }}
+            >
+              <div className="px-3 py-2 text-sm text-gray-400 border-b border-white/10">
+                {playerContextMenu.username}
+              </div>
+              {/* Hide Add Friend if: current user is guest, or target is a guest, or already friends */}
+              {!user?.isGuest && !playerContextMenu.username.startsWith("Guest_") && !isFriend(playerContextMenu.playerId) && (
+                <button
+                  onClick={handleAddFriendFromMenu}
+                  className="w-full px-3 py-2 text-left text-sm text-white 
+                             hover:bg-purple-500/20 flex items-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add Friend
+                </button>
+              )}
+              {isHost && (
+                <button
+                  onClick={handleKickFromMenu}
+                  className="w-full px-3 py-2 text-left text-sm text-red-400 
+                             hover:bg-red-500/20 flex items-center gap-2"
+                >
+                  <UserMinus className="w-4 h-4" />
+                  Kick Player
+                </button>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ============================================ */}
+      {/* Modals */}
+      {/* ============================================ */}
+
+      {/* Demand Picker Modal */}
+      <AnimatePresence>
+        {demandType && (
+          <DemandPicker
+            type={demandType}
+            onSelect={handleDemandSelect}
+            onCancel={handleDemandCancel}
+            isLoading={isLoading}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Drawn Card Modal */}
+      <AnimatePresence>
+        {drawnCardInfo && (
+          <DrawnCardModal
+            card={drawnCardInfo.card}
+            canPlay={drawnCardInfo.canPlay}
+            onPlay={handlePlayDrawnCard}
+            onSkip={handleSkipDrawnCard}
+            isLoading={isLoading}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Game Over Modal */}
+      <AnimatePresence>
+        {isGameOver && (
+          <GameOverModal
+            players={players}
+            myUserId={user?.id || ""}
+            onPlayAgain={handlePlayAgain}
+            onExitToMenu={handleExitToMenu}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Timeout/Kicked Modal */}
+      <TimeoutModal
+        isOpen={showTimeoutModal}
+        onClose={() => {
+          setShowTimeoutModal(false);
+          clearTimeoutStatus();
+        }}
+        onReturnToLobby={() => {
+          setShowTimeoutModal(false);
+          clearTimeoutStatus();
+          clearLobby();
+          navigate("/makao");
+        }}
+      />
+
+      {/* Leave Game Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={() => {
+          setShowLeaveConfirm(false);
+          handleLeaveGame();
+        }}
+        title="Leave Game?"
+        message="Are you sure you want to leave? Your spot will be replaced by a bot."
+        confirmText="Leave Game"
+        cancelText="Stay"
+        variant="danger"
+      />
+
+      {/* Social Center - Friends Drawer */}
+      <SocialCenter />
     </div>
   );
 };

@@ -9,6 +9,7 @@ public record GameStartMessage(
         String roomName,
         GameType gameType,
         Map<String, String> players,
+        Map<String, String> playerAvatars,
         int maxPlayers,
         String hostUserId,
         String hostUsername
