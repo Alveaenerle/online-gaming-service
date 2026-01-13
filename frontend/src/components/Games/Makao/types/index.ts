@@ -58,6 +58,8 @@ export interface GameStateMessage {
   moveHistory?: string[];
   // Turn timer - seconds remaining for current player's turn (null for bots)
   turnRemainingSeconds?: number | null;
+  // Turn start timestamp (epoch ms) - when the current turn started
+  turnStartTime?: number | null;
   // MAKAO status - player ID who has only 1 card left
   makaoPlayerId?: string | null;
   // Bot thinking state - ID of bot currently "thinking"

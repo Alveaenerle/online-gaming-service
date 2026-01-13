@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { UserPlus, UserMinus } from "lucide-react";
 import Navbar from "../../Shared/Navbar";
+import { ConfirmationModal } from "../../Shared/ConfirmationModal";
 import Card from "./Card";
 import Player from "./components/Player";
 import DemandPicker from "./components/DemandPicker";
@@ -18,7 +20,10 @@ import { useTurnTimer } from "./hooks/useTurnTimer";
 import { useGameSounds } from "./utils/soundEffects";
 import { useAuth } from "../../../context/AuthContext";
 import { useLobby } from "../../../context/LobbyContext";
+import { useSocial } from "../../../context/SocialContext";
+import { useToast } from "../../../context/ToastContext";
 import makaoGameService from "../../../services/makaoGameService";
+import { lobbyService } from "../../../services/lobbyService";
 import {
   Card as CardType,
   CardSuit,
@@ -43,8 +48,13 @@ import {
 
 const MakaoGame: React.FC = () => {
   const { user } = useAuth();
-  const { clearLobby } = useLobby();
+  const { currentLobby, clearLobby } = useLobby();
+  const { friends, sendFriendRequest } = useSocial();
+  const { showToast } = useToast();
   const navigate = useNavigate();
+
+  // Determine if current user is the host
+  const isHost = currentLobby?.hostUserId === user?.id;
 
   // Sounds
   const {
@@ -56,7 +66,6 @@ const MakaoGame: React.FC = () => {
 
   // WebSocket connection and game state
   const { gameState, isConnected, connectionError, resetState, wasKickedByTimeout, clearTimeoutStatus, reconnect } = useMakaoSocket();
-
 
   // Game actions
   const {
@@ -95,6 +104,13 @@ const MakaoGame: React.FC = () => {
   const [previousCardPlayed, setPreviousCardPlayed] = useState<CardType | null>(null);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [wasReplacedByBot, setWasReplacedByBot] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [playerContextMenu, setPlayerContextMenu] = useState<{
+    playerId: string;
+    username: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Track previous active player to know who played the card
   const prevActivePlayerIdRef = useRef<string | null>(null);
@@ -241,6 +257,7 @@ const MakaoGame: React.FC = () => {
   const { remainingSeconds: turnRemainingSeconds } = useTurnTimer({
     activePlayerId: gameState?.activePlayerId,
     serverRemainingSeconds: gameState?.turnRemainingSeconds,
+    turnStartTime: gameState?.turnStartTime,
     isActivePlayerBot,
     isGamePlaying: gameState?.status === "PLAYING",
   });
@@ -373,6 +390,50 @@ const MakaoGame: React.FC = () => {
     navigate("/makao");
   }, [resetState, clearLobby, navigate]);
 
+  // Handle player click (for context menu)
+  const handlePlayerClick = useCallback(
+    (e: React.MouseEvent, playerId: string, username: string) => {
+      // Don't show menu for yourself
+      if (playerId === user?.id) return;
+      // Don't show menu for guests (username starts with Guest_)
+      if (username.startsWith("Guest_")) return;
+      
+      e.preventDefault();
+      setPlayerContextMenu({
+        playerId,
+        username,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    },
+    [user?.id]
+  );
+
+  // Check if a player is already a friend
+  const isFriend = useCallback(
+    (userId: string) => friends.some((f) => f.id === userId),
+    [friends]
+  );
+
+  // Handle adding friend from player context menu
+  const handleAddFriendFromMenu = useCallback(async () => {
+    if (!playerContextMenu) return;
+    await sendFriendRequest(playerContextMenu.playerId);
+    setPlayerContextMenu(null);
+  }, [playerContextMenu, sendFriendRequest]);
+
+  // Handle kicking player from player context menu
+  const handleKickFromMenu = useCallback(async () => {
+    if (!playerContextMenu) return;
+    try {
+      await lobbyService.kickPlayer(playerContextMenu.playerId);
+      showToast(`${playerContextMenu.username} has been kicked`, "info");
+    } catch {
+      showToast("Failed to kick player", "error");
+    }
+    setPlayerContextMenu(null);
+  }, [playerContextMenu, showToast]);
+
   // Reset all local UI state (for new game)
   const resetLocalState = useCallback(() => {
     console.log("[MakaoGame] Resetting local UI state");
@@ -492,6 +553,7 @@ const MakaoGame: React.FC = () => {
                         isBotThinking={botThinkingPlayerId === player.id}
                         hasMakao={makaoPlayerId === player.id}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
                       />
                     ))}
                 </div>
@@ -511,6 +573,7 @@ const MakaoGame: React.FC = () => {
                         isBotThinking={botThinkingPlayerId === player.id}
                         hasMakao={makaoPlayerId === player.id}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
                       />
                     ))}
                 </div>
@@ -530,6 +593,7 @@ const MakaoGame: React.FC = () => {
                         isBotThinking={botThinkingPlayerId === player.id}
                         hasMakao={makaoPlayerId === player.id}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
                       />
                     ))}
                 </div>
@@ -549,6 +613,7 @@ const MakaoGame: React.FC = () => {
                         isBotThinking={botThinkingPlayerId === player.id}
                         hasMakao={makaoPlayerId === player.id}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
                       />
                     ))}
                 </div>
@@ -568,6 +633,7 @@ const MakaoGame: React.FC = () => {
                         isBotThinking={botThinkingPlayerId === player.id}
                         hasMakao={makaoPlayerId === player.id}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
                       />
                     ))}
                 </div>
@@ -587,6 +653,7 @@ const MakaoGame: React.FC = () => {
                         isBotThinking={botThinkingPlayerId === player.id}
                         hasMakao={makaoPlayerId === player.id}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
                       />
                     ))}
                 </div>
@@ -606,6 +673,7 @@ const MakaoGame: React.FC = () => {
                         isBotThinking={botThinkingPlayerId === player.id}
                         hasMakao={makaoPlayerId === player.id}
                         turnRemainingSeconds={player.isActive ? turnRemainingSeconds : null}
+                        onPlayerClick={handlePlayerClick}
                       />
                     ))}
                 </div>
@@ -753,7 +821,7 @@ const MakaoGame: React.FC = () => {
                  <motion.button
                    whileHover={{ scale: 1.02 }}
                    whileTap={{ scale: 0.98 }}
-                   onClick={handleLeaveGame}
+                   onClick={() => setShowLeaveConfirm(true)}
                    className="w-full py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-red-500/30"
                  >
                    <svg
@@ -896,7 +964,52 @@ const MakaoGame: React.FC = () => {
       </main>
 
       {/* Chat Widget - preserves chat history from lobby */}
-      <ChatWidget />
+      <ChatWidget isHost={isHost} />
+
+      {/* Player Context Menu */}
+      <AnimatePresence>
+        {playerContextMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-[60]"
+              onClick={() => setPlayerContextMenu(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed z-[70] bg-black/90 border border-purple-500/30 rounded-xl 
+                         shadow-xl shadow-purple-500/20 py-1 min-w-[150px]"
+              style={{ left: playerContextMenu.x, top: playerContextMenu.y }}
+            >
+              <div className="px-3 py-2 text-sm text-gray-400 border-b border-white/10">
+                {playerContextMenu.username}
+              </div>
+              {/* Hide Add Friend if: current user is guest, or target is a guest, or already friends */}
+              {!user?.isGuest && !playerContextMenu.username.startsWith("Guest_") && !isFriend(playerContextMenu.playerId) && (
+                <button
+                  onClick={handleAddFriendFromMenu}
+                  className="w-full px-3 py-2 text-left text-sm text-white 
+                             hover:bg-purple-500/20 flex items-center gap-2"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add Friend
+                </button>
+              )}
+              {isHost && (
+                <button
+                  onClick={handleKickFromMenu}
+                  className="w-full px-3 py-2 text-left text-sm text-red-400 
+                             hover:bg-red-500/20 flex items-center gap-2"
+                >
+                  <UserMinus className="w-4 h-4" />
+                  Kick Player
+                </button>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ============================================ */}
       {/* Modals */}
@@ -952,6 +1065,21 @@ const MakaoGame: React.FC = () => {
           clearLobby();
           navigate("/makao");
         }}
+      />
+
+      {/* Leave Game Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={() => {
+          setShowLeaveConfirm(false);
+          handleLeaveGame();
+        }}
+        title="Leave Game?"
+        message="Are you sure you want to leave? Your spot will be replaced by a bot."
+        confirmText="Leave Game"
+        cancelText="Stay"
+        variant="danger"
       />
     </div>
   );

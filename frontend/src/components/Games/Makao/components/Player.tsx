@@ -174,6 +174,8 @@ export interface PlayerProps {
   isBotThinking?: boolean;
   hasMakao?: boolean;
   turnRemainingSeconds?: number | null;
+  /** Called when player avatar is clicked (for non-bot players) */
+  onPlayerClick?: (event: React.MouseEvent, playerId: string, username: string) => void;
 }
 
 const Player = forwardRef<HTMLDivElement, PlayerProps>(({
@@ -182,9 +184,16 @@ const Player = forwardRef<HTMLDivElement, PlayerProps>(({
   isBotThinking = false,
   hasMakao = false,
   turnRemainingSeconds,
+  onPlayerClick,
 }, ref) => {
   const showTimer = player.isActive && !playerIsBot && turnRemainingSeconds != null && turnRemainingSeconds > 0;
   const isLowTime = turnRemainingSeconds != null && turnRemainingSeconds <= 10;
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    // Only allow clicks on non-bot players
+    if (playerIsBot || !player.id || !onPlayerClick) return;
+    onPlayerClick(e, player.id, player.username);
+  };
 
   return (
     <motion.div
@@ -202,7 +211,10 @@ const Player = forwardRef<HTMLDivElement, PlayerProps>(({
     >
       <div className="flex items-center gap-2">
         {/* Avatar with Timer Ring */}
-        <div className="relative">
+        <div 
+          className={`relative ${!playerIsBot && onPlayerClick ? 'cursor-pointer' : ''}`}
+          onClick={handleAvatarClick}
+        >
           {/* Timer Ring */}
           {showTimer && (
             <TurnTimerRing
@@ -214,7 +226,7 @@ const Player = forwardRef<HTMLDivElement, PlayerProps>(({
 
           {/* Avatar Image */}
           <div
-            className={`w-10 h-10 rounded-full overflow-hidden border-2 ${
+            className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${
               player.isActive
                 ? isLowTime
                   ? "border-red-500"
@@ -222,7 +234,7 @@ const Player = forwardRef<HTMLDivElement, PlayerProps>(({
                 : playerIsBot
                 ? "border-cyan-500/50"
                 : "border-white/20"
-            }`}
+            } ${!playerIsBot && onPlayerClick ? 'hover:ring-2 hover:ring-purple-500/50' : ''}`}
           >
             <img
               src={player.avatarUrl}
