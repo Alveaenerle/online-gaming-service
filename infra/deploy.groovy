@@ -8,11 +8,11 @@ def call(serverIp, serverUser, sshCredentialId) {
         def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
         def envFileContent = """
 NEXUS_URL=${env.NEXUS_URL}
-MONGO_ROOT_USER=${env.MONGO_USER}
-MONGO_ROOT_PASSWORD=${env.MONGO_PASS}
-REDIS_PASSWORD=${env.REDIS_PASS}
-RABBITMQ_USER=${env.RABBITMQ_USER}
-RABBITMQ_PASSWORD=${env.RABBITMQ_PASSWORD}
+MONGO_ROOT_USER=${MONGO_USER}
+MONGO_ROOT_PASSWORD=${MONGO_PASS}
+REDIS_PASSWORD=${REDIS_PASS}
+RABBITMQ_USER=${RABBITMQ_USER}
+RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
 TAG=${gitCommit}
 """.trim()
         try {

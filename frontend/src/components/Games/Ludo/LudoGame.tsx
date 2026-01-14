@@ -79,6 +79,118 @@ function buildCornerPlayers(
 }
 
 // ============================================
+// Mobile Dice Panel Component (Compact inline)
+// ============================================
+interface MobileDicePanelProps {
+  isMyTurn: boolean;
+  canRoll: boolean;
+  gameState: {
+    lastDiceRoll: number;
+    rollsLeft: number;
+    waitingForMove: boolean;
+    diceRolled: boolean;
+  };
+}
+
+function MobileDicePanel({ isMyTurn, canRoll, gameState }: MobileDicePanelProps) {
+  const { isRolling, rollDice } = useLudo();
+  const [isVisuallyRolling, setIsVisuallyRolling] = useState(false);
+  const [displayValue, setDisplayValue] = useState(1);
+
+  useEffect(() => {
+    if (isRolling) {
+      setIsVisuallyRolling(true);
+    } else {
+      const timer = setTimeout(() => setIsVisuallyRolling(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isRolling]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isVisuallyRolling || isRolling) {
+      interval = setInterval(() => {
+        setDisplayValue(Math.floor(Math.random() * 6) + 1);
+      }, 80);
+    } else if (gameState?.lastDiceRoll) {
+      setDisplayValue(gameState.lastDiceRoll);
+    }
+    return () => clearInterval(interval);
+  }, [isVisuallyRolling, isRolling, gameState?.lastDiceRoll]);
+
+  const showRollButton = isMyTurn && canRoll && !isRolling && !isVisuallyRolling && !gameState?.diceRolled;
+
+  // Dice dots pattern
+  const dotPatterns: Record<number, number[][]> = {
+    1: [[1,1]],
+    2: [[0,0], [2,2]],
+    3: [[0,0], [1,1], [2,2]],
+    4: [[0,0], [0,2], [2,0], [2,2]],
+    5: [[0,0], [0,2], [1,1], [2,0], [2,2]],
+    6: [[0,0], [0,1], [0,2], [2,0], [2,1], [2,2]],
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      {/* Dice Display - Compact */}
+      <div className="relative">
+        {isMyTurn && !gameState?.diceRolled && (
+          <div className="absolute inset-0 bg-purple-500/30 blur-xl rounded-full animate-pulse" />
+        )}
+        <motion.div
+          animate={isVisuallyRolling || isRolling ? { rotate: [0, 90, 180, 270, 360], scale: [1, 1.05, 1] } : {}}
+          transition={isVisuallyRolling || isRolling ? { repeat: Infinity, duration: 0.25 } : { type: "spring" }}
+          className="relative z-10 w-12 h-12 bg-white rounded-lg shadow-lg grid grid-cols-3 grid-rows-3 p-1.5"
+        >
+          {dotPatterns[displayValue]?.map(([r, c], i) => (
+            <div 
+              key={i} 
+              className="w-2 h-2 bg-slate-900 rounded-full"
+              style={{ gridRow: r + 1, gridColumn: c + 1 }}
+            />
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Status & Action */}
+      <div className="flex-1 flex flex-col gap-1.5">
+        <span className="text-xs text-gray-400">
+          {isVisuallyRolling || isRolling ? (
+            <span className="text-purple-400">Rolling...</span>
+          ) : gameState?.waitingForMove && isMyTurn ? (
+            <span className="text-amber-400">Tap a pawn to move</span>
+          ) : gameState?.diceRolled && isMyTurn ? (
+            <span className="text-emerald-400">You rolled <span className="font-bold text-lg">{gameState.lastDiceRoll}</span></span>
+          ) : isMyTurn ? (
+            <span className="text-purple-400">Your turn!</span>
+          ) : (
+            <span>Waiting...</span>
+          )}
+        </span>
+        
+        {showRollButton ? (
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={rollDice}
+            className="w-full py-2 rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg shadow-purple-500/30"
+          >
+            🎲 Roll Dice
+          </motion.button>
+        ) : gameState?.waitingForMove && isMyTurn ? (
+          <div className="w-full py-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-center text-xs font-semibold uppercase tracking-wider">
+            Select Pawn
+          </div>
+        ) : (
+          <div className="w-full py-2 rounded-lg bg-white/5 text-gray-500 text-center text-xs font-medium">
+            {gameState?.rollsLeft > 0 && isMyTurn ? `${gameState.rollsLeft} rolls left` : 'Wait for turn'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // Main Ludo Game Component
 // ============================================
 
@@ -297,7 +409,117 @@ export function LudoArenaPage() {
       {/* Background gradient effects */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,_rgba(108,42,255,0.12),_transparent_20%),radial-gradient(ellipse_at_bottom_right,_rgba(168,85,247,0.08),_transparent_15%)]" />
 
-      <main className="pt-24 pb-4 px-4 h-[calc(100vh-96px)]">
+      {/* MOBILE LAYOUT - shown on screens < 1024px */}
+      <main className="lg:hidden fixed inset-0 pt-14 flex flex-col bg-bg overflow-hidden">
+        {/* Top Section - Status Bar */}
+        <div className="shrink-0 px-2 pt-2">
+          <div className="flex items-center justify-between bg-[#121018]/95 rounded-xl px-3 py-2 border border-white/10">
+            <div className="flex items-center gap-2">
+              {/* Current turn color dot */}
+              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                gameState.currentPlayerColor === 'RED' ? 'bg-red-500' :
+                gameState.currentPlayerColor === 'BLUE' ? 'bg-blue-500' :
+                gameState.currentPlayerColor === 'YELLOW' ? 'bg-yellow-500' :
+                'bg-green-500'
+              } ${isMyTurn ? 'ring-2 ring-white/30 animate-pulse' : ''}`} />
+              <span className={`text-xs font-semibold ${isMyTurn ? 'text-white' : 'text-gray-400'}`}>
+                {isMyTurn ? 'Your Turn' : `${gameState.usernames[gameState.currentPlayerId] || 'Waiting'}...`}
+              </span>
+              {turnRemainingSeconds != null && !isActivePlayerBot && (
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                  turnRemainingSeconds <= 10 ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/5 text-gray-500'
+                }`}>
+                  {turnRemainingSeconds}s
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="text-xs text-red-400/80 hover:text-red-400 px-2 py-1 rounded"
+            >
+              Leave
+            </button>
+          </div>
+        </div>
+
+        {/* Players Row */}
+        <div className="shrink-0 px-2 py-1.5">
+          <div className="flex justify-center gap-1.5 flex-wrap">
+            {cornerPlayers.map((player) => {
+              const colorClass = player.color === 'RED' ? 'border-red-500 text-red-400' :
+                                 player.color === 'BLUE' ? 'border-blue-500 text-blue-400' :
+                                 player.color === 'YELLOW' ? 'border-yellow-500 text-yellow-400' :
+                                 'border-green-500 text-green-400';
+              const bgActive = player.color === 'RED' ? 'rgba(239,68,68,0.15)' :
+                               player.color === 'BLUE' ? 'rgba(59,130,246,0.15)' :
+                               player.color === 'YELLOW' ? 'rgba(234,179,8,0.15)' :
+                               'rgba(34,197,94,0.15)';
+              return (
+                <div 
+                  key={player.id}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${colorClass} ${
+                    player.isActive ? 'ring-1 ring-white/20' : 'opacity-60'
+                  }`}
+                  style={{ backgroundColor: player.isActive ? bgActive : 'rgba(255,255,255,0.02)' }}
+                >
+                  <img 
+                    src={player.avatarUrl || '/avatars/avatar_1.png'} 
+                    alt="" 
+                    className={`w-5 h-5 rounded-full border ${colorClass}`}
+                  />
+                  <span className="text-[10px] font-medium max-w-[45px] truncate">
+                    {player.isMe ? 'You' : player.username.slice(0, 6)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Game Notification - positioned absolutely so it doesn't take space */}
+        <div className="absolute top-28 left-0 right-0 z-50 px-4 pointer-events-none">
+          <GameNotification
+            message={notification}
+            type={notificationType}
+            isVisible={showMessage}
+            onClose={() => setShowMessage(false)}
+          />
+        </div>
+
+        {/* Board Container - Fills remaining space */}
+        <div className="flex-1 flex items-center justify-center overflow-hidden px-1">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="w-full max-w-[100vw] flex items-center justify-center"
+          >
+            <LudoBoard
+              players={gameState.players}
+              usernames={gameState.usernames}
+              currentPlayerId={gameState.currentPlayerId}
+              diceValue={gameState.lastDiceRoll}
+              waitingForMove={gameState.waitingForMove}
+              onPawnMoveComplete={handlePawnMoveFinished}
+              onPawnClick={handlePawnClick}
+              loggedPlayerId={user?.id || ""}
+              winnerId={gameState.winnerId}
+            />
+          </motion.div>
+        </div>
+
+        {/* Bottom Dice Panel */}
+        <div className="shrink-0 bg-[#121018]/95 border-t border-white/10 px-3 py-2 pb-safe">
+          <MobileDicePanel 
+            isMyTurn={isMyTurn ?? false} 
+            canRoll={canRoll ?? false}
+            gameState={gameState}
+          />
+        </div>
+      </main>
+
+      {/* DESKTOP LAYOUT - shown on screens >= 1024px */}
+      <main className="hidden lg:block pt-24 pb-4 px-4 h-[calc(100vh-96px)]">
         <div className="h-full max-w-[2000px] mx-auto flex gap-4 justify-center">
 
           {/* Game Table Area */}

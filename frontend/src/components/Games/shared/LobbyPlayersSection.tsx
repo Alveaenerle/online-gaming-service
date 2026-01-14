@@ -36,11 +36,11 @@ export function LobbyPlayersSection({
   const others = players.filter((p) => !p.isYou);
 
   return (
-    <div className="grid lg:grid-cols-12 gap-8 h-full">
-      <div className="lg:col-span-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 h-full">
+      <div className="lg:col-span-8 order-2 lg:order-1">
         <div
-          className="grid grid-cols-2 gap-4 overflow-y-auto pr-2 custom-scrollbar content-start"
-          style={{ maxHeight: "calc(100vh - 450px)" }}
+          className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 overflow-y-auto pr-1 sm:pr-2 custom-scrollbar content-start"
+          style={{ maxHeight: "calc(100vh - 400px)" }}
         >
           {Array.from({ length: maxPlayers - 1 }).map((_, i) => {
             const player = others[i];
@@ -71,8 +71,8 @@ export function LobbyPlayersSection({
         </div>
       </div>
 
-      <div className="lg:col-span-4">
-        <div className="h-full" style={{ maxHeight: "calc(100vh - 450px)" }}>
+      <div className="lg:col-span-4 order-1 lg:order-2">
+        <div className="h-full lg:max-h-[calc(100vh-400px)]">
           {you && (
             <BigPlayerCard
               player={you}

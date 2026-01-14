@@ -8,6 +8,7 @@ import { GameHeader } from "../shared/GameHeader";
 import { GameHeroPanel } from "../shared/GameHeroPanel";
 import { CreateLobbyPanel } from "../shared/CreateLobbyPanel";
 import { JoinLobbyPanel } from "../shared/JoinLobbyPanel";
+import { LobbyAccordion } from "../shared/LobbyAccordion";
 import { lobbyService } from "../../../services/lobbyService";
 import { BackgroundGradient } from "../../Shared/BackgroundGradient";
 import { FriendsSidebar } from "../../Shared/FriendsSidebar";
@@ -51,12 +52,12 @@ export function LudoTitle() {
   };
 
   return (
-    <div className="min-h-screen bg-[#07060b] text-white antialiased overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#07060b] text-white antialiased overflow-x-hidden overflow-y-auto font-sans">
       <Navbar />
 
       <BackgroundGradient />
 
-      <main className="relative pt-24 pb-12 px-6 max-w-[1600px] mx-auto h-[calc(100vh-100px)] flex flex-col">
+      <main className="relative pt-20 sm:pt-24 pb-8 sm:pb-12 px-3 sm:px-4 md:px-6 max-w-[1600px] mx-auto min-h-[calc(100vh-80px)] lg:h-[calc(100vh-100px)] flex flex-col overflow-x-hidden">
         <GameHeader
           title="Ludo"
           subtitle="Arena"
@@ -64,7 +65,7 @@ export function LudoTitle() {
           onSocialClick={() => setFriendsOpen(true)}
         />
 
-        <div className="flex-1 grid lg:grid-cols-12 gap-8 min-h-0">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 min-h-0 overflow-y-auto lg:overflow-visible">
           <GameHeroPanel
             title="Roll the dice."
             description="The classic board game reimagined. Race your tokens from start to finish, capture your opponents, and secure your place in the home triangle."
@@ -94,25 +95,59 @@ export function LudoTitle() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-4 flex flex-col gap-6 max-h-[calc(100vh-200px)]"
+            className="lg:col-span-4 flex flex-col h-full max-h-[calc(100vh-220px)] sm:max-h-[calc(100vh-200px)]"
           >
-            <CreateLobbyPanel
-              roomName={roomName}
-              setRoomName={setRoomName}
-              playerCount={playerCount}
-              setPlayerCount={setPlayerCount}
-              isPrivate={isPrivate}
-              setIsPrivate={setIsPrivate}
-              onCreate={handleCreateLobby}
-              minPlayers={2}
-              maxPlayers={4}
-            />
+            {/* Mobile Layout - Show both panels stacked */}
+            <div className="lg:hidden flex-1 flex flex-col">
+              <div className="flex-none mb-4 sm:mb-6">
+                <CreateLobbyPanel
+                  roomName={roomName}
+                  setRoomName={setRoomName}
+                  playerCount={playerCount}
+                  setPlayerCount={setPlayerCount}
+                  isPrivate={isPrivate}
+                  setIsPrivate={setIsPrivate}
+                  onCreate={handleCreateLobby}
+                  minPlayers={2}
+                  maxPlayers={4}
+                />
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 pr-1 pb-4">
+                <JoinLobbyPanel
+                  roomCode={roomCode}
+                  setRoomCode={setRoomCode}
+                  onJoin={handleJoinLobby}
+                />
+              </div>
+            </div>
 
-            <JoinLobbyPanel
-              roomCode={roomCode}
-              setRoomCode={setRoomCode}
-              onJoin={handleJoinLobby}
-            />
+            {/* Desktop Layout - Accordion style */}
+            <div className="hidden lg:block overflow-y-auto custom-scrollbar pr-1 pb-4">
+              <LobbyAccordion
+                createContent={
+                  <CreateLobbyPanel
+                    roomName={roomName}
+                    setRoomName={setRoomName}
+                    playerCount={playerCount}
+                    setPlayerCount={setPlayerCount}
+                    isPrivate={isPrivate}
+                    setIsPrivate={setIsPrivate}
+                    onCreate={handleCreateLobby}
+                    minPlayers={2}
+                    maxPlayers={4}
+                    hideHeader
+                  />
+                }
+                joinContent={
+                  <JoinLobbyPanel
+                    roomCode={roomCode}
+                    setRoomCode={setRoomCode}
+                    onJoin={handleJoinLobby}
+                    hideHeader
+                  />
+                }
+              />
+            </div>
           </motion.div>
           {!isGuest && (
             <FriendsSidebar

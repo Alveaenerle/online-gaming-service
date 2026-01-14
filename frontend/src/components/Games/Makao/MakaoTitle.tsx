@@ -8,6 +8,7 @@ import { GameHeader } from "../shared/GameHeader";
 import { GameHeroPanel } from "../shared/GameHeroPanel";
 import { CreateLobbyPanel } from "../shared/CreateLobbyPanel";
 import { JoinLobbyPanel } from "../shared/JoinLobbyPanel";
+import { LobbyAccordion } from "../shared/LobbyAccordion";
 import { lobbyService } from "../../../services/lobbyService";
 import makaoGameService from "../../../services/makaoGameService";
 import { BackgroundGradient } from "../../Shared/BackgroundGradient";
@@ -97,12 +98,12 @@ export function MakaoTitle() {
   };
 
   return (
-    <div className="min-h-screen bg-[#07060b] text-white antialiased overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#07060b] text-white antialiased overflow-x-hidden overflow-y-auto font-sans">
       <Navbar />
 
       <BackgroundGradient />
 
-      <main className="relative pt-24 pb-12 px-6 max-w-[1600px] mx-auto h-[calc(100vh-100px)] flex flex-col">
+      <main className="relative pt-20 sm:pt-24 pb-8 sm:pb-12 px-3 sm:px-4 md:px-6 max-w-[1600px] mx-auto min-h-[calc(100vh-80px)] lg:h-[calc(100vh-100px)] flex flex-col overflow-x-hidden">
         <GameHeader
           title="Makao"
           subtitle="Arena"
@@ -110,7 +111,7 @@ export function MakaoTitle() {
           onSocialClick={() => setFriendsOpen(true)}
         />
 
-        <div className="flex-1 grid lg:grid-cols-12 gap-8 min-h-0">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 min-h-0 overflow-y-auto lg:overflow-visible">
           <GameHeroPanel
             title="Master the deck."
             description="The ultimate Makao experience. Use special cards to sabotage opponents and be the first to clear your hand."
@@ -140,37 +141,37 @@ export function MakaoTitle() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-4 flex flex-col gap-6 max-h-[calc(100vh-200px)]"
+            className="lg:col-span-4 flex flex-col h-full max-h-[calc(100vh-220px)] sm:max-h-[calc(100vh-200px)]"
           >
             {isCheckingGame ? (
-              <div className="bg-[#121018]/80 backdrop-blur rounded-2xl p-6 border border-white/10 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purpleEnd" />
+              <div className="bg-[#121018]/80 backdrop-blur rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10 flex items-center justify-center min-h-[100px]">
+                <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-t-2 border-b-2 border-purpleEnd" />
               </div>
             ) : hasActiveGame ? (
               /* Active Game Panel - shown when user is in an ongoing game */
-              <div className="bg-[#121018]/80 backdrop-blur rounded-2xl p-6 border border-amber-500/30 shadow-lg shadow-amber-500/10">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <RefreshCw className="w-5 h-5 text-amber-400" />
+              <div className="bg-[#121018]/80 backdrop-blur rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+                <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                    <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Active Game Found</h3>
-                    <p className="text-sm text-gray-400">You have an ongoing game</p>
+                  <div className="min-w-0">
+                    <h3 className="text-base sm:text-lg font-bold text-white truncate">Active Game Found</h3>
+                    <p className="text-xs sm:text-sm text-gray-400">You have an ongoing game</p>
                   </div>
                 </div>
 
-                <p className="text-gray-300 text-sm mb-6">
+                <p className="text-gray-300 text-xs sm:text-sm mb-4 sm:mb-6">
                   You're currently in an active Makao game. You can rejoin the game or leave it to start a new one.
                 </p>
 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2 sm:gap-3">
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleReconnect}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-purpleStart to-purpleEnd text-white font-bold shadow-lg shadow-purpleEnd/30 hover:shadow-purpleEnd/50 transition-shadow flex items-center justify-center gap-2"
+                    className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-purpleStart to-purpleEnd text-white text-sm sm:text-base font-bold shadow-lg shadow-purpleEnd/30 hover:shadow-purpleEnd/50 transition-shadow flex items-center justify-center gap-2 min-h-[44px]"
                   >
-                    <RefreshCw className="w-5 h-5" />
+                    <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
                     Rejoin Game
                   </motion.button>
 
@@ -178,31 +179,64 @@ export function MakaoTitle() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleLeaveActiveGame}
-                    className="w-full py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium border border-red-500/30 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm sm:text-base font-medium border border-red-500/30 transition-colors flex items-center justify-center gap-2 min-h-[44px]"
                   >
-                    <LogOut className="w-5 h-5" />
-                    Leave Game & Start New
+                    <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden xs:inline">Leave Game & Start New</span>
+                    <span className="xs:hidden">Leave & Restart</span>
                   </motion.button>
                 </div>
               </div>
             ) : (
               /* Normal Create/Join panels */
               <>
-                <CreateLobbyPanel
-                  roomName={roomName}
-                  setRoomName={setRoomName}
-                  playerCount={playerCount}
-                  setPlayerCount={setPlayerCount}
-                  isPrivate={isPrivate}
-                  setIsPrivate={setIsPrivate}
-                  onCreate={handleCreateLobby}
-                />
+                {/* Mobile Layout - Show both panels stacked */}
+                <div className="lg:hidden flex-1 flex flex-col">
+                  <div className="flex-none mb-4 sm:mb-6">
+                    <CreateLobbyPanel
+                      roomName={roomName}
+                      setRoomName={setRoomName}
+                      playerCount={playerCount}
+                      setPlayerCount={setPlayerCount}
+                      isPrivate={isPrivate}
+                      setIsPrivate={setIsPrivate}
+                      onCreate={handleCreateLobby}
+                    />
+                  </div>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 pr-1 pb-4">
+                    <JoinLobbyPanel
+                      roomCode={roomCode}
+                      setRoomCode={setRoomCode}
+                      onJoin={handleJoinLobby}
+                    />
+                  </div>
+                </div>
 
-                <JoinLobbyPanel
-                  roomCode={roomCode}
-                  setRoomCode={setRoomCode}
-                  onJoin={handleJoinLobby}
-                />
+                {/* Desktop Layout - Accordion style */}
+                <div className="hidden lg:block overflow-y-auto custom-scrollbar pr-1 pb-4">
+                  <LobbyAccordion
+                    createContent={
+                      <CreateLobbyPanel
+                        roomName={roomName}
+                        setRoomName={setRoomName}
+                        playerCount={playerCount}
+                        setPlayerCount={setPlayerCount}
+                        isPrivate={isPrivate}
+                        setIsPrivate={setIsPrivate}
+                        onCreate={handleCreateLobby}
+                        hideHeader
+                      />
+                    }
+                    joinContent={
+                      <JoinLobbyPanel
+                        roomCode={roomCode}
+                        setRoomCode={setRoomCode}
+                        onJoin={handleJoinLobby}
+                        hideHeader
+                      />
+                    }
+                  />
+                </div>
               </>
             )}
           </motion.div>

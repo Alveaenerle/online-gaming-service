@@ -88,16 +88,47 @@ const MakaoGame: React.FC = () => {
     removeAnimation,
   } = useCardAnimations();
 
-  // Refs for animation positions
+  // Refs for animation positions - separate refs for mobile and desktop to handle responsive layouts
   const gameTableRef = useRef<HTMLDivElement>(null);
-  const deckRef = useRef<HTMLDivElement>(null);
-  const discardRef = useRef<HTMLDivElement>(null);
-  const handRef = useRef<HTMLDivElement>(null);
+  const deckRefMobile = useRef<HTMLDivElement>(null);
+  const deckRefDesktop = useRef<HTMLDivElement>(null);
+  const discardRefMobile = useRef<HTMLDivElement>(null);
+  const discardRefDesktop = useRef<HTMLDivElement>(null);
+  const handRefMobile = useRef<HTMLDivElement>(null);
+  const handRefDesktop = useRef<HTMLDivElement>(null);
   const playerRefsMap = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
+  
+  // Dynamic refs that return the visible element (mobile vs desktop based on screen size)
+  const deckRef = useMemo(() => ({
+    get current() {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        return deckRefMobile.current;
+      }
+      return deckRefDesktop.current;
+    }
+  }) as React.RefObject<HTMLDivElement>, []);
+  
+  const discardRef = useMemo(() => ({
+    get current() {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        return discardRefMobile.current;
+      }
+      return discardRefDesktop.current;
+    }
+  }) as React.RefObject<HTMLDivElement>, []);
+  
+  const handRef = useMemo(() => ({
+    get current() {
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        return handRefMobile.current;
+      }
+      return handRefDesktop.current;
+    }
+  }) as React.RefObject<HTMLDivElement>, []);
 
   // Local UI state
   const [pendingCard, setPendingCard] = useState<CardType | null>(null);
-  const [demandType, setDemandType] = useState<DemandType | null>(null);
+  const [demandType, setDemandType] = useState<DemandType | null>(null); 
   const [drawnCardInfo, setDrawnCardInfo] = useState<{
     card: CardType;
     canPlay: boolean;
@@ -505,7 +536,104 @@ const MakaoGame: React.FC = () => {
         playerRefs={playerRefsMap.current}
       />
 
-      <main className="pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
+      {/* MOBILE LAYOUT - shown on screens < 1024px */}
+      <main className="lg:hidden pt-16 pb-2 px-2 h-[100dvh] flex flex-col bg-bg">
+        {/* Mobile Game Area - Compact */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Top Bar - Turn indicator & Leave */}
+          <div className="flex items-center justify-between px-2 py-1.5 bg-[#121018]/90 rounded-lg mb-2 border border-white/10">
+            <div className="flex items-center gap-2">
+              {isMyTurn ? (
+                <span className="flex items-center gap-1.5 text-green-400 text-xs font-medium">
+                  <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }} className="w-2 h-2 rounded-full bg-green-500" />
+                  Your turn
+                </span>
+              ) : (
+                <span className="text-gray-400 text-xs">Waiting...</span>
+              )}
+              {turnRemainingSeconds != null && !isActivePlayerBot && (
+                <span className={`text-xs font-mono font-bold ${turnRemainingSeconds <= 10 ? 'text-red-400' : 'text-gray-400'}`}>
+                  {turnRemainingSeconds}s
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="px-2 py-1 text-xs text-red-400 hover:bg-red-500/20 rounded transition-colors"
+            >
+              Leave
+            </button>
+          </div>
+
+          {/* Center Game Area */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0" ref={gameTableRef}>
+            {/* Opponents Row */}
+            <div className="flex gap-2 justify-center flex-wrap max-w-full px-2">
+              {others.map((player) => (
+                <div key={player.id} ref={getPlayerRef(player.id)} className="flex flex-col items-center">
+                  <div className={`w-8 h-8 rounded-full border-2 overflow-hidden ${player.isActive ? 'border-purpleEnd ring-2 ring-purpleEnd/50' : 'border-white/20'}`}>
+                    <img src={player.avatarUrl || '/avatars/avatar_1.png'} alt={player.username} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 truncate max-w-[50px]">{player.username}</span>
+                  <span className="text-[10px] text-purpleEnd">{player.cardCount} cards</span>
+                  {player.cardCount === 1 && <span className="text-[8px] text-yellow-400 font-bold">MAKAO!</span>}
+                </div>
+              ))}
+            </div>
+
+            {/* Deck & Discard - Side by Side */}
+            <div className="flex items-center gap-6">
+              <div ref={deckRefMobile} className="text-center" onClick={isMyTurn && !drawnCardInfo && !hasSpecialEffect ? handleDrawCard : undefined}>
+                <AnimatedCardPile count={gameState.drawDeckCardsAmount} isClickable={isMyTurn && !drawnCardInfo && !hasSpecialEffect} showGlow={isMyTurn && !drawnCardInfo && !hasSpecialEffect} onClick={handleDrawCard} />
+                <p className="text-[10px] text-white/50 mt-1">Draw</p>
+              </div>
+              <div ref={discardRefMobile} className="text-center">
+                <DiscardPile topCard={gameState.currentCard} count={gameState.discardDeckCardsAmount} />
+                <p className="text-[10px] text-white/50 mt-1">Discard</p>
+              </div>
+            </div>
+
+            {/* Effect notification */}
+            {hasSpecialEffect && isMyTurn && (
+              <div className="flex flex-col items-center gap-2">
+                <div className={`px-3 py-1 rounded-full text-xs font-bold ${gameState.effectNotification?.includes('draw') ? 'bg-red-500/90 text-white' : 'bg-amber-500/90 text-black'}`}>
+                  {gameState.effectNotification || 'Effect Active'}
+                </div>
+                <button onClick={() => acceptEffect()} disabled={isLoading} className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs font-medium border border-white/20">
+                  Accept
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* My Cards - Bottom */}
+          {me && (
+            <div ref={handRefMobile} className="bg-[#121018]/90 rounded-t-xl border-t border-x border-white/10 p-2 mt-auto">
+              <div className="flex items-center justify-between mb-1 px-1">
+                <span className="text-[10px] text-gray-400">{gameState.myCards.length} cards</span>
+                {gameState.myCards.length === 1 && (
+                  <span className="px-1.5 py-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-[10px] font-bold rounded-full">MAKAO!</span>
+                )}
+              </div>
+              <div className="flex gap-0.5 overflow-x-auto pb-1 custom-scrollbar justify-center flex-wrap">
+                {gameState.myCards.map((cardView, index) => (
+                  <motion.div
+                    key={`${cardView.card.suit}-${cardView.card.rank}-${index}`}
+                    whileTap={canPlayCard(cardView) ? { scale: 0.95 } : {}}
+                    className={canPlayCard(cardView) ? 'cursor-pointer' : 'opacity-60'}
+                    onClick={() => handleCardClick(cardView)}
+                  >
+                    <Card card={cardView.card} size="sm" isPlayable={canPlayCard(cardView)} showEffect />
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* DESKTOP LAYOUT - shown on screens >= 1024px */}
+      <main className="hidden lg:block pt-36 pb-4 px-4 h-[calc(100vh-144px)]">
         <div className="h-full max-w-[2000px] mx-auto flex gap-4 justify-center">
 
           {/* Game Table Area */}
@@ -660,7 +788,7 @@ const MakaoGame: React.FC = () => {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-12">
                 {/* Draw Pile - with animation support */}
                 <div
-                  ref={deckRef}
+                  ref={deckRefDesktop}
                   className="text-center"
                   onClick={
                     isMyTurn && !drawnCardInfo && !hasSpecialEffect
@@ -678,7 +806,7 @@ const MakaoGame: React.FC = () => {
                 </div>
 
                 {/* Discard Pile - with animation support */}
-                <div ref={discardRef} className="text-center">
+                <div ref={discardRefDesktop} className="text-center">
                   <DiscardPile
                     topCard={gameState.currentCard}
                     count={gameState.discardDeckCardsAmount}
@@ -721,7 +849,7 @@ const MakaoGame: React.FC = () => {
               {/* My Cards - Bottom */}
               {me && (
                 <div
-                  ref={handRef}
+                  ref={handRefDesktop}
                   className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-[90%]"
                 >
                   <motion.div

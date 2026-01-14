@@ -35,10 +35,10 @@ export function LudoBoard({
     : null;
 
   return (
-    <div className="relative p-4 bg-[#0a0a0f] rounded-[45px] border-[3px] border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+    <div className="relative p-1.5 lg:p-4 bg-[#0a0a0f] rounded-xl lg:rounded-[45px] border-2 lg:border-[3px] border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
       {/* Plansza z efektem wyszarzenia po wygranej */}
       <div
-        className={`grid grid-cols-13 grid-rows-13 gap-0.5 w-[600px] h-[600px] relative transition-all duration-700 ${
+        className={`grid grid-cols-13 grid-rows-13 gap-[1px] lg:gap-0.5 w-[min(70vw,50vh)] lg:w-[600px] aspect-square lg:h-[600px] relative transition-all duration-700 ${
           isGameOver
             ? "grayscale opacity-30 scale-[0.98] pointer-events-none"
             : ""

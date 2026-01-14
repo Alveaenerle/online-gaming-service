@@ -20,13 +20,14 @@ interface TabButtonProps {
 const TabButton: React.FC<TabButtonProps> = ({ active, onClick, icon: Icon, label, color }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 ${
+    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-sm sm:text-base transition-all duration-300 min-h-[44px] ${
       active
         ? `bg-gradient-to-r ${color} text-white shadow-lg`
         : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
     }`}
   >
-    <Icon size={20} />
+    <Icon size={18} className="sm:hidden" />
+    <Icon size={20} className="hidden sm:block" />
     {label}
   </button>
 );
@@ -57,43 +58,47 @@ const RankingTable: React.FC<RankingTableProps> = ({ title, icon: Icon, players,
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-[#121018] rounded-2xl border border-white/5 overflow-hidden"
+      className="bg-[#121018] rounded-xl sm:rounded-2xl border border-white/5 overflow-hidden"
     >
-      <div className={`bg-gradient-to-r ${color} px-6 py-4 flex items-center gap-3`}>
-        <Icon size={24} className="text-white" />
-        <h3 className="text-lg font-bold text-white">{title}</h3>
+      <div className={`bg-gradient-to-r ${color} px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-3`}>
+        <Icon size={20} className="text-white sm:hidden" />
+        <Icon size={24} className="text-white hidden sm:block" />
+        <h3 className="text-base sm:text-lg font-bold text-white">{title}</h3>
       </div>
       <div className="divide-y divide-white/5">
         {players.length === 0 ? (
-          <div className="px-6 py-8 text-center text-gray-500">
+          <div className="px-4 sm:px-6 py-6 sm:py-8 text-center text-gray-500 text-sm">
             No players found yet. Be the first!
           </div>
         ) : (
           players.map((player, index) => (
             <div
               key={`${player.playerId}-${index}`}
-              className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+              className="px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between hover:bg-white/5 transition-colors"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-8 flex justify-center">
+              <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                <div className="w-6 sm:w-8 flex justify-center flex-shrink-0">
                   {index < 3 ? (
-                    <Medal size={20} className={getMedalColor(index + 1)} />
+                    <Medal size={18} className={`sm:hidden ${getMedalColor(index + 1)}`} />
                   ) : (
-                    <span className="text-gray-500 font-mono text-sm">{index + 1}</span>
+                    <span className="text-gray-500 font-mono text-xs sm:text-sm">{index + 1}</span>
+                  )}
+                  {index < 3 && (
+                    <Medal size={20} className={`hidden sm:block ${getMedalColor(index + 1)}`} />
                   )}
                 </div>
-                <div>
-                  <p className="font-semibold text-white">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white text-sm sm:text-base truncate">
                     {player.username || "Unknown Player"}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-[10px] sm:text-xs text-gray-500">
                     Win Rate: {player.winRatio.toFixed(1)}%
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-xl font-black text-white">{player[valueKey]}</p>
-                <p className="text-xs text-gray-500 uppercase">
+              <div className="text-right flex-shrink-0 ml-2">
+                <p className="text-lg sm:text-xl font-black text-white">{player[valueKey]}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 uppercase">
                   {valueKey === "gamesPlayed" ? "Games" : "Wins"}
                 </p>
               </div>
@@ -136,31 +141,31 @@ const RankingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#050508] text-white overflow-x-hidden font-sans">
       <Navbar />
       <BackgroundGradient />
 
-      <main className="relative z-10 pt-32 pb-20 px-6 max-w-6xl mx-auto">
+      <main className="relative z-10 pt-24 sm:pt-28 lg:pt-32 pb-12 sm:pb-16 lg:pb-20 px-3 sm:px-4 md:px-6 max-w-6xl mx-auto">
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-12"
+          className="text-center mb-8 sm:mb-12"
         >
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="h-px w-8 bg-purple-500/50" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-purple-500">
+          <div className="inline-flex items-center gap-2 mb-3 sm:mb-4">
+            <div className="h-px w-6 sm:w-8 bg-purple-500/50" />
+            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-purple-500">
               Leaderboards
             </span>
-            <div className="h-px w-8 bg-purple-500/50" />
+            <div className="h-px w-6 sm:w-8 bg-purple-500/50" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter mb-3 sm:mb-4">
             <span className="bg-gradient-to-r from-purple-400 via-fuchsia-500 to-purple-600 bg-clip-text text-transparent">
               Rankings
             </span>
           </h1>
-          <p className="text-gray-400 max-w-xl mx-auto">
+          <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto px-4">
             See who's dominating the leaderboards! Top 30 players by games played and games won.
           </p>
         </motion.header>
@@ -170,7 +175,7 @@ const RankingsPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex justify-center gap-4 mb-8"
+          className="flex justify-center gap-2 sm:gap-4 mb-6 sm:mb-8"
         >
           <TabButton
             active={selectedGame === "MAKAO"}
@@ -190,25 +195,25 @@ const RankingsPage: React.FC = () => {
 
         {/* Content */}
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+          <div className="flex justify-center py-12 sm:py-20">
+            <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500"></div>
           </div>
         ) : error ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-12"
+            className="text-center py-8 sm:py-12"
           >
-            <p className="text-red-400 mb-4">{error}</p>
+            <p className="text-red-400 mb-4 text-sm sm:text-base">{error}</p>
             <button
               onClick={() => setSelectedGame(selectedGame)}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors text-sm min-h-[44px]"
             >
               Retry
             </button>
           </motion.div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <RankingTable
               title="Most Games Played"
               icon={Gamepad2}

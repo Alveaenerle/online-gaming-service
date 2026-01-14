@@ -153,6 +153,29 @@ export const LobbyProvider: React.FC<{ children: ReactNode }> = ({
     };
   }, [currentLobby?.id, user?.id, handleLobbyUpdate, handleKickNotification]);
 
+  // Fallback polling: periodically check lobby status in case WebSocket misses updates
+  // This ensures players don't get stuck in lobby when game starts
+  useEffect(() => {
+    if (!currentLobby?.id || currentLobby?.status === "PLAYING") {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const latestInfo = await lobbyService.getRoomInfo();
+        // Only update if status changed to PLAYING (game started)
+        if (latestInfo?.status === "PLAYING" && currentLobby?.status !== "PLAYING") {
+          console.log("LobbyContext: Polling detected game start, updating state");
+          setCurrentLobby(latestInfo);
+        }
+      } catch (err) {
+        // Ignore errors - WebSocket is primary, this is just a fallback
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [currentLobby?.id, currentLobby?.status]);
+
   // Check lobby status on mount
   useEffect(() => {
     refreshLobbyStatus();

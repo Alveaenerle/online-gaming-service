@@ -57,25 +57,26 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 400, opacity: 0 }}
             transition={{ type: "spring", stiffness: 120, damping: 18 }}
-            className="fixed right-6 top-6 bottom-6 z-50 w-[320px]
-                       rounded-3xl border border-purple-500/20
-                       bg-white/5 backdrop-blur-xl shadow-2xl shadow-purple-700/30
+            className="fixed right-0 sm:right-4 md:right-6 top-0 sm:top-4 md:top-6 bottom-0 sm:bottom-4 md:bottom-6 z-50 
+                       w-full sm:w-[300px] md:w-[320px]
+                       sm:rounded-2xl md:rounded-3xl border-l sm:border border-purple-500/20
+                       bg-[#0c0b10] sm:bg-white/5 backdrop-blur-xl shadow-2xl shadow-purple-700/30
                        flex flex-col overflow-hidden"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-              <div className="flex items-center gap-3 text-purple-400">
-                <Users />
-                <h3 className="font-bold text-lg">Social Center</h3>
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 text-purple-400">
+                <Users size={20} />
+                <h3 className="font-bold text-base sm:text-lg">Social Center</h3>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
+                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
-                <X />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+            <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 space-y-4 sm:space-y-6">
               
               {/* Game Invites Section */}
               {gameInvites.length > 0 && (
@@ -226,7 +227,7 @@ export const FriendsSidebar: React.FC<FriendsSidebarProps> = ({
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-white/10 text-center text-xs text-gray-400 shrink-0">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-white/10 text-center text-xs text-gray-400 shrink-0">
               Online:{" "}
               <span className="text-purple-400 font-semibold">
                 {friends.filter((f) => f.status === "ONLINE" || f.status === 'PLAYING').length}
