@@ -55,7 +55,7 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="w-full max-w-[100vw] py-3 sm:py-4 px-4 sm:px-6 md:px-12 flex items-center justify-between z-50 fixed top-0 left-0 right-0 bg-[#121018]/80 backdrop-blur-md overflow-x-hidden">
+      <header className="w-full max-w-[100vw] py-3 sm:py-4 px-4 sm:px-6 md:px-12 flex items-center justify-between z-50 fixed top-0 left-0 right-0 bg-[#121018]/80 backdrop-blur-md">
         <motion.div
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
