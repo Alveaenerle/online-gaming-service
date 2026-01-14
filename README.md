@@ -70,7 +70,7 @@ A robust, microservice-based platform for real-time multiplayer card and board g
 ### Quick Start (Production Mode)
 ```bash
 # Clone the repository
-git clone [https://github.com/alveaenerle/online-gaming-service.git](https://github.com/alveaenerle/online-gaming-service.git)
+git clone https://github.com/alveaenerle/online-gaming-service.git
 cd online-gaming-service
 
 # Start the entire stack
@@ -121,3 +121,4 @@ npm test
 This project is licensed under the MIT License - see the `LICENSE` file for details.
 
 ---
+
