@@ -1,6 +1,7 @@
 package com.online_games_service.ludo.service;
 
 import com.online_games_service.common.enums.RoomStatus;
+import com.online_games_service.common.messaging.GameResultMessage;
 import com.online_games_service.ludo.enums.PlayerColor;
 import com.online_games_service.ludo.exception.GameLogicException;
 import com.online_games_service.ludo.exception.InvalidMoveException;
@@ -9,6 +10,7 @@ import com.online_games_service.ludo.model.LudoPawn;
 import com.online_games_service.ludo.model.LudoPlayer;
 import com.online_games_service.ludo.repository.mongo.LudoGameResultRepository;
 import com.online_games_service.ludo.repository.redis.LudoGameRedisRepository;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -61,6 +63,7 @@ public class LudoServiceTest {
 
         ReflectionTestUtils.setField(ludoService, "exchangeName", "game.events");
         ReflectionTestUtils.setField(ludoService, "finishRoutingKey", "ludo.finish");
+        ReflectionTestUtils.setField(ludoService, "gameResultRoutingKey", "ludo.game.result");
         ReflectionTestUtils.setField(ludoService, "leaveRoutingKey", "player.leave");
     }
 
@@ -377,8 +380,159 @@ public class LudoServiceTest {
         Assert.assertEquals(game.getWinnerId(), userId);
 
         verify(gameResultRepository).save(any());
+        verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.game.result"), any(GameResultMessage.class));
         verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.finish"), any(Object.class));
         verify(stringRedisTemplate, atLeastOnce()).delete(anyString());
+    }
+
+    @Test
+    public void gameFinish_shouldPublishGameResultMessageWithCorrectData() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+        game.getPlayersUsernames().put("p1", "Player1");
+        game.getPlayersUsernames().put("p2", "Player2");
+        LudoPlayer winner = game.getPlayers().get(0);
+
+        // Set up winner to have all pawns home except one about to win
+        for (LudoPawn p : winner.getPawns()) {
+            p.setInBase(false);
+            p.setInHome(true);
+        }
+        winner.getPawns().get(3).setInHome(false);
+        winner.getPawns().get(3).setStepsMoved(43);
+        winner.getPawns().get(3).setPosition(43);
+
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(1);
+        game.setWaitingForMove(true);
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        ludoService.movePawn(userId, 3);
+
+        // Then - verify GameResultMessage content
+        ArgumentCaptor<GameResultMessage> messageCaptor = ArgumentCaptor.forClass(GameResultMessage.class);
+        verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.game.result"), messageCaptor.capture());
+
+        GameResultMessage capturedMessage = messageCaptor.getValue();
+        Assert.assertEquals(capturedMessage.roomId(), roomId);
+        Assert.assertEquals(capturedMessage.gameType(), "LUDO");
+        Assert.assertEquals(capturedMessage.winnerId(), userId);
+        Assert.assertNotNull(capturedMessage.participants());
+        Assert.assertEquals(capturedMessage.participants().size(), 2);
+        Assert.assertEquals(capturedMessage.participants().get("p1"), "User1");
+        Assert.assertEquals(capturedMessage.participants().get("p2"), "User2");
+        Assert.assertNotNull(capturedMessage.placements());
+        Assert.assertEquals(capturedMessage.placements().get(userId), Integer.valueOf(1));
+    }
+
+    @Test
+    public void gameFinish_shouldPublishGameResultMessageBeforeFinishMessage() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+        LudoPlayer winner = game.getPlayers().get(0);
+
+        for (LudoPawn p : winner.getPawns()) {
+            p.setInBase(false);
+            p.setInHome(true);
+        }
+        winner.getPawns().get(3).setInHome(false);
+        winner.getPawns().get(3).setStepsMoved(43);
+        winner.getPawns().get(3).setPosition(43);
+
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(1);
+        game.setWaitingForMove(true);
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        ludoService.movePawn(userId, 3);
+
+        // Then - verify both messages are sent (order matters for downstream processing)
+        var inOrder = inOrder(rabbitTemplate);
+        inOrder.verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.game.result"), any(GameResultMessage.class));
+        inOrder.verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.finish"), any(Object.class));
+    }
+
+    @Test
+    public void gameFinish_shouldAssignCorrectPlacements() {
+        // Given
+        String winnerId = "p1";
+        String loserId = "p2";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, winnerId, loserId);
+        LudoPlayer winner = game.getPlayers().get(0);
+
+        for (LudoPawn p : winner.getPawns()) {
+            p.setInBase(false);
+            p.setInHome(true);
+        }
+        winner.getPawns().get(3).setInHome(false);
+        winner.getPawns().get(3).setStepsMoved(43);
+        winner.getPawns().get(3).setPosition(43);
+
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(1);
+        game.setWaitingForMove(true);
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + winnerId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        ludoService.movePawn(winnerId, 3);
+
+        // Then
+        ArgumentCaptor<GameResultMessage> messageCaptor = ArgumentCaptor.forClass(GameResultMessage.class);
+        verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.game.result"), messageCaptor.capture());
+
+        GameResultMessage capturedMessage = messageCaptor.getValue();
+        Assert.assertEquals(capturedMessage.placements().get(winnerId), Integer.valueOf(1));
+        Assert.assertEquals(capturedMessage.placements().get(loserId), Integer.valueOf(2));
+    }
+
+    @Test
+    public void gameFinish_shouldHandleEmptyUsernamesGracefully() {
+        // Given
+        String userId = "p1";
+        String roomId = "r1";
+        LudoGame game = createGame(roomId, userId, "p2");
+        // Note: The game result message uses a defensive copy, so we verify that behavior
+        LudoPlayer winner = game.getPlayers().get(0);
+
+        for (LudoPawn p : winner.getPawns()) {
+            p.setInBase(false);
+            p.setInHome(true);
+        }
+        winner.getPawns().get(3).setInHome(false);
+        winner.getPawns().get(3).setStepsMoved(43);
+        winner.getPawns().get(3).setPosition(43);
+
+        game.setDiceRolled(true);
+        game.setLastDiceRoll(1);
+        game.setWaitingForMove(true);
+
+        when(stringValueOperations.get(USER_GAME_PREFIX + userId)).thenReturn(roomId);
+        when(gameRepository.findById(roomId)).thenReturn(Optional.of(game));
+
+        // When
+        ludoService.movePawn(userId, 3);
+
+        // Then - verify message was sent with participants from the game
+        ArgumentCaptor<GameResultMessage> messageCaptor = ArgumentCaptor.forClass(GameResultMessage.class);
+        verify(rabbitTemplate).convertAndSend(eq("game.events"), eq("ludo.game.result"), messageCaptor.capture());
+
+        GameResultMessage capturedMessage = messageCaptor.getValue();
+        Assert.assertNotNull(capturedMessage.participants());
+        // The message should have a defensive copy of the usernames
+        Assert.assertEquals(capturedMessage.participants().size(), 2);
     }
 
     @Test

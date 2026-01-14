@@ -2,6 +2,7 @@ package com.online_games_service.ludo.service;
 
 import com.online_games_service.common.enums.RoomStatus;
 import com.online_games_service.common.messaging.GameFinishMessage;
+import com.online_games_service.common.messaging.GameResultMessage;
 import com.online_games_service.common.messaging.PlayerLeaveMessage;
 import com.online_games_service.ludo.dto.LudoGameStateMessage;
 import com.online_games_service.ludo.dto.PlayerTimeoutMessage;
@@ -48,6 +49,9 @@ public class LudoService {
 
     @Value("${ludo.amqp.routing.finish:ludo.finish}")
     private String finishRoutingKey;
+
+    @Value("${ludo.amqp.routing.game-result:ludo.game.result}")
+    private String gameResultRoutingKey;
 
     @Value("${ludo.amqp.routing.leave:player.leave}")
     private String leaveRoutingKey;
@@ -812,14 +816,27 @@ public class LudoService {
         game.setStatus(RoomStatus.FINISHED);
         game.setWinnerId(winner.getUserId());
 
+        Map<String, Integer> placement = calculatePlacement(game, winner);
+
         LudoGameResult result = new LudoGameResult(
                 game.getGameId(),
                 game.getMaxPlayers(),
                 game.getPlayersUsernames(),
                 winner.getUserId(),
-                calculatePlacement(game, winner)
+                placement
         );
         gameResultRepository.save(result);
+
+        // Publish game result message for statistics tracking
+        GameResultMessage gameResultMessage = new GameResultMessage(
+                game.getRoomId(),
+                "LUDO",
+                game.getPlayersUsernames() != null ? new HashMap<>(game.getPlayersUsernames()) : new HashMap<>(),
+                placement,
+                winner.getUserId()
+        );
+        rabbitTemplate.convertAndSend(exchangeName, gameResultRoutingKey, gameResultMessage);
+        log.info("Published game result message for room {}, winner: {}", game.getRoomId(), winner.getUserId());
 
         GameFinishMessage finishMsg = new GameFinishMessage(game.getRoomId(), RoomStatus.FINISHED);
         rabbitTemplate.convertAndSend(exchangeName, finishRoutingKey, finishMsg);

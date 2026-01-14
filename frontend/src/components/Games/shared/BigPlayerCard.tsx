@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Crown, Pencil, CheckCircle2, Circle } from "lucide-react";
-import { LobbyPlayer } from "../utils/types";
+import type { LobbyPlayer } from "../utils/types";
 import { useState } from "react";
 
 type Props = {

@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { CardSuit, CardRank, ALL_SUITS, DEMANDABLE_RANKS } from "../types";
+import { type CardSuit, type CardRank, ALL_SUITS, DEMANDABLE_RANKS } from "../types";
 import { SUIT_INFO, RANK_DISPLAY } from "../utils/cardHelpers";
 
 interface DemandPickerProps {

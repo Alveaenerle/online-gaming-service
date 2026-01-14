@@ -1,6 +1,6 @@
 import { PlayerCard } from "./PlayerCard";
 import { BigPlayerCard } from "./BigPlayerCard";
-import { LobbyPlayer } from "../utils/types";
+import type { LobbyPlayer } from "../utils/types";
 import { lobbyService } from "../../../services/lobbyService";
 
 type Props = {

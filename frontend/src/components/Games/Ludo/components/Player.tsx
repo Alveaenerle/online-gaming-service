@@ -1,6 +1,6 @@
 import React, { forwardRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Color } from "../Board/constants";
+import { motion } from "framer-motion";
+import type { Color } from "../Board/constants";
 
 // ============================================
 // Turn Timer Ring Component
@@ -119,7 +119,7 @@ interface PlayerProps {
 }
 
 const Player = forwardRef<HTMLDivElement, PlayerProps>(
-  ({ player, position, turnRemainingSeconds, onPlayerClick }, ref) => {
+  ({ player, position: _position, turnRemainingSeconds, onPlayerClick }, ref) => {
     const showTimer = player.isActive && !player.isBot && turnRemainingSeconds != null && turnRemainingSeconds > 0;
     const isLowTime = turnRemainingSeconds != null && turnRemainingSeconds <= 10;
     const styles = colorStyles[player.color];

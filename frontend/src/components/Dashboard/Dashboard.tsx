@@ -11,7 +11,6 @@ import {
   Edit3,
   AlertCircle,
   Check,
-  X,
   Spade,
   Dice5,
 } from "lucide-react";
@@ -21,7 +20,7 @@ import { SocialCenter } from "../Shared/SocialCenter";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { authService } from "../../services/authService";
-import { statisticsService, PlayerStatistics } from "../../services/statisticsService";
+import { statisticsService } from "../../services/statisticsService";
 
 interface GameStats {
   gamesPlayed: number;
