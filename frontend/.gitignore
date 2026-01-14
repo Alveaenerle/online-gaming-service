@@ -28,5 +28,6 @@ dist-ssr
 src/**/*.js
 !src/**/*.test.js
 
-# Environment variables
 .env
+coverage/**
+
