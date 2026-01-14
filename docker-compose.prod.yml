@@ -278,7 +278,7 @@ services:
     image: redis:7.2-alpine
     container_name: og-redis
     restart: always
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
     networks:
       - gaming-net
     volumes:
