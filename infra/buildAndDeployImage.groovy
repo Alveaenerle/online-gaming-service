@@ -8,6 +8,10 @@ def call(imageName, contextDir, moduleName = null) {
         buildArgs = "--build-arg MODULE_NAME=${moduleName}"
     }
 
+    if (imageName == 'online-gaming-frontend') {
+        buildArgs += " --build-arg VITE_GOOGLE_CLIENT_ID=${env.GOOGLE_CLIENT_ID}"
+    }
+
     sh """
         docker build \
         -t ${fullImageName}:${gitCommit} \
