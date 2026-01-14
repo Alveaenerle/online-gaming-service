@@ -17,7 +17,7 @@ import {
   GameOverModal,
   DiceWidget,
   CornerPlayerCard,
-  CornerPlayerCardProps,
+  type CornerPlayerCardProps,
 } from "./components";
 
 // Hooks
@@ -32,7 +32,7 @@ import { useSocial } from "../../../context/SocialContext";
 import { useToast } from "../../../context/ToastContext";
 import { lobbyService } from "../../../services/lobbyService";
 
-import { RoomStatus, LudoPlayer } from "./types";
+import { RoomStatus, type LudoPlayer } from "./types";
 
 // ============================================
 // Helper Functions
@@ -63,7 +63,7 @@ function buildCornerPlayers(
   currentPlayerId: string,
   hostUserId?: string
 ): CornerPlayerCardProps[] {
-  return players.map((p, index) => ({
+  return players.map((p, _index) => ({
     id: p.userId,
     username: p.isBot ? `Bot ${p.color}` : (usernames[p.userId] || "Unknown"),
     color: p.color,
@@ -93,7 +93,7 @@ export function LudoArenaPage() {
     gameState,
     movePawn,
     isMyTurn,
-    isRolling,
+    isRolling: _isRolling,
     notification,
     notificationType,
     wasKickedByTimeout,
@@ -107,7 +107,7 @@ export function LudoArenaPage() {
   // Local UI state
   const [showMessage, setShowMessage] = useState(true);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
-  const [wasReplacedByBot, setWasReplacedByBot] = useState(false);
+  const [_wasReplacedByBot, setWasReplacedByBot] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [playerContextMenu, setPlayerContextMenu] = useState<{
     playerId: string;
@@ -147,11 +147,6 @@ export function LudoArenaPage() {
       currentLobby?.hostUserId
     );
   }, [gameState, user?.id, currentLobby?.hostUserId]);
-
-  // Get current user's player data
-  const myPlayer = useMemo(() => {
-    return cornerPlayers.find((p) => p.isMe) || null;
-  }, [cornerPlayers]);
 
   // Redirect if not authenticated
   useEffect(() => {

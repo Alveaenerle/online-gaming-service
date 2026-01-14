@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../../../../context/AuthContext";
-import { GameStateMessage } from "../types";
+import type { GameStateMessage } from "../types";
 import makaoGameService from "../../../../services/makaoGameService";
 import SockJS from "sockjs-client";
 import * as StompJs from "stompjs";

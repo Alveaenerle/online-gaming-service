@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, X, LogOut, DoorOpen } from "lucide-react";
+import { X, LogOut, DoorOpen } from "lucide-react";
 
 interface ConfirmationModalProps {
   isOpen: boolean;

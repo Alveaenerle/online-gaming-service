@@ -44,7 +44,7 @@ export function ChatSection({ message, onMessageChange }: ChatSectionProps) {
 function ChatMessage({
   user,
   text,
-  color,
+  color: _color,
   isOwn,
 }: {
   user: string;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../../../../context/AuthContext";
-import { LudoGameStateMessage } from "../types";
+import type { LudoGameStateMessage } from "../types";
 import { ludoService } from "../../../../services/ludoGameService";
 import SockJS from "sockjs-client";
 import * as StompJs from "stompjs";

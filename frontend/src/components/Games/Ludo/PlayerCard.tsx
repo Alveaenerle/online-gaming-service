@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Color } from "./Board/constants";
+import type { Color } from "./Board/constants";
 import { Crown } from "lucide-react";
 
 interface PlayerPawn {

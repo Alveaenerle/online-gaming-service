@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
 import {
-  Bell,
   X,
   Dices,
   Move,

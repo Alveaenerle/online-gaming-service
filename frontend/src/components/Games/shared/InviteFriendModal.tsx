@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, UserPlus, Search, Users, Gamepad2, Loader2 } from "lucide-react";
 import { useSocial } from "../../../context/SocialContext";
 import { useLobby } from "../../../context/LobbyContext";
-import { Friend } from "../../../services/socialService";
+import type { Friend } from "../../../services/socialService";
 
 interface InviteFriendModalProps {
   isOpen: boolean;

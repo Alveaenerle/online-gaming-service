@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence, Variants } from "framer-motion";
-import { Card as CardType } from "../types";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Card as CardType } from "../types";
 import { getCardImagePath, getCardBackPath } from "../utils/cardHelpers";
 
 // ============================================
@@ -35,72 +35,6 @@ interface CardAnimationManagerProps {
   handRef?: React.RefObject<HTMLDivElement | null>;
   playerRefs?: Map<string, React.RefObject<HTMLDivElement | null>>;
 }
-
-// ============================================
-// Animation Variants
-// ============================================
-
-const playCardVariants: Variants = {
-  initial: (custom: { from: Position }) => ({
-    x: custom.from.x,
-    y: custom.from.y,
-    scale: 1,
-    rotate: 0,
-    opacity: 1,
-  }),
-  animate: {
-    x: 0,
-    y: 0,
-    scale: 1.1,
-    rotate: [0, -5, 5, 0],
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 300,
-      damping: 25,
-      rotate: {
-        duration: 0.3,
-        times: [0, 0.3, 0.6, 1],
-      },
-    },
-  },
-  exit: {
-    scale: 0.8,
-    opacity: 0,
-    transition: { duration: 0.2 },
-  },
-};
-
-const drawCardVariants: Variants = {
-  initial: (custom: { from: Position }) => ({
-    x: custom.from.x,
-    y: custom.from.y,
-    scale: 0.8,
-    rotateY: 180,
-    opacity: 1,
-  }),
-  animate: (custom: { to: Position }) => ({
-    x: custom.to.x,
-    y: custom.to.y,
-    scale: 1,
-    rotateY: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 200,
-      damping: 20,
-      rotateY: {
-        duration: 0.4,
-        ease: "easeOut",
-      },
-    },
-  }),
-  exit: {
-    scale: 0.5,
-    opacity: 0,
-    transition: { duration: 0.15 },
-  },
-};
 
 // ============================================
 // Animated Card Component

@@ -9,17 +9,26 @@ def call(imageName, contextDir, moduleName = null) {
     }
 
     if (imageName == 'online-gaming-frontend') {
-        buildArgs += " --build-arg VITE_GOOGLE_CLIENT_ID=${env.GOOGLE_CLIENT_ID}"
+        withCredentials([string(credentialsId: 'google-oauth-client-id', variable: 'GOOGLE_CLIENT_ID_SECRET')]) {
+            sh '''
+                docker build \
+                -t ''' + fullImageName + ''':''' + gitCommit + ''' \
+                -t ''' + fullImageName + ''':latest \
+                --target production \
+                ''' + buildArgs + ''' --build-arg VITE_GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID_SECRET" \
+                ''' + contextDir + '''
+            '''
+        }
+    } else {
+        sh """
+            docker build \
+            -t ${fullImageName}:${gitCommit} \
+            -t ${fullImageName}:latest \
+            --target production \
+            ${buildArgs} \
+            ${contextDir}
+        """
     }
-
-    sh """
-        docker build \
-        -t ${fullImageName}:${gitCommit} \
-        -t ${fullImageName}:latest \
-        --target production \
-        ${buildArgs} \
-        ${contextDir}
-    """
 
     echo "Pushing ${imageName} to Nexus..."
     sh "docker push ${fullImageName}:${gitCommit}"

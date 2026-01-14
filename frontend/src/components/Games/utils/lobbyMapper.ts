@@ -1,4 +1,4 @@
-import { LobbyInfo, LobbyInfoRaw, LobbyPlayer } from "./types";
+import type { LobbyInfo, LobbyInfoRaw, LobbyPlayer } from "./types";
 
 export function mapLobbyRawToLobby(
   raw: LobbyInfoRaw,

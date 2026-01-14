@@ -1,4 +1,4 @@
-import { Color } from "./constants";
+import type { Color } from "./constants";
 
 export const PATH_MAP: [number, number][] = [
   // 🔴 RED start → w prawo
@@ -108,7 +108,7 @@ export const getPathCoords = (
   color: Color,
   pawnIndex: number,
   stepsMoved: number,
-  newPosition?: number
+  _newPosition?: number
 ) => {
   console.group(
     `%c[LOGIC-PATH] Calculating path for ${color} pawn`,

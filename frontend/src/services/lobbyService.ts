@@ -1,4 +1,4 @@
-import { LobbyInfoRaw } from "../components/Games/utils/types";
+import type { LobbyInfoRaw } from "../components/Games/utils/types";
 
 const API_URL =
   typeof import.meta !== "undefined" && import.meta.env

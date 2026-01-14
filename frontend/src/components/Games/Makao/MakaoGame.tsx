@@ -26,18 +26,16 @@ import { useToast } from "../../../context/ToastContext";
 import makaoGameService from "../../../services/makaoGameService";
 import { lobbyService } from "../../../services/lobbyService";
 import {
-  Card as CardType,
-  CardSuit,
-  CardRank,
-  PlayerCardView,
-  PlayerView,
-  DemandType,
+  type Card as CardType,
+  type CardSuit,
+  type CardRank,
+  type PlayerCardView,
+  type PlayerView,
+  type DemandType,
 } from "./types";
 import {
   buildPlayerViews,
   distributePlayersAroundTable,
-  RANK_DISPLAY,
-  SUIT_INFO,
   requiresDemand,
   getPlayerDisplayName,
   isBot,
@@ -66,7 +64,7 @@ const MakaoGame: React.FC = () => {
   } = useGameSounds();
 
   // WebSocket connection and game state
-  const { gameState, isConnected, connectionError, resetState, wasKickedByTimeout, clearTimeoutStatus, reconnect } = useMakaoSocket();
+  const { gameState, isConnected, connectionError, resetState, wasKickedByTimeout, clearTimeoutStatus, reconnect: _reconnect } = useMakaoSocket();
 
   // Game actions
   const {
@@ -104,7 +102,7 @@ const MakaoGame: React.FC = () => {
   } | null>(null);
   const [previousCardPlayed, setPreviousCardPlayed] = useState<CardType | null>(null);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
-  const [wasReplacedByBot, setWasReplacedByBot] = useState(false);
+  const [_wasReplacedByBot, setWasReplacedByBot] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [playerContextMenu, setPlayerContextMenu] = useState<{
     playerId: string;

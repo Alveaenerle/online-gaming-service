@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Card as CardType } from "../types";
+import type { Card as CardType } from "../types";
 import { getCardImagePath } from "../utils/cardHelpers";
 
 interface DiscardPileProps {

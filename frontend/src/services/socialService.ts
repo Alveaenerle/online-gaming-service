@@ -1,5 +1,3 @@
-import { authService } from "./authService";
-
 const API_BASE_URL =
   typeof import.meta !== "undefined" && import.meta.env
     ? import.meta.env.VITE_API_SOCIAL_URL || "/api/social"

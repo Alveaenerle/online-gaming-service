@@ -1,11 +1,13 @@
-import { Color } from "./Board/constants";
+import type { Color } from "./Board/constants";
 
-export enum RoomStatus {
-  WAITING = "WAITING",
-  FULL = "FULL",
-  PLAYING = "PLAYING",
-  FINISHED = "FINISHED",
-}
+export const RoomStatus = {
+  WAITING: "WAITING",
+  FULL: "FULL",
+  PLAYING: "PLAYING",
+  FINISHED: "FINISHED",
+} as const;
+
+export type RoomStatus = typeof RoomStatus[keyof typeof RoomStatus];
 
 export interface LudoPawn {
   id: number;

@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
 import makaoGameService, {
-  PlayCardPayload,
-  PlayDrawnCardPayload,
+  type PlayCardPayload,
+  type PlayDrawnCardPayload,
 } from "../../../../services/makaoGameService";
-import { Card, CardSuit, CardRank, DrawCardResponse } from "../types";
+import type { Card, CardSuit, CardRank, DrawCardResponse } from "../types";
 
 interface ActionState {
   isLoading: boolean;

@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import {
   chatService,
-  ChatMessage,
-  ChatError,
-  TypingIndicator,
-  ChatHistoryResponse,
+  type ChatMessage,
+  type ChatError,
+  type TypingIndicator,
+  type ChatHistoryResponse,
 } from "../../../services/chatService";
 import { useAuth } from "../../../context/AuthContext";
 import { useLobby } from "../../../context/LobbyContext";

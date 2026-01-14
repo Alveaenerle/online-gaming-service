@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Trophy, Home, RotateCcw } from "lucide-react";
-import { LudoPlayer } from "../types";
-import { Color } from "../Board/constants";
+import type { LudoPlayer } from "../types";
+import type { Color } from "../Board/constants";
 
 interface PlayerResult {
   id: string;
