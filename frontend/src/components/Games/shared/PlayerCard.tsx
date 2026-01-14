@@ -121,27 +121,29 @@ export function PlayerCard({ player, onKick, onAddFriend, onInviteToLobby, showK
           {hasReceivedRequest && !player.isYou && (
             <div
                 title="Has Pending Request - Check Social Center"
-                className="absolute top-3 left-3 p-2 bg-orange-500/20 text-orange-400 rounded-xl transition-all duration-300 border border-orange-500/30 cursor-default"
+                className="absolute top-2 left-2 sm:top-3 sm:left-3 p-1.5 sm:p-2 bg-orange-500/20 text-orange-400 rounded-lg sm:rounded-xl transition-all duration-300 border border-orange-500/30 cursor-default"
             >
-                <Mail size={14} />
+                <Mail size={12} className="sm:hidden" />
+                <Mail size={14} className="hidden sm:block" />
             </div>
           )}
         </>
       ) : (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-2 sm:gap-3">
           {canInviteToLobby ? (
             <>
-              <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center group-hover:border-purple-500/50 group-hover:bg-purple-500/10 transition-all duration-300">
-                <Plus size={24} className="text-white/30 group-hover:text-purple-400 transition-colors" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center group-hover:border-purple-500/50 group-hover:bg-purple-500/10 transition-all duration-300">
+                <Plus size={20} className="text-white/30 group-hover:text-purple-400 transition-colors sm:hidden" />
+                <Plus size={24} className="text-white/30 group-hover:text-purple-400 transition-colors hidden sm:block" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-widest text-white/30 group-hover:text-purple-400 transition-colors">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white/30 group-hover:text-purple-400 transition-colors">
                 Invite Friend
               </span>
             </>
           ) : (
             <>
-              <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20 opacity-30" />
-              <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-dashed border-white/20 opacity-30" />
+              <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest opacity-30">
                 Empty Slot
               </span>
             </>

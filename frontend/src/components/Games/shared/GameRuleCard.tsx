@@ -13,14 +13,14 @@ export function GameRuleCard({ icon, title, desc, color }: RuleCardProps) {
   };
 
   return (
-    <div className="bg-[#121018] p-8 rounded-[2rem] border border-white/5 space-y-4 hover:border-white/10 transition-colors group">
+    <div className="bg-[#121018] p-4 sm:p-6 lg:p-8 rounded-xl sm:rounded-2xl lg:rounded-[2rem] border border-white/5 space-y-2 sm:space-y-3 lg:space-y-4 hover:border-white/10 transition-colors group">
       <div
-        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${colors[color]}`}
+        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${colors[color]}`}
       >
         {icon}
       </div>
-      <h3 className="text-lg font-bold text-white">{title}</h3>
-      <p className="text-sm text-gray-500 leading-relaxed font-medium">
+      <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white">{title}</h3>
+      <p className="text-xs sm:text-sm text-gray-500 leading-relaxed font-medium line-clamp-2 sm:line-clamp-none">
         {desc}
       </p>
     </div>

@@ -7,11 +7,12 @@ interface CardProps {
   onClick?: () => void;
   isPlayable?: boolean;
   isFaceDown?: boolean;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   showEffect?: boolean;
 }
 
 const SIZES = {
+  xs: { width: 40, height: 56 },
   sm: { width: 48, height: 67 },
   md: { width: 58, height: 82 },
   lg: { width: 72, height: 101 },

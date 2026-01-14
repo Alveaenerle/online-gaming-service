@@ -60,15 +60,15 @@ interface StatCardProps {
 const StatCard: React.FC<StatCardProps> = ({ icon: Icon, label, value, color }) => (
   <motion.div
     variants={itemVariants}
-    className="bg-[#121018] rounded-2xl border border-white/5 p-6 hover:border-white/10 transition-colors"
+    className="bg-[#121018] rounded-xl sm:rounded-2xl border border-white/5 p-3 sm:p-4 md:p-6 hover:border-white/10 transition-colors"
   >
-    <div className="flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center`}>
-        <Icon size={24} className="text-white" />
+    <div className="flex items-center gap-3 sm:gap-4">
+      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
+        <Icon size={20} className="text-white sm:w-6 sm:h-6" />
       </div>
-      <div>
-        <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider">{label}</p>
-        <p className="text-2xl font-black text-white">{value}</p>
+      <div className="min-w-0">
+        <p className="text-gray-500 text-[10px] sm:text-xs font-semibold uppercase tracking-wider truncate">{label}</p>
+        <p className="text-lg sm:text-xl md:text-2xl font-black text-white">{value}</p>
       </div>
     </div>
   </motion.div>
@@ -81,13 +81,13 @@ interface InfoRowProps {
 }
 
 const InfoRow: React.FC<InfoRowProps> = ({ icon: Icon, label, value }) => (
-  <div className="flex items-center gap-4 py-3 border-b border-white/5 last:border-0">
-    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-      <Icon size={18} className="text-purple-400" />
+  <div className="flex items-center gap-3 sm:gap-4 py-2 sm:py-3 border-b border-white/5 last:border-0">
+    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+      <Icon size={16} className="text-purple-400 sm:w-[18px] sm:h-[18px]" />
     </div>
-    <div className="flex-1">
-      <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider">{label}</p>
-      <p className="text-white font-medium">{value}</p>
+    <div className="flex-1 min-w-0">
+      <p className="text-gray-500 text-[10px] sm:text-xs font-semibold uppercase tracking-wider">{label}</p>
+      <p className="text-white font-medium text-sm sm:text-base truncate">{value}</p>
     </div>
   </div>
 );
@@ -239,34 +239,34 @@ const Dashboard: React.FC = () => {
   const joiningDate = "January 2026";
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#050508] text-white overflow-x-hidden font-sans">
       <Navbar />
       <BackgroundGradient />
 
-      <main className="relative z-10 pt-32 pb-20 px-6 max-w-6xl mx-auto">
+      <main className="relative z-10 pt-20 sm:pt-24 lg:pt-32 pb-10 sm:pb-16 lg:pb-20 px-3 sm:px-4 md:px-6 max-w-6xl mx-auto">
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-12"
+          className="text-center mb-6 sm:mb-8 lg:mb-12"
         >
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="h-px w-8 bg-purple-500/50" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-purple-500">
+          <div className="inline-flex items-center gap-2 mb-3 sm:mb-4">
+            <div className="h-px w-6 sm:w-8 bg-purple-500/50" />
+            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-purple-500">
               Player Dashboard
             </span>
-            <div className="h-px w-8 bg-purple-500/50" />
+            <div className="h-px w-6 sm:w-8 bg-purple-500/50" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter mb-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tighter mb-2">
             Welcome,{" "}
             <span className="bg-gradient-to-r from-purple-400 via-fuchsia-500 to-purple-600 bg-clip-text text-transparent">
               {user?.username || "Player"}
             </span>
           </h1>
           {isGuest && (
-            <p className="text-yellow-500/80 text-sm font-medium mt-2 flex items-center justify-center gap-2">
-              <AlertCircle size={16} />
+            <p className="text-yellow-500/80 text-xs sm:text-sm font-medium mt-2 flex items-center justify-center gap-2">
+              <AlertCircle size={14} className="sm:w-4 sm:h-4" />
               You are playing as a guest
             </p>
           )}
@@ -276,22 +276,22 @@ const Dashboard: React.FC = () => {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="space-y-8"
+          className="space-y-6 sm:space-y-8"
         >
           {/* Statistics Section */}
           <motion.section variants={itemVariants}>
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Trophy size={20} className="text-purple-400" />
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Trophy size={18} className="text-purple-400 sm:w-5 sm:h-5" />
               Statistics
             </h2>
 
             {/* Makao Statistics */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Spade size={18} className="text-purple-400" />
-                <h3 className="text-lg font-bold text-purple-400">Makao</h3>
+            <div className="mb-4 sm:mb-6">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <Spade size={16} className="text-purple-400 sm:w-[18px] sm:h-[18px]" />
+                <h3 className="text-base sm:text-lg font-bold text-purple-400">Makao</h3>
               </div>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 <StatCard
                   icon={Gamepad2}
                   label="Games Played"
@@ -315,11 +315,11 @@ const Dashboard: React.FC = () => {
 
             {/* Ludo Statistics */}
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Dice5 size={18} className="text-blue-400" />
-                <h3 className="text-lg font-bold text-blue-400">Ludo</h3>
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <Dice5 size={16} className="text-blue-400 sm:w-[18px] sm:h-[18px]" />
+                <h3 className="text-base sm:text-lg font-bold text-blue-400">Ludo</h3>
               </div>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 <StatCard
                   icon={Gamepad2}
                   label="Games Played"
@@ -344,11 +344,11 @@ const Dashboard: React.FC = () => {
 
           {/* Account Info Section */}
           <motion.section variants={itemVariants}>
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <User size={20} className="text-purple-400" />
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <User size={18} className="text-purple-400 sm:w-5 sm:h-5" />
               Account Information
             </h2>
-            <div className="bg-[#121018] rounded-2xl border border-white/5 p-6">
+            <div className="bg-[#121018] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
               <InfoRow icon={User} label="Username" value={user?.username || "N/A"} />
               {isGuest ? (
                 <>
@@ -366,33 +366,33 @@ const Dashboard: React.FC = () => {
 
           {/* Profile Management Section */}
           <motion.section variants={itemVariants}>
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Edit3 size={20} className="text-purple-400" />
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Edit3 size={18} className="text-purple-400 sm:w-5 sm:h-5" />
               Profile Management
             </h2>
 
             {isGuest ? (
-              <div className="bg-[#121018] rounded-2xl border border-yellow-500/20 p-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mx-auto mb-4">
-                  <Lock size={32} className="text-yellow-500" />
+              <div className="bg-[#121018] rounded-xl sm:rounded-2xl border border-yellow-500/20 p-6 sm:p-8 text-center">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <Lock size={24} className="text-yellow-500 sm:w-8 sm:h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">Guest Account</h3>
-                <p className="text-gray-400 text-sm max-w-md mx-auto">
+                <h3 className="text-base sm:text-lg font-bold text-white mb-2">Guest Account</h3>
+                <p className="text-gray-400 text-xs sm:text-sm max-w-md mx-auto">
                   Guest accounts cannot change credentials. Please register for a full account to
                   access profile management features.
                 </p>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {/* Change Username Form */}
-                <div className="bg-[#121018] rounded-2xl border border-white/5 p-6">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <div className="bg-[#121018] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
                     <User size={18} className="text-purple-400" />
                     Change Username
                   </h3>
                   <form onSubmit={handleUpdateUsername} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">
                         New Username
                       </label>
                       <input
@@ -400,7 +400,7 @@ const Dashboard: React.FC = () => {
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                         placeholder="Enter new username"
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors text-sm sm:text-base"
                         required
                         minLength={3}
                         maxLength={20}
@@ -411,13 +411,13 @@ const Dashboard: React.FC = () => {
                       disabled={isUpdatingUsername}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                     >
                       {isUpdatingUsername ? (
                         "Updating..."
                       ) : (
                         <>
-                          <Check size={16} />
+                          <Check size={14} className="sm:w-4 sm:h-4" />
                           Update Username
                         </>
                       )}
@@ -426,14 +426,14 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Change Password Form */}
-                <div className="bg-[#121018] rounded-2xl border border-white/5 p-6">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Lock size={18} className="text-purple-400" />
+                <div className="bg-[#121018] rounded-xl sm:rounded-2xl border border-white/5 p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                    <Lock size={16} className="text-purple-400 sm:w-[18px] sm:h-[18px]" />
                     Change Password
                   </h3>
-                  <form onSubmit={handleUpdatePassword} className="space-y-4">
+                  <form onSubmit={handleUpdatePassword} className="space-y-3 sm:space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">
                         Current Password
                       </label>
                       <input
@@ -441,12 +441,12 @@ const Dashboard: React.FC = () => {
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="Enter current password"
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors text-sm sm:text-base"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">
                         New Password
                       </label>
                       <input
@@ -454,13 +454,13 @@ const Dashboard: React.FC = () => {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Enter new password"
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors text-sm sm:text-base"
                         required
                         minLength={6}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      <label className="block text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">
                         Confirm New Password
                       </label>
                       <input
@@ -468,7 +468,7 @@ const Dashboard: React.FC = () => {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Confirm new password"
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors text-sm sm:text-base"
                         required
                         minLength={6}
                       />
@@ -478,13 +478,13 @@ const Dashboard: React.FC = () => {
                       disabled={isUpdatingPassword}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                     >
                       {isUpdatingPassword ? (
                         "Updating..."
                       ) : (
                         <>
-                          <Check size={16} />
+                          <Check size={14} className="sm:w-4 sm:h-4" />
                           Update Password
                         </>
                       )}

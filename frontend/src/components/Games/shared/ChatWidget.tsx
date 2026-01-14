@@ -270,13 +270,13 @@ export function ChatWidget({ isHost = false }: ChatWidgetProps) {
 
   return (
     <>
-      {/* Chat Toggle Button */}
+      {/* Chat Toggle Button - Hidden on mobile during game */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 right-14 z-40 w-14 h-14 rounded-full 
+        className="hidden lg:flex fixed bottom-24 right-14 z-40 w-14 h-14 rounded-full 
                    bg-gradient-to-br from-purple-600 to-pink-600 
                    shadow-lg shadow-purple-500/30 
-                   flex items-center justify-center
+                   items-center justify-center
                    hover:scale-110 transition-transform"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}

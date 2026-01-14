@@ -157,7 +157,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
     <motion.div
       variants={cardVariants}
       whileHover={{ y: -8, transition: { duration: 0.3 } }}
-      className="group relative bg-[#121018] rounded-[2rem] border border-white/5 overflow-hidden hover:border-white/10 transition-all duration-300"
+      className="group relative bg-[#121018] rounded-xl sm:rounded-2xl lg:rounded-[2rem] border border-white/5 overflow-hidden hover:border-white/10 transition-all duration-300"
     >
       {/* Glow effect */}
       <div
@@ -165,35 +165,36 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
       />
 
       {/* Header with icon */}
-      <div className={`relative p-8 pb-0`}>
-        <div className="flex items-start justify-between mb-6">
+      <div className={`relative p-4 sm:p-6 lg:p-8 pb-0`}>
+        <div className="flex items-start justify-between mb-4 sm:mb-6">
           <div
-            className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}
+            className={`w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}
           >
-            <Icon size={32} className="text-white" />
+            <Icon className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-white" />
           </div>
           <GameBadge color={game.badgeColor}>{game.subtitle}</GameBadge>
         </div>
 
-        <h3 className="text-3xl font-black text-white mb-2 tracking-tight">
+        <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-white mb-2 tracking-tight">
           {game.title}
         </h3>
-        <p className="text-gray-400 text-sm leading-relaxed font-medium">
+        <p className="text-gray-400 text-xs sm:text-sm leading-relaxed font-medium">
           {game.description}
         </p>
       </div>
 
       {/* Features */}
-      <div className="px-8 py-6">
-        <div className="flex gap-4 flex-wrap">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="flex gap-3 sm:gap-4 flex-wrap">
           {game.features.map((feature, idx) => {
             const FeatureIcon = feature.icon;
             return (
               <div
                 key={idx}
-                className="flex items-center gap-2 text-xs text-gray-500 font-semibold uppercase tracking-wider"
+                className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-500 font-semibold uppercase tracking-wider"
               >
-                <FeatureIcon size={14} className="text-gray-600" />
+                <FeatureIcon size={12} className="sm:hidden text-gray-600" />
+                <FeatureIcon size={14} className="hidden sm:block text-gray-600" />
                 {feature.label}
               </div>
             );
@@ -202,17 +203,17 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
       </div>
 
       {/* Rules section */}
-      <div className="px-8 pb-8">
-        <div className="bg-white/[0.02] rounded-xl p-5 border border-white/5">
-          <div className="flex items-center gap-2 mb-4">
+      <div className="px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8">
+        <div className="bg-white/[0.02] rounded-lg sm:rounded-xl p-3 sm:p-4 lg:p-5 border border-white/5">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
             <BookOpen size={14} className="text-purple-400" />
-            <span className="text-xs font-bold uppercase tracking-widest text-purple-400">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-purple-400">
               Game Rules
             </span>
           </div>
-          <ul className="space-y-4">
+          <ul className="space-y-3 sm:space-y-4">
             {game.rules.map((rule, idx) => (
-              <li key={idx} className="text-sm">
+              <li key={idx} className="text-xs sm:text-sm">
                 <span className="font-semibold text-white block mb-1">
                   {rule.title}
                 </span>
@@ -232,33 +233,33 @@ const GamesLibrary: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#050508] text-white overflow-x-hidden font-sans">
       <Navbar />
 
       <BackgroundGradient />
 
-      <main className="relative z-10 pt-32 pb-20 px-6 max-w-7xl mx-auto">
+      <main className="relative z-10 pt-24 sm:pt-28 lg:pt-32 pb-12 sm:pb-16 lg:pb-20 px-3 sm:px-4 md:px-6 max-w-7xl mx-auto">
         {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-16"
+          className="text-center mb-8 sm:mb-12 lg:mb-16"
         >
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="h-px w-8 bg-purple-500/50" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-purple-500">
+          <div className="inline-flex items-center gap-2 mb-3 sm:mb-4">
+            <div className="h-px w-6 sm:w-8 bg-purple-500/50" />
+            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-purple-500">
               Games Library
             </span>
-            <div className="h-px w-8 bg-purple-500/50" />
+            <div className="h-px w-6 sm:w-8 bg-purple-500/50" />
           </div>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter mb-3 sm:mb-4">
             Choose Your{" "}
             <span className="bg-gradient-to-r from-purple-400 via-fuchsia-500 to-purple-600 bg-clip-text text-transparent">
               Arena
             </span>
           </h1>
-          <p className="text-gray-500 text-lg font-medium max-w-2xl mx-auto mb-8">
+          <p className="text-gray-500 text-sm sm:text-base lg:text-lg font-medium max-w-2xl mx-auto mb-6 sm:mb-8 px-4">
             Explore our collection of competitive multiplayer games. Each game
             offers unique mechanics and endless fun with players worldwide.
           </p>
@@ -268,9 +269,10 @@ const GamesLibrary: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(168,85,247,0.5)" }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-xl transition-all"
+              className="inline-flex items-center gap-2 sm:gap-3 px-5 sm:px-6 lg:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold text-xs sm:text-sm uppercase tracking-wider shadow-lg hover:shadow-xl transition-all min-h-[44px]"
             >
-              <Gamepad2 size={20} />
+              <Gamepad2 size={18} className="sm:hidden" />
+              <Gamepad2 size={20} className="hidden sm:block" />
               Choose Your Arena
             </motion.button>
           </Link>
@@ -281,7 +283,7 @@ const GamesLibrary: React.FC = () => {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid md:grid-cols-2 gap-8"
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8"
         >
           {gamesData.map((game) => (
             <GameCard key={game.id} game={game} />
@@ -293,9 +295,9 @@ const GamesLibrary: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
-          className="mt-16 text-center"
+          className="mt-10 sm:mt-12 lg:mt-16 text-center"
         >
-          <p className="text-gray-600 text-sm font-medium">
+          <p className="text-gray-600 text-xs sm:text-sm font-medium">
             More games coming soon! Stay tuned for exciting new additions.
           </p>
         </motion.div>

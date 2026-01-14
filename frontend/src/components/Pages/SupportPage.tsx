@@ -63,7 +63,7 @@ const SupportPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#07060b] text-white antialiased font-sans">
+    <div className="min-h-screen bg-[#07060b] text-white antialiased font-sans overflow-x-hidden">
       <Navbar />
       <BackgroundGradient />
       

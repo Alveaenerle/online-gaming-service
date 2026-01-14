@@ -6,11 +6,11 @@ import Footer from "../Shared/Footer";
 
 const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-bg text-white antialiased">
+    <div className="min-h-screen bg-bg text-white antialiased overflow-x-hidden">
       <Navbar />
-      <main className="pb-10">
+      <main className="pb-6 sm:pb-10">
         <Title />
-        <div className="px-6 md:px-12 lg:px-24 mb-20">
+        <div className="px-4 sm:px-6 md:px-12 lg:px-24 mb-10 sm:mb-20">
           <Features />
         </div>
       </main>
