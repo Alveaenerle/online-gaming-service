@@ -3,14 +3,14 @@ import React, {
   useContext,
   useState,
   useEffect,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useRef,
 } from "react";
 import { ludoService } from "../services/ludoGameService";
 import { ludoSocketService } from "../services/ludoSocketService";
-import { LudoGameStateMessage } from "../components/Games/Ludo/types";
-import { NotificationType } from "../components/Games/Ludo/GameNotification";
+import type { LudoGameStateMessage } from "../components/Games/Ludo/types";
+import type { NotificationType } from "../components/Games/Ludo/GameNotification";
 import { useAuth } from "./AuthContext";
 
 /** Message sent by backend when player is kicked due to timeout */
@@ -46,7 +46,7 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { user } = useAuth();
   const [gameState, setGameState] = useState<LudoGameStateMessage | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
   const [wasKickedByTimeout, setWasKickedByTimeout] = useState(false);
   const [timeoutMessage, setTimeoutMessage] = useState<string | null>(null);
@@ -57,6 +57,21 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
 
   const subscriptionRef = useRef<string | null>(null);
   const timeoutSubscriptionRef = useRef<string | null>(null);
+  const isRollingRef = useRef(isRolling);
+  const delayedUpdateRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    isRollingRef.current = isRolling;
+  }, [isRolling]);
+
+  // Cleanup pending timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (delayedUpdateRef.current) {
+        clearTimeout(delayedUpdateRef.current);
+      }
+    };
+  }, []);
 
   const setGameNotification = useCallback(
     (message: string, type: NotificationType) => {
@@ -80,18 +95,35 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
     (data: LudoGameStateMessage) => {
       console.log("!!! SOCKET MESSAGE RECEIVED !!!", data);
 
+      // Check if this update corresponds to a dice roll result
+      // We check if we were expecting a roll (isRollingRef) and if the data confirms a roll
+      const wasRolling = isRollingRef.current;
+      const isDiceRollUpdate = data.diceRolled && data.lastDiceRoll > 0;
+
       if (data.diceRolled || data.lastDiceRoll > 0) {
         setIsRolling(false);
       }
 
-      if (data.capturedUserId) {
-        setGameNotification(
-          "Unit captured! Tactical advantage gained.",
-          "COMBAT"
-        );
-      }
+      const applyState = () => {
+        if (data.capturedUserId) {
+          setGameNotification(
+            "Unit captured! Tactical advantage gained.",
+            "COMBAT"
+          );
+        }
+        setGameState(data);
+      };
 
-      setGameState(data);
+      if (wasRolling && isDiceRollUpdate) {
+        // Delay state update to allow dice animation to complete visually (~800ms in DiceWidget)
+        // so the user sees the dice result BEFORE (or same time as) the pawns update on the board.
+        if (delayedUpdateRef.current) {
+          clearTimeout(delayedUpdateRef.current);
+        }
+        delayedUpdateRef.current = setTimeout(applyState, 850);
+      } else {
+        applyState();
+      }
     },
     [setGameNotification]
   );

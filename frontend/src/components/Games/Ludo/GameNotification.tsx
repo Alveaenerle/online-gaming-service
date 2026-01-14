@@ -32,14 +32,15 @@ export function GameNotification({
   type = "INFO",
   isVisible,
   onClose,
-  autoCloseMs = 4000,
+  autoCloseMs = 3000,
 }: GameNotificationProps) {
+  // Reset timer when message changes (even if isVisible stays true)
   useEffect(() => {
     if (isVisible && autoCloseMs > 0) {
       const timer = setTimeout(onClose, autoCloseMs);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, autoCloseMs, onClose]);
+  }, [isVisible, autoCloseMs, onClose, message]);
 
   const config = {
     INFO: {

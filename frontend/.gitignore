@@ -28,4 +28,6 @@ dist-ssr
 src/**/*.js
 !src/**/*.test.js
 
+.env
 coverage/**
+
