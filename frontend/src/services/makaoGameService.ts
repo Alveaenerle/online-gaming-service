@@ -3,9 +3,12 @@ import {
   DrawCardResponse,
   CardSuit,
   CardRank,
-} from "../components/Games/Makao/types";
+} from "../components/Games/Makao/types/index";
 
-const API_URL = import.meta.env.VITE_MAKAO_API_URL ?? "/api/makao";
+const API_URL =
+  typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env.VITE_MAKAO_API_URL || "/api/menu"
+    : "/api/menu";
 
 interface ApiError {
   error: string;

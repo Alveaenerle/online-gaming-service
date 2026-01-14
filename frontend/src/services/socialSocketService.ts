@@ -3,9 +3,17 @@ import * as StompJs from "stompjs";
 
 // Build WebSocket URL - use env var or current origin to ensure correct protocol (http/https)
 const getWsUrl = () => {
-  if (import.meta.env.VITE_API_SOCIAL_WS_URL) {
-    return import.meta.env.VITE_API_SOCIAL_WS_URL;
+  // Bezpieczne sprawdzenie czy import.meta oraz import.meta.env istnieją
+  const envUrl =
+    typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env.VITE_API_SOCIAL_WS_URL
+      : null;
+
+  if (envUrl) {
+    return envUrl;
   }
+
+  // Fallback do window.location
   return `${window.location.origin}/api/social/ws/presence`;
 };
 const WS_URL = getWsUrl();
@@ -29,13 +37,13 @@ class SocialSocketService {
       this.client.connect(
         {},
         () => {
-          console.log('[SocialSocket] Connected');
+          console.log("[SocialSocket] Connected");
           this.connectionPromise = null;
           this.startHeartbeat();
           resolve();
         },
         (err) => {
-          console.error('[SocialSocket] Connection failed', err);
+          console.error("[SocialSocket] Connection failed", err);
           this.connectionPromise = null;
           reject(err);
         }
@@ -47,7 +55,7 @@ class SocialSocketService {
 
   private startHeartbeat() {
     this.stopHeartbeat(); // Clear any existing interval
-    console.log('[SocialSocket] Starting heartbeat');
+    console.log("[SocialSocket] Starting heartbeat");
     // Send immediate ping to set initial presence
     this.sendPing();
     // Then continue sending pings at regular intervals
@@ -65,8 +73,8 @@ class SocialSocketService {
 
   private sendPing() {
     if (this.client?.connected) {
-      console.log('[SocialSocket] Sending presence ping');
-      this.client.send('/app/presence.ping', {}, '');
+      console.log("[SocialSocket] Sending presence ping");
+      this.client.send("/app/presence.ping", {}, "");
     }
   }
 
@@ -78,18 +86,21 @@ class SocialSocketService {
 
   subscribe(topic: string, callback: (payload: any) => void) {
     if (!this.client?.connected) {
-      console.warn('[SocialSocket] Cannot subscribe - not connected. Topic:', topic);
+      console.warn(
+        "[SocialSocket] Cannot subscribe - not connected. Topic:",
+        topic
+      );
       return;
     }
 
     if (this.subscriptions.has(topic)) {
-      console.log('[SocialSocket] Already subscribed to', topic);
+      console.log("[SocialSocket] Already subscribed to", topic);
       return;
     }
 
-    console.log('[SocialSocket] Subscribing to', topic);
+    console.log("[SocialSocket] Subscribing to", topic);
     const sub = this.client.subscribe(topic, (msg) => {
-      console.log('[SocialSocket] Received message on', topic, msg.body);
+      console.log("[SocialSocket] Received message on", topic, msg.body);
       callback(JSON.parse(msg.body));
     });
     this.subscriptions.set(topic, sub);

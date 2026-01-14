@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_STATISTICS_API_URL || '/api/statistics';
+const API_BASE_URL =
+  typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env.VITE_STATISTICS_API_URL || "/api/statistics"
+    : "/api/statistics";
 
 export interface PlayerStatistics {
   playerId: string;
@@ -20,10 +23,13 @@ export interface Rankings {
   topByGamesWon: PlayerStatistics[];
 }
 
-async function parseErrorResponse(response: Response, fallbackMessage: string): Promise<string> {
+async function parseErrorResponse(
+  response: Response,
+  fallbackMessage: string
+): Promise<string> {
   try {
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
+    const contentType = response.headers.get("content-type");
+    if (contentType?.includes("application/json")) {
       const errorData = await response.json();
       return errorData.message || errorData.error || fallbackMessage;
     }
@@ -43,12 +49,15 @@ export const statisticsService = {
    */
   async getMyStatistics(gameType: string): Promise<PlayerStatistics> {
     const response = await fetch(`${API_BASE_URL}/me/${gameType}`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Failed to fetch statistics');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Failed to fetch statistics"
+      );
       throw new Error(errorMessage);
     }
 
@@ -60,12 +69,15 @@ export const statisticsService = {
    */
   async getAllMyStatistics(): Promise<PlayerAllStatistics> {
     const response = await fetch(`${API_BASE_URL}/me`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Failed to fetch statistics');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Failed to fetch statistics"
+      );
       throw new Error(errorMessage);
     }
 
@@ -75,13 +87,22 @@ export const statisticsService = {
   /**
    * Get statistics for a specific player and game type.
    */
-  async getPlayerStatistics(playerId: string, gameType: string): Promise<PlayerStatistics> {
-    const response = await fetch(`${API_BASE_URL}/player/${playerId}/${gameType}`, {
-      method: 'GET',
-    });
+  async getPlayerStatistics(
+    playerId: string,
+    gameType: string
+  ): Promise<PlayerStatistics> {
+    const response = await fetch(
+      `${API_BASE_URL}/player/${playerId}/${gameType}`,
+      {
+        method: "GET",
+      }
+    );
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Failed to fetch player statistics');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Failed to fetch player statistics"
+      );
       throw new Error(errorMessage);
     }
 
@@ -92,12 +113,18 @@ export const statisticsService = {
    * Get rankings for a specific game type.
    */
   async getRankings(gameType: string, limit: number = 30): Promise<Rankings> {
-    const response = await fetch(`${API_BASE_URL}/rankings/${gameType}?limit=${limit}`, {
-      method: 'GET',
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/rankings/${gameType}?limit=${limit}`,
+      {
+        method: "GET",
+      }
+    );
 
     if (!response.ok) {
-      const errorMessage = await parseErrorResponse(response, 'Failed to fetch rankings');
+      const errorMessage = await parseErrorResponse(
+        response,
+        "Failed to fetch rankings"
+      );
       throw new Error(errorMessage);
     }
 
