@@ -101,7 +101,7 @@ const Navbar: React.FC = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="absolute right-0 mt-2 w-48 bg-[#1a1a27] border border-white/10 rounded-xl shadow-lg overflow-hidden"
+                    className="absolute right-0 mt-2 w-48 bg-[#1a1a27] border border-white/10 rounded-xl shadow-lg overflow-hidden z-[100]"
                   >
                     <Link
                       to="/dashboard"

@@ -9,7 +9,7 @@ def call(serverIp, serverUser, sshCredentialId) {
         def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
         // Write env file using shell to avoid Groovy interpolation of secrets
         sh '''
-            cat > .env.deploy << 'ENVEOF'
+            cat > .env.deploy << ENVEOF
 NEXUS_URL=''' + env.NEXUS_URL + '''
 MONGO_ROOT_USER=${MONGO_USER}
 MONGO_ROOT_PASSWORD=${MONGO_PASS}
@@ -19,8 +19,6 @@ RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID_SECRET}
 TAG=''' + gitCommit + '''
 ENVEOF
-            # Substitute shell variables
-            envsubst < .env.deploy > .env.deploy.tmp && mv .env.deploy.tmp .env.deploy
             chmod 600 .env.deploy
         '''
 

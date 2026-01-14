@@ -180,6 +180,7 @@ export const useMakaoSocket = (): UseMakaoSocketReturn => {
 
           // Request the current game state after subscribing with retry logic
           // The game might still be initializing on the backend (race condition with RabbitMQ)
+          // Add a small delay to ensure subscription is fully registered on server side
           const requestStateWithRetry = async (attempt: number, maxAttempts: number, delayMs: number) => {
             if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {
               return;
@@ -205,8 +206,10 @@ export const useMakaoSocket = (): UseMakaoSocketReturn => {
             }
           };
 
-          // Start retry sequence: 5 attempts, starting with 500ms delay
-          requestStateWithRetry(1, 5, 500);
+          // Start retry sequence after a brief delay: 5 attempts, starting with 500ms delay
+          setTimeout(() => {
+            requestStateWithRetry(1, 5, 500);
+          }, 100);
         },
         (error: string | StompJs.Frame) => {
           if (!isMountedRef.current || currentConnectionId !== connectionIdRef.current) {
