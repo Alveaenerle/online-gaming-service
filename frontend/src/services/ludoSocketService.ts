@@ -158,6 +158,8 @@ class LudoSocketService {
     };
     this.subscriptions.set(topic, subEntry);
 
+    // Note: If connection is currently in progress (isConnecting=true), 
+    // this subscription will be picked up by resubscribeAll() once connection completes.
     if (this.connected && this.client) {
       try {
         const stompSub = this.client.subscribe(topic, (msg: StompJs.Message) => {
@@ -203,7 +205,10 @@ class LudoSocketService {
   }
 
   disconnect() {
-    this.pendingDisconnect = true;
+    this.pendingDisconnect = true;   
+    this.isConnecting = false;
+    this.connectPromise = null;
+    
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -221,7 +226,6 @@ class LudoSocketService {
       }
     }
     this.subscriptions.clear();
-    this.connectPromise = null;
   }
 }
 

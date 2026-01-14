@@ -1,7 +1,7 @@
 import { motion, useAnimation } from "framer-motion";
 import { getPawnCoords, getPathCoords } from "./ludoLogic";
-import { Color } from "./constants";
-import { LudoPawn } from "../types";
+import type { Color } from "./constants";
+import type { LudoPawn } from "../types";
 import { useState, useEffect, useRef } from "react";
 
 interface PawnProps {
@@ -40,11 +40,12 @@ export function Pawn({
     (position !== -1 || diceValue === 6) && position !== -2;
   const activeInteractable = !!(isPlayerTurn && canMoveThisPawn && !isMoving);
 
-  // Synchronizacja współrzędnych wizualnych - only when NOT animating
+  // Sync visual coordinates - only when NOT animating
   // and position hasn't changed (to avoid teleport before animation)
   useEffect(() => {
     // Only sync if we're not moving AND position hasn't changed
     // (position change will be handled by animation effect)
+    // Note: If row/col change but position stays the same, this handles the update correctly.
     if (!isMoving && prevPositionRef.current === position) {
       setVisualCoords({ row, col });
     }
@@ -52,7 +53,8 @@ export function Pawn({
     prevColRef.current = col;
   }, [row, col, isMoving, position]);
 
-  // Główna logika animacji
+  // Main animation logic
+
   useEffect(() => {
     const oldPos = prevPositionRef.current;
 

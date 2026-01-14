@@ -27,3 +27,6 @@ dist-ssr
 *.tsbuildinfo
 src/**/*.js
 !src/**/*.test.js
+
+# Environment variables
+.env

@@ -2,3 +2,4 @@
 backend/target
 /.vscode
 target/
+.env
