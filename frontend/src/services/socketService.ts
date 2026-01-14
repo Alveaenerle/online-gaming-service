@@ -56,7 +56,7 @@ class SocketService {
 
     this.isConnecting = true;
 
-    this.connectPromise = new Promise((resolve, reject) => {
+    this.connectPromise = new Promise((resolve, _reject) => {
       const attemptConnect = () => {
         try {
           const socket = new SockJS(WS_URL);

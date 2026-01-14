@@ -12,7 +12,7 @@ interface TimeoutModalProps {
  */
 const TimeoutModal: React.FC<TimeoutModalProps> = ({
   isOpen,
-  onClose,
+  onClose: _onClose,
   onReturnToLobby,
 }) => {
   return (

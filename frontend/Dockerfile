@@ -8,6 +8,8 @@ COPY . .
 CMD ["npm", "run", "dev", "--", "--host"]
 
 FROM base AS build
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 COPY . .
 RUN npm run build
 

@@ -3,14 +3,14 @@ import React, {
   useContext,
   useState,
   useEffect,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useRef,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { lobbyService } from "../services/lobbyService";
 import { socketService } from "../services/socketService";
-import { LobbyInfoRaw } from "../components/Games/utils/types";
+import type { LobbyInfoRaw } from "../components/Games/utils/types";
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
 

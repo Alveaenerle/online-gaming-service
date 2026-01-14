@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BOARD_CELLS } from "./constants";
 import { BoardCell } from "./BoardCell";
 import { Pawn } from "./Pawn";
-import { LudoPlayer } from "../types";
+import type { LudoPlayer } from "../types";
 
 interface LudoBoardProps {
   players: LudoPlayer[];

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { SocialCenter } from "../Shared/SocialCenter";
 import Navbar from "../Shared/Navbar";
@@ -6,7 +6,6 @@ import { GameCarousel } from "./GamesCarousel";
 import { useAuth } from "../../context/AuthContext";
 
 const Home: React.FC = () => {
-  const [friendsOpen, setFriendsOpen] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
   return (

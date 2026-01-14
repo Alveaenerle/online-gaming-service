@@ -15,6 +15,8 @@ pipeline {
         PROD_IP = credentials('prod-server-ip')
         PROD_USER = credentials('prod-server-user')
         PROD_SSH_ID = 'prod-server-ssh-key'
+
+        GOOGLE_CLIENT_ID = credentials('google-oauth-client-id')
     }
 
     stages {
@@ -117,9 +119,6 @@ pipeline {
                     echo "Could not execute postBuildStatus: ${e.message}"
                 }
             }
-        }
-        success {
-            sh "docker image prune -f --filter 'label=stage=intermediate'"
         }
     }
 }

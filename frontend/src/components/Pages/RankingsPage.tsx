@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Gamepad2, Spade, Dice5, Medal, Crown } from "lucide-react";
+import { Gamepad2, Spade, Dice5, Medal, Crown } from "lucide-react";
 import Navbar from "../Shared/Navbar";
 import { BackgroundGradient } from "../Shared/BackgroundGradient";
 import { SocialCenter } from "../Shared/SocialCenter";
 import { useAuth } from "../../context/AuthContext";
-import statisticsService, { Rankings, PlayerStatistics } from "../../services/statisticsService";
+import statisticsService, { type Rankings, type PlayerStatistics } from "../../services/statisticsService";
 
 type GameType = "MAKAO" | "LUDO";
 

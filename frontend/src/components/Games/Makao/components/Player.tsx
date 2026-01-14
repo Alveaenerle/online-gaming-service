@@ -1,6 +1,6 @@
-import React, { useRef, useEffect, useState, forwardRef } from "react";
+import React, { forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PlayerView } from "../types";
+import type { PlayerView } from "../types";
 
 // ============================================
 // Turn Timer Ring Component
@@ -162,7 +162,7 @@ const BotThinkingBubble: React.FC<BotThinkingBubbleProps> = ({ isThinking }) => 
 // Main Player Component
 // ============================================
 
-import { Position } from "../utils/cardHelpers";
+import type { Position } from "../utils/cardHelpers";
 
 interface PositionedPlayerView extends PlayerView {
   position: Position;

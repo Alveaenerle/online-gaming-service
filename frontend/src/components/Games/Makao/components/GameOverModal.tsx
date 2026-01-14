@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { PlayerView } from "../types";
+import type { PlayerView } from "../types";
 
 interface GameOverModalProps {
   players: PlayerView[];
@@ -15,7 +15,7 @@ interface GameOverModalProps {
  */
 const GameOverModal: React.FC<GameOverModalProps> = ({
   players,
-  myUserId,
+  myUserId: _myUserId,
   onPlayAgain,
   onExitToMenu,
 }) => {

@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Crown } from "lucide-react";
-import { Color } from "../Board/constants";
+import type { Color } from "../Board/constants";
 
 // ============================================
 // Turn Timer Ring Component (Enhanced)
@@ -163,7 +163,7 @@ export const CornerPlayerCard: React.FC<CornerPlayerCardProps> = ({
   isBot,
   isHost = false,
   isMe = false,
-  pawnsInBase,
+  pawnsInBase: _pawnsInBase,
   pawnsOnBoard,
   pawnsInHome,
   avatarUrl,

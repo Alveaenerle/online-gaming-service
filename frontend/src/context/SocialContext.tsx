@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, type ReactNode, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { socialService, Friend, FriendRequest, GameInvite } from '../services/socialService';
+import { socialService, type Friend, type FriendRequest, type GameInvite } from '../services/socialService';
 import { socialSocketService } from '../services/socialSocketService';
 import { useToast } from './ToastContext';
 

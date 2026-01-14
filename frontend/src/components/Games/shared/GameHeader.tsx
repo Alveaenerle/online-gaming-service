@@ -8,7 +8,7 @@ interface GameHeaderProps {
   onSocialClick: () => void;
 }
 
-export function GameHeader({ title, subtitle, onBack, onSocialClick }: any) {
+export function GameHeader({ title, subtitle, onBack, onSocialClick }: GameHeaderProps) {
   const { user } = useAuth();
   const isGuest = user?.isGuest ?? false;
 

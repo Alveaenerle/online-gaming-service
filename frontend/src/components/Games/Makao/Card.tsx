@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { Card as CardType } from "./types";
-import { getCardImagePath, RANK_DISPLAY, isSpecialCard } from "./utils/cardHelpers";
+import type { Card as CardType } from "./types";
+import { getCardImagePath, RANK_DISPLAY } from "./utils/cardHelpers";
 
 interface CardProps {
   card: CardType;
@@ -27,7 +27,6 @@ const Card: React.FC<CardProps> = ({
   showEffect = false,
 }) => {
   const s = SIZES[size];
-  const special = isSpecialCard(card);
 
   if (isFaceDown) {
     return (

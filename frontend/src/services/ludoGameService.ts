@@ -1,4 +1,4 @@
-import { LudoGameStateMessage } from "../components/Games/Ludo/types";
+import type { LudoGameStateMessage } from "../components/Games/Ludo/types";
 
 const API_URL = import.meta.env.VITE_LUDO_API_URL ?? "/api/ludo";
 

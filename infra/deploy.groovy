@@ -7,7 +7,6 @@ def call(serverIp, serverUser, sshCredentialId) {
         string(credentialsId: 'google-oauth-client-id', variable: 'GOOGLE_CLIENT_ID_SECRET')
     ]) {
         def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-        
         // Write env file using shell to avoid Groovy interpolation of secrets
         sh '''
             cat > .env.deploy << 'ENVEOF'

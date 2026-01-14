@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Card as CardType } from "../types";
+import type { Card as CardType } from "../types";
 import Card from "../Card";
 import { requiresDemand, getCardEffectDescription } from "../utils/cardHelpers";
 

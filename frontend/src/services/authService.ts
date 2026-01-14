@@ -3,7 +3,7 @@ const API_BASE_URL =
     ? import.meta.env.VITE_API_URL || "/api/auth"
     : "/api/auth";
 
-export const GOOGLE_CLIENT_ID = '67980051947-h1ngp505qo2ad20fr9it2m15inp6otff.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 export interface LoginRequest {
   email: string;

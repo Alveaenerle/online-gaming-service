@@ -1,4 +1,4 @@
-import { CellType, Color } from "./constants";
+import type { CellType, Color } from "./constants";
 
 interface Props {
   type: CellType;

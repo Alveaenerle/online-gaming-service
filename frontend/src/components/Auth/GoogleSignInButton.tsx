@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { motion } from "framer-motion";
-import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 
 interface GoogleSignInButtonProps {
   onSuccess: (credential: string) => void;

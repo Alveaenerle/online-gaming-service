@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CardSuit, CardRank } from "../types";
+import type { CardSuit, CardRank } from "../types";
 import { SUIT_INFO, RANK_DISPLAY } from "../utils/cardHelpers";
 
 interface SidebarNotificationsProps {
@@ -24,7 +24,7 @@ const SidebarNotifications: React.FC<SidebarNotificationsProps> = ({
   specialEffectActive,
   demandedSuit,
   demandedRank,
-  isMyTurn,
+  isMyTurn: _isMyTurn,
   lastMoveLog,
 }) => {
   const [notifications, setNotifications] = useState<ToastMessage[]>([]);
