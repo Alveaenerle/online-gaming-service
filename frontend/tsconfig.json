@@ -8,7 +8,13 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "composite": true
   },
-  "include": ["src", "src/vite-env.d.ts"]
+  "include": ["src", "src/vite-env.d.ts"],
+  "files": [],
+  "references": [
+      { "path": "./tsconfig.app.json" },
+      { "path": "./tsconfig.node.json" }
+  ]
 }

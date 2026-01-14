@@ -26,21 +26,31 @@ export function Pawn({
   // Logiczne współrzędne
   const { row, col } = getPawnCoords(position, stepsMoved, color as Color, id);
 
-  // Wizualne współrzędne - zainicjalizowane aktualną pozycją
-  const [visualCoords, setVisualCoords] = useState({ row, col });
+  // Track previous position to detect changes
   const prevPositionRef = useRef(position);
+  const prevRowRef = useRef(row);
+  const prevColRef = useRef(col);
+  
+  // Wizualne współrzędne - zainicjalizowane poprzednią pozycją (nie aktualną!)
+  // to prevent teleportation before animation starts
+  const [visualCoords, setVisualCoords] = useState({ row, col });
 
   // Definicja zmiennych interakcji (przed useEffectami!)
   const canMoveThisPawn =
     (position !== -1 || diceValue === 6) && position !== -2;
   const activeInteractable = !!(isPlayerTurn && canMoveThisPawn && !isMoving);
 
-  // Synchronizacja współrzędnych wizualnych
+  // Synchronizacja współrzędnych wizualnych - only when NOT animating
+  // and position hasn't changed (to avoid teleport before animation)
   useEffect(() => {
-    if (!isMoving) {
+    // Only sync if we're not moving AND position hasn't changed
+    // (position change will be handled by animation effect)
+    if (!isMoving && prevPositionRef.current === position) {
       setVisualCoords({ row, col });
     }
-  }, [row, col, isMoving]);
+    prevRowRef.current = row;
+    prevColRef.current = col;
+  }, [row, col, isMoving, position]);
 
   // Główna logika animacji
   useEffect(() => {
@@ -74,6 +84,8 @@ export function Pawn({
         if (steps > 0) {
           handleAnimateSequence(oldPos, steps);
         } else {
+          // No animation needed, just update coords
+          setVisualCoords({ row, col });
           controls.set({ gridRow: row, gridColumn: col });
         }
       }

@@ -57,6 +57,11 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
 
   const subscriptionRef = useRef<string | null>(null);
   const timeoutSubscriptionRef = useRef<string | null>(null);
+  const isRollingRef = useRef(isRolling);
+
+  useEffect(() => {
+    isRollingRef.current = isRolling;
+  }, [isRolling]);
 
   const setGameNotification = useCallback(
     (message: string, type: NotificationType) => {
@@ -80,18 +85,32 @@ export const LudoProvider: React.FC<{ children: ReactNode }> = ({
     (data: LudoGameStateMessage) => {
       console.log("!!! SOCKET MESSAGE RECEIVED !!!", data);
 
+      // Check if this update corresponds to a dice roll result
+      // We check if we were expecting a roll (isRollingRef) and if the data confirms a roll
+      const wasRolling = isRollingRef.current;
+      const isDiceRollUpdate = data.diceRolled && data.lastDiceRoll > 0;
+
       if (data.diceRolled || data.lastDiceRoll > 0) {
         setIsRolling(false);
       }
 
-      if (data.capturedUserId) {
-        setGameNotification(
-          "Unit captured! Tactical advantage gained.",
-          "COMBAT"
-        );
-      }
+      const applyState = () => {
+        if (data.capturedUserId) {
+          setGameNotification(
+            "Unit captured! Tactical advantage gained.",
+            "COMBAT"
+          );
+        }
+        setGameState(data);
+      };
 
-      setGameState(data);
+      if (wasRolling && isDiceRollUpdate) {
+        // Delay state update to allow dice animation to complete visually (~800ms in DiceWidget)
+        // so the user sees the dice result BEFORE (or same time as) the pawns update on the board.
+        setTimeout(applyState, 850);
+      } else {
+        applyState();
+      }
     },
     [setGameNotification]
   );
